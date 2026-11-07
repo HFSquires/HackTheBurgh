@@ -29,3 +29,4 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-07 (Claude): Merged T05c on Harrison's request: the generator now writes 100 statements from 100 UK personas in all 12 regions (`--n`, default 100), with regional ONS spending; self-check passes on `main`. Updated `USER_GUIDE.md`.
 - 2026-11-07 (Claude): Recorded that Auro is working on the front end (T10).
 - 2026-11-07 (notion-keeper, Claude): Batched chat sync: recorded Harrison's requests (100 personas, analysis tool, Auro on front end), build status and two open questions on the Notion page and its child page; `BRIEF.md` updated.
+- 2026-11-07 (Claude): Recorded Harrison's decisions: real prices where possible for the catalogue (T09, started), house palette for the interface.

@@ -15,5 +15,5 @@ Statuses: `todo`, `in progress`, `review`, `blocked`, `done`. Claim a task by se
 | T07 | Back end: affordability engine and local HTTP API for the front end (income, committed outgoings, BNPL detection, safe-to-spend, payment options, sale-calendar note) | Claude | in progress | t07-backend | Requested by Harrison, 7 November 2026 ("can u work on back end for now"); built by a Claude sub-agent |
 | T07b | Analysis over the 100 personas: how many can afford test purchases now, only with the BNPL pot, or neither; house-style plot with companion statistics | unassigned | todo |  | Depends on T07 and T05b |
 | T08 | Read the product price at checkout (schema.org product data, manual entry as fallback) | unassigned | todo |  | Front-end side; coordinate with Auro |
-| T09 | Better price elsewhere: small catalogue of the same products at other retailers | unassigned | todo |  | Waiting on Harrison: synthetic or real prices |
+| T09 | Better price elsewhere: catalogue of real prices for a few demo products at several UK retailers | Claude | in progress | t09-price-catalogue | Real prices where possible (Harrison, 7 November 2026); built by a Claude sub-agent |
 | T11 | Demo: test checkout page and scripted walkthrough with chosen personas | unassigned | todo |  | Depends on T07, T10 |
