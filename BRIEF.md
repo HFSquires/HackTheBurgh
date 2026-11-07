@@ -9,7 +9,7 @@ Fill this in when the challenge is announced. Keep `unknown` wherever the organi
 | Final submission deadline | unknown |
 | Theme or tracks | Sponsor challenges, as shortlisted in Harrison's Notion page "hacktheburgh" (read 7 November 2026): ruled out Instanlily (spelling as written; unclear), JetBrains, Viridien; broad HRT (making decisions based on data), G-Research (making hidden data visible), Wordsmith (end-to-end browser based); narrow Bank of Scotland; parked: Entire (agent-human Git forge challenge), parked by Harrison, 7 November 2026. Official track list and wording unknown |
 | Track or challenge chosen | "Smart Cost of Living: Build boldly. Solve something real." (challenge slide supplied by Harrison, 7 November 2026) |
-| Team | Harrison F. Squires; others unknown |
+| Team | Harrison F. Squires; others unknown Auro (teammate; working on the front end, per Harrison, 7 November 2026). |
 | Team size limit | unknown |
 | Rules on pre-written code and libraries | unknown |
 | Rules on AI tools | unknown |
