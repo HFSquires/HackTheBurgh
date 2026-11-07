@@ -153,3 +153,4 @@ The challenge is Bank of Scotland's "Smart Cost of Living"; the idea is an affor
 - 2026-11-07 (Claude): Paused the recurring Notion check on Harrison's instruction; restart only when he asks.
 - 2026-11-07 (Claude): On Harrison's instruction, interfaces now use Auro's front-end style instead of the house palette, and back-end work merges into Auro's front end rather than replacing it.
 - 2026-11-07 (Claude): Harrison confirmed that plots keep the TeXFormat style, and set the direction: one tool built on Auro's extension with our data, and a model trained on the 100 personas' data.
+- 2026-11-07 (Claude): New session after the usage limit. On Harrison's request wrote the model outline (`model outline/MODEL_OUTLINE.md`, building on Andrew's `HackTheBurgh.md`); Harrison: "dont implement yet". Restarted the interrupted T22 engine, T26 and T27 work.
