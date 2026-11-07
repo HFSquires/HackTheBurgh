@@ -9,3 +9,4 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-07 (Claude): Recorded the "Smart Cost of Living" challenge text in `BRIEF.md` and listed four candidate ideas as proposals; rules, judging criteria and deadline are still unknown.
 - 2026-11-07 (Claude): Recorded Harrison's idea (affordability browser extension with an opt-in BNPL float) in `BRIEF.md` and `DECISIONS.md`, with an estimate of the interest the float earns (about £1 per £300 at an assumed 4% AER).
 - 2026-11-07 (Claude): Linked Harrison's Notion page "hacktheburgh" (sponsor shortlist) from `CLAUDE.md`/`AGENTS.md` and `BRIEF.md`; corrected the sponsor to Bank of Scotland.
+- 2026-11-07 (Claude): Reorganised the Notion page "hacktheburgh" on Harrison's instruction (shortlist, brief, idea, open questions, labelled agent estimates); it is re-read every 30 minutes while a Claude session runs.

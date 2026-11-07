@@ -1,6 +1,6 @@
 # Brief
 
-Fill this in when the challenge is announced. Keep `unknown` wherever the organisers have not said. Harrison's own shortlist of sponsor challenges is kept in the Notion page "hacktheburgh" (https://app.notion.com/p/hacktheburgh-411b2fb4d76580188ba4e5d313f4861a); re-read it before updating this file.
+Fill this in when the challenge is announced. Keep `unknown` wherever the organisers have not said. Harrison's own shortlist of sponsor challenges is kept in the Notion page "hacktheburgh" (https://app.notion.com/p/hacktheburgh-411b2fb4d76580188ba4e5d313f4861a); re-read it before updating this file. Last read: 7 November 2026, page last edited 2026-11-07T13:48:15Z (Claude's reorganisation, on Harrison's instruction, into sections: challenge shortlist, the Bank of Scotland brief, the idea in two parts, open questions, and Claude's estimates labelled as such).
 
 | Item | Detail |
 | --- | --- |
