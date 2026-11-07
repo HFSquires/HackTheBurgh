@@ -43,9 +43,9 @@ from zoneinfo import ZoneInfo
 import openpyxl
 
 import market_data as md
-import mock_bank as mb  # BankTransactionCode names and the OB amount shape (imports affordability, standard library only)
+import mock_bank as mb  # BankTransactionCode names and the OB amount shape (imports statements, standard library only)
 import mock_statements as ms
-import affordability as af
+import statements as af
 
 OUT = ms.ROOT / "Analysis" / "open_banking"
 SEED = ms.SEED
@@ -248,7 +248,7 @@ def carved(key, region, dec, ons, row, c):
 
 
 class Rates:
-    """Bank Rate in force on a date (data/boe_bank_rate_*.csv via affordability.bank_rate)."""
+    """Bank Rate in force on a date (data/boe_bank_rate_*.csv via statements.bank_rate)."""
     def __init__(self):
         rows = af.bank_rate()
         self.d, self.v = [r[0] for r in rows], [r[1] for r in rows]

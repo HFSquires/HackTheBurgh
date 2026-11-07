@@ -5,13 +5,14 @@ endpoints, from one of two sources (--source):
 
   v1 (default): the statement CSVs in Analysis/mock_statements/, one current account per persona, under
       /open-banking/v3.1/aisp. The client `fetch` reads that one current account and converts it into exactly the
-      transaction list that affordability.parse gives for the CSV.
+      transaction list that statements.parse gives for the CSV.
   v2: the generation-2 data in Analysis/open_banking/*.json (ob_generator.py, task T20): 1 to 7 accounts per persona
       at the fictional providers MockBank, MockDigital and MockCards, each provider's API under
       /providers/{Provider}/open-banking/v3.1/aisp, as an aggregator presents several banks. The generator's objects
       are served as they are. The client `fetch_customer` reads every account at every provider into a customer
       picture (account types, balances and credit lines, product rates, mandates, scheduled and pending payments, and
-      booked transactions in the engine's format); `from_request` serves the "bank" object of POST /assess.
+      booked transactions in statements.parse's format); `from_request` validates a request's "bank" object and
+      fetches accordingly (the old engine's POST /assess was archived on 7 November 2026, task T29).
 
 MOCK ONLY. POST /mock/consent hands out bearer tokens for any persona without authenticating anyone: it shows the data
 flow, not secure banking. Each token covers one persona at one provider (v2: one token per provider, as each bank
@@ -28,8 +29,8 @@ from decimal import Decimal
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import affordability as af
-from affordability import StatementError
+import statements as af
+from statements import StatementError
 
 API = "/open-banking/v3.1/aisp"
 OB_DIR = af.HERE / "Analysis" / "open_banking"  # v2 data, written by ob_generator.py
@@ -70,7 +71,7 @@ def stamp(d):
 @functools.cache
 def statement(pid):
     """(AccountId, sort code and account number, transactions) for a persona. Raises StatementError for an id not of
-    the form persona000 or without exactly one statement (affordability.load_persona), so no path is built from input."""
+    the form persona000 or without exactly one statement (statements.load_persona), so no path is built from input."""
     text = af.load_persona(pid)
     fields = text.lstrip("﻿").splitlines()[1].split(",")
     acc = next(af.STATEMENTS.glob(f"{pid}_*.csv")).stem[11:]  # the file's uuid8 is the AccountId
@@ -470,7 +471,7 @@ def ob_row(r, names):
 
 
 def to_transactions(rows, balances, direct_debits=(), standing_orders=(), keep=False):
-    """Booked OB transactions -> the affordability.parse transaction list (date, type, desc, debit, credit, balance),
+    """Booked OB transactions -> the statements.parse transaction list (date, type, desc, debit, credit, balance),
     oldest first; types as in ob_row. Running balances are rebuilt backwards from the InterimBooked (else ClosingBooked)
     balance; any balance the bank gives per transaction must agree to the penny. Order: a list whose first row is
     dated after its last is reversed; when every row has the same date, the order (newest first, as the mock bank sends
@@ -513,7 +514,7 @@ def rebuild(tx, bal):
 
 def fetch(base_url, token=None, persona=None):
     """Transactions of the one current account behind `token`, or behind a mock consent for `persona`, from the Open
-    Banking AISP API at `base_url`, as affordability.parse would give them from the CSV."""
+    Banking AISP API at `base_url`, as statements.parse would give them from the CSV."""
     base, budget = bank_url(base_url), Budget()
     if (token is None) == (persona is None):
         raise StatementError('bank needs "baseUrl" and exactly one of "token" or "persona".')
@@ -632,7 +633,7 @@ def fetch_customer(base_url, persona=None, tokens=None):
     per cent), directDebits, standingOrders (toOwnAccountId when paid to one of these accounts), scheduledPayments,
     pending (engine fields without balance, plus detail), transactions (booked, exactly the engine's format, oldest
     first) and transactionDetails (aligned with transactions: id, time, merchant, mcc). Dates are datetime.date.
-    mainAccountId: the sole-name current account with the largest regular income (affordability.detect_income); ties
+    mainAccountId: the sole-name current account with the largest regular income (statements.detect_income); ties
     and no income: the first. Same allow-list and limits as fetch; one Budget covers the whole customer."""
     base, budget = bank_url(base_url), Budget()
     if (persona is None) == (tokens is None):
@@ -675,14 +676,15 @@ def main_account(customer):
 
 
 def customer_json(customer):
-    """The picture as JSON-ready data for the /assess response: booked transaction lists replaced by their count."""
+    """The picture as JSON-ready data for an API response: booked transaction lists replaced by their count."""
     slim = customer | {"accounts": [{k: v for k, v in a.items() if k not in ("transactions", "transactionDetails")}
                                     | {"bookedTransactions": len(a["transactions"])} for a in customer["accounts"]]}
     return json.loads(json.dumps(slim, allow_nan=False, default=lambda d: d.isoformat()))
 
 
 def from_request(bank):
-    """POST /assess's "bank" object -> (transactions to assess, customer picture for the response or None).
+    """A request's "bank" object (untrusted; the shape the archived POST /assess took) -> (main-account transactions,
+    customer picture or None).
     {"baseUrl", "token" | "persona"}: the one current account (fetch, v1 layout). With "allAccounts": true and
     "persona" | "tokens": every account at every provider (fetch_customer); the main current account is assessed."""
     if not isinstance(bank, dict) or not set(bank) <= {"baseUrl", "token", "persona", "tokens", "allAccounts"}:
@@ -933,7 +935,7 @@ def check_v1():
 
 def check_v2():
     """v2: every persona's customer picture, read through the API, against the JSON files, ground_truth.csv and the
-    main-account CSVs; token scope, consent, paths, limits and the /assess flag."""
+    main-account CSVs; token scope, consent, paths, limits and the allAccounts flag."""
     from collections import Counter
     import ob_generator as og  # ACCOUNTS: account key -> (AccountSubType, provider, ...)
     kind_of = {"ca": "current", "ca2": "current", "joint": "jointCurrent", "sv": "savings", "isa": "cashIsa",
@@ -1056,7 +1058,7 @@ def check_v2():
                    dict(tokens={"MockBank": t01["MockBank"], "MockCards": t72["MockBank"]})):
             fails(fetch_customer, base, **kw)
 
-        # POST /assess with "allAccounts": the main account is assessed exactly as its CSV, and the picture is attached.
+        # A request's "bank" object with "allAccounts": the main account's transactions equal its CSV, plus the picture.
         tx, picture = from_request({"baseUrl": base, "persona": "persona072", "allAccounts": True})
         assert tx == csv72 and picture["mainAccountId"] == main72 and len(picture["accounts"]) == 7
         assert sum(a["bookedTransactions"] for a in picture["accounts"]) == sum(
@@ -1066,20 +1068,6 @@ def check_v2():
                     {"baseUrl": base, "token": tok, "allAccounts": True}, {"baseUrl": base, "tokens": t72, "allAccounts": False},
                     {"baseUrl": base, "persona": "persona072", "allAccounts": True, "x": 1}, ["x"]):
             fails(from_request, bad)
-        api = af.serve(0, quiet=True)
-        threading.Thread(target=api.serve_forever, daemon=True).start()
-
-        def assess(body):
-            req = urllib.request.Request(f"http://127.0.0.1:{api.server_port}/assess", data=json.dumps(body).encode(),
-                                         headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req) as r:
-                return json.load(r)
-        try:
-            want = assess({"csv": csv_text("persona072"), "price": 300})
-            got = assess({"bank": {"baseUrl": base, "persona": "persona072", "allAccounts": True}, "price": 300})
-            assert "customer" not in want and got.pop("customer") == picture and got == want
-        finally:
-            api.shutdown()
     finally:
         srv.shutdown()
     print(f"Mock bank v2 self-check passed: {n['personas']} personas, {n['consents']} provider consents, {n['accounts']} "
@@ -1096,7 +1084,7 @@ def check(source=None):
 
 
 if __name__ == "__main__":
-    sys.modules["mock_bank"] = sys.modules[__name__]  # affordability imports mock_bank; keep one copy
+    sys.modules["mock_bank"] = sys.modules[__name__]  # ob_generator imports mock_bank; keep one copy
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--serve", action="store_true", help="run the mock bank on 127.0.0.1")
     ap.add_argument("--port", type=int, default=8766, help="port for --serve (default 8766)")
