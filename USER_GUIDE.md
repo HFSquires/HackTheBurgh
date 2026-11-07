@@ -1,6 +1,6 @@
 # User guide
 
-Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c) the back end (`affordability.py`, task T07) and the affordability figures (`affordability_figures.py`, task T07b). The browser extension front end is being built by Auro (T10) and is not yet in the repository.
+Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c) the back end (`affordability.py`, task T07) the affordability figures (`affordability_figures.py`, task T07b) and the spending-forecast backtest (`forecast.py`, task T12). The browser extension front end is being built by Auro (T10) and is not yet in the repository.
 
 ## Purpose
 
@@ -73,4 +73,17 @@ Limitations: UK bank holidays are ignored in payday prediction; annual debits ar
 Outputs: `Analysis/affordability/households.csv` (one row per persona: tenure, region, household, income, next payday, balance, safeToSpend, monthly left-over, and the outcome at each price: `payNow`, `bnplPlainOnly` or `neither`); `Figures/affordability/affordability_by_price.{pdf,svg,md}` (stacked counts by price); `Figures/affordability/safe_to_spend_vs_income.{pdf,svg,md}` (safe to spend and monthly left-over against monthly net income, coloured by tenure). Each `.md` holds the definitions, data and statistics for its figure.
 
 Limitations: safe to spend does not yet deduct everyday spending until payday, so the counts are generous (fix planned in T15). Spearman p-values use a normal approximation (SciPy is not installed); read them only as far below 0.001. PDFs differ byte for byte between runs because of font-subset tags; SVGs do not.
+
+## Spending-forecast backtest
+
+`forecast.py` (task T12) fits forecasts of each persona's discretionary card spending (card payments other than buy-now-pay-later and committed payments, as in `affordability.card_spend`, with committed payments detected on 30 September) on August and September 2026 and scores them on October. Models: last month; mean of August and September; that mean with buy-now-pay-later instalments added back and October's scheduled instalments subtracted; a pooled least-squares regression fitted on August to September (household type, tenure, prior spending, scheduled instalments, net pay) with person-level 10-fold cross-validation (seed 20261107); and log-scale shrinkage towards a pooled prior. Within the month: cumulative spending by day of October, forecast as the average of the August and September curves or as the monthly forecast × d/31. A generator-mean reference calls `mock_statements.spend_model` per persona (it needs the `data/` workbooks).
+
+```
+.venv\Scripts\python -X utf8 forecast.py           # writes Analysis/forecast and Figures/forecast
+.venv\Scripts\python -X utf8 forecast.py --check   # asserts only; writes nothing
+```
+
+The check corrupts October rows and requires every forecast to be unchanged, checks the definitions against `card_spend` and `personas.md`, checks the metrics on a hand example, and checks reproducibility. Outputs: `Analysis/forecast/` (`predictions_october.csv`, `curves_october.csv`, `backtest_summary.md`) and `Figures/forecast/` (`forecast_scatter` and `forecast_errors`, PDF, SVG and `.md`). Needs matplotlib, scipy, the `texformat.pth` link and MiKTeX.
+
+Limitation: the mock statements have independent monthly noise and no persistent habits, so the backtest shows how well the generator's process is recovered, not real behaviour. No model beats the two-month mean detectably (pooled regression minus mean: −£0.38 ± £0.86 per person, p = 0.66).
 
