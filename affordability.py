@@ -3,19 +3,29 @@
 Reads a bank-statement CSV (Lloyds Banking Group export layout, as written by mock_statements.py) and answers, for a
 purchase at price P: what is safe to spend before the next payday, and the facts of each way to pay (pay now, BNPL with a
 set-aside pot, plain BNPL, a 0% card). Guidance, not advice: options are described and marked cheapest / most left until
-payday, never recommended.
+payday, never recommended. When a product is named, the price catalogue in data/ gives the cheapest mainstream
+retailer price and, where consistent, a 3-month price history (task T16); the pot's interest uses Bank Rate as a proxy.
 
     python affordability.py --serve [--port 8765]   # JSON API on 127.0.0.1
     python affordability.py --check                 # self-check over every persona CSV
 Standard library only.
 """
-import argparse, calendar, csv, datetime as dt, io, json, re, statistics, sys, threading, urllib.request
+import argparse, calendar, csv, datetime as dt, functools, io, json, re, statistics, sys, threading, urllib.request
 from collections import defaultdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 STATEMENTS = HERE / "Analysis" / "mock_statements"
+CATALOGUE = HERE / "data" / "retail_prices_2026-11-07.csv"
+HISTORY = HERE / "data" / "retail_price_history_2026-11-07.csv"
+BANK_RATE = HERE / "data" / "boe_bank_rate_IUDBEDR_2026-11-07.csv"
+MAINSTREAM = ["Amazon UK", "Argos", "Currys", "John Lewis", "AO", "Very"]
+MARKETPLACE_NOTE = "marketplace or third-party seller; check the model, condition and seller"
+SOURCE_NOTE = {"retailer page": "read from the retailer's own product page",
+               "comparison site": "read from PriceSpy UK, a price-comparison site, which may lag the retailer's own page",
+               "search snippet": "seen only in a search-result snippet, which may be out of date"}
+POT_ASSUMPTION = "Bank Rate used as a proxy for an easy-access savings rate; actual rates vary"
 COLUMNS = ["Transaction Date", "Transaction Type", "Sort Code", "Account Number", "Transaction Description",
            "Debit Amount", "Credit Amount", "Balance"]
 MAX_BODY = 2_000_000  # bytes; a three-month statement is about 20 kB
@@ -25,7 +35,9 @@ BNPL = re.compile(r"KLARNA|CLEARPAY|PAYPAL\s*\*?\s*PAY\s*IN\s*3", re.I)
 # upgrade to a provider/plan table or the BNPL provider's API.
 BNPL_PLAN = {"CLEARPAY": (4, 14)}
 BNPL_DEFAULT = (3, 30)
-# UK sale events (dates as given by Harrison's brief to T07; no price statistics are claimed).
+# UK sale events (dates as given by Harrison's brief to T07; no price statistics are claimed). Black Friday and Cyber
+# Monday checked against the calendar in --check (the day after the fourth Thursday of November, and the Monday after);
+# the Boxing Day start of the winter sales is a convention, not a fixed date for every retailer.
 SALES = [(dt.date(2026, 11, 27), "Black Friday"), (dt.date(2026, 11, 30), "Cyber Monday"),
          (dt.date(2026, 12, 26), "Boxing Day and the January sales")]
 SALE_TEXT = ("Sale prices are not always lower than the prices charged earlier in the year; the item's price history "
@@ -180,10 +192,119 @@ def card_spend(tx, committed):
     return full
 
 
+# ---------------------------------------------------------------- prices and Bank Rate (data/, read once)
+@functools.cache
+def catalogue():
+    """Catalogue rows that have a price, with `price` as a float."""
+    with open(CATALOGUE, encoding="utf-8", newline="") as f:
+        return [r | dict(price=float(r["price_gbp"])) for r in csv.DictReader(f) if r["price_gbp"].strip()]
+
+
+@functools.cache
+def history():
+    with open(HISTORY, encoding="utf-8", newline="") as f:
+        return {r["product_id"]: r for r in csv.DictReader(f)}
+
+
+@functools.cache
+def bank_rate():
+    """[(date, Bank Rate in % a year)], oldest first, from the Bank of England CSV (DATE as '05 Nov 2026')."""
+    with open(BANK_RATE, encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))[1:]
+    return [(dt.datetime.strptime(d, "%d %b %Y").date(), float(v)) for d, v in rows if d.strip() and v.strip()]
+
+
+def long_date(d):
+    return f"{d.day} {d:%B %Y}"
+
+
+def norm(s):
+    return " " + " ".join(re.findall(r"[a-z0-9]+", s.lower())) + " "
+
+
+def find_product(query):
+    """product_id for a catalogue id ('P02') or a name matched case-insensitively, word for word, with the query inside
+    the catalogue name or the name inside the query; None when nothing or more than one product matches.
+    ponytail: page titles that reword the name are missed; upgrade to matching on EAN or model number."""
+    names = {r["product_id"]: r["product_name"] for r in catalogue()}
+    if query.strip().upper() in names:
+        return query.strip().upper()
+    q = norm(query)
+    hits = [pid for pid, name in names.items() if q.strip() and (q in norm(name) or norm(name) in q)]
+    return hits[0] if len(hits) == 1 else None
+
+
+def better_price(product, price, merchant=None):
+    """(betterPrice, priceHistory) for a product, or (None, None) when none is given or nothing matches.
+    Only mainstream retailers can be `cheapest`; the cheapest other seller is reported separately and only when it is
+    below both the price here and the cheapest mainstream price. The 3-month history is returned only when both today's
+    cheapest offer (any seller) and the cheapest mainstream price lie inside its range; otherwise a caveat says why."""
+    pid = find_product(product) if product else None
+    if not pid:
+        return None, None
+    rows = [r for r in catalogue() if r["product_id"] == pid]
+    main = [r for r in rows if r["retailer"] in MAINSTREAM]
+    best = min(main, key=lambda r: r["price"], default=None)
+    other = min((r for r in rows if r["retailer"] not in MAINSTREAM), key=lambda r: r["price"], default=None)
+    floor = min(price, best["price"]) if best else price
+    when = long_date(dt.date.fromisoformat(rows[0]["retrieved_utc"]))
+    caveats = [f"Prices were collected on {when} and may have changed since."]
+    if best:
+        caveats.append(f"The cheapest mainstream price was {SOURCE_NOTE.get(best['source_type'], best['source_type'])}.")
+        if best["includes_delivery"] != "yes":
+            caveats.append("Delivery charges may not be included.")
+    else:
+        caveats.append("No mainstream retailer price is in the catalogue for this product.")
+    caveats.append("Listings can differ in colour or variant.")
+    here = next((r for r in main if merchant and r["retailer"].lower() == merchant.strip().lower()), None)
+    if here and abs(here["price"] - price) >= 0.005:
+        caveats.append(f"The catalogue price at {here['retailer']} on {when} was £{here['price']:,.2f}.")
+
+    hist, h = None, history().get(pid)
+    if h and h["lowest_3m"] and h["highest_3m"]:
+        lo, hi, any_low = float(h["lowest_3m"]), float(h["highest_3m"]), min(r["price"] for r in rows)
+        if best and lo <= any_low <= hi and lo <= best["price"] <= hi:
+            d = money(price - lo)
+            hist = dict(lowest3m=lo, highest3m=hi, aboveLowBy=d, source_url=h["source_url"],
+                        note=f"PriceSpy UK's 3-month price history for this product ran from £{lo:,.2f} to £{hi:,.2f} "
+                             f"up to {when}; £{price:,.2f} is £{abs(d):,.2f} {'above' if d >= 0 else 'below'} the low.")
+        else:
+            caveats.append(f"Price history not shown: PriceSpy UK's 3-month range (£{lo:,.2f} to £{hi:,.2f}) does not "
+                           f"contain both today's cheapest offer from any seller (£{any_low:,.2f}) "
+                           "and the cheapest mainstream price"
+                           + (f" (£{best['price']:,.2f})" if best else "") + ", so it may describe a different listing.")
+    return dict(
+        product_id=pid, product_name=rows[0]["product_name"],
+        cheapest=dict(retailer=best["retailer"], price=best["price"], source_url=best["source_url"],
+                      retrieved=best["retrieved_utc"], source_type=best["source_type"]) if best else None,
+        saving=money(price - best["price"]) if best and price - best["price"] >= 0.005 else None,
+        sameAsCurrent=bool(best) and abs(best["price"] - price) < 0.005,
+        marketplaceCheaper=dict(retailer=other["retailer"], price=other["price"], source_url=other["source_url"],
+                                note=MARKETPLACE_NOTE) if other and floor - other["price"] >= 0.005 else None,
+        caveats=caveats,
+        definition=f"Mainstream retailers: {', '.join(MAINSTREAM)}. saving = price here minus the cheapest mainstream "
+                   "price, when positive; sameAsCurrent = the two are equal to the penny; marketplaceCheaper = the "
+                   "cheapest other seller, shown only when below both."), hist
+
+
+def pot_interest(price, start, schedule, rate):
+    """Simple daily interest in GBP, 365-day year, on the pot's declining balance: `price` goes in on `start` and each
+    instalment leaves on its due date. `rate` is in % a year. ponytail: no compounding, tax or rate changes over the
+    schedule; upgrade with the pot provider's AER and interest-posting rules."""
+    bal, prev, total = price, start, 0.0
+    for s in schedule:
+        d = dt.date.fromisoformat(s["due"])
+        total += bal * rate / 100 * (d - prev).days / 365
+        bal, prev = bal - s["amount"], d
+    return money(total)
+
+
 # ---------------------------------------------------------------- assessment
-def assess(tx, price, today=None, merchant=None):
+def assess(tx, price, today=None, merchant=None, product=None):
     if not isinstance(price, (int, float)) or isinstance(price, bool) or not 0 < price < 1e7:
         raise StatementError("price must be a number of pounds greater than 0.")
+    if product is not None and (not isinstance(product, str) or len(product) > 300):
+        raise StatementError("product must be a catalogue id such as 'P02' or a product name of at most 300 characters.")
     as_of, balance = tx[-1]["date"], money(tx[-1]["balance"])
     today = today or as_of + dt.timedelta(days=1)
     if today <= as_of:
@@ -230,15 +351,24 @@ def assess(tx, price, today=None, merchant=None):
     spend_note = (f"Typical everyday card spending over the {days_left} days to "
                   f"{'payday' if payday else 'the same date next month'} is about £{daily * days_left:,.0f} "
                   "and is not deducted here.")
+    rate_day, rate = next((o for o in reversed(bank_rate()) if o[0] <= today), bank_rate()[0])
+    pot = dict(rateAnnual=rate, rateDate=rate_day.isoformat(), interest=pot_interest(price, today, sched, rate),
+               rateSource="Bank of England database, series IUDBEDR (Official Bank Rate), latest value on or before "
+                          f"today ({rate_day.isoformat()}); file data/{BANK_RATE.name}",
+               assumption=POT_ASSUMPTION,
+               definition="interest = simple daily interest (365-day year) on the pot's balance, which starts at the "
+                          "full price today and falls by each instalment on its due date; rounded to pence.")
     options = [
         dict(kind="payNow", label="Pay now", affordable=left_now >= 0, leftAfter=left_now, cost=0.0,
              notes=[f"£{price:,.2f} leaves the account today.", spend_note]),
         dict(kind="bnplPot", label="Pay in 3, with the full price set aside in a pot", affordable=left_now >= 0,
-             leftAfter=left_now, cost=0.0, schedule=sched,
+             leftAfter=left_now, cost=0.0, schedule=sched, potInterest=pot,
              notes=["The full price moves into an easy-access cash pot now and each instalment is paid from it, so the "
                     "instalments are always covered.",
                     "The pot takes the same money as paying now, so it is affordable exactly when paying now is.",
-                    "Any interest earned on the pot depends on its rate and is not counted here.", spend_note]),
+                    f"At Bank Rate ({rate:g}% a year) the pot would earn about £{pot['interest']:,.2f} before the last "
+                    f"instalment ({POT_ASSUMPTION}). It is not deducted from the cost.",
+                    spend_note]),
         dict(kind="bnplPlain", label="Pay in 3, without a pot", affordable=left_plain >= 0
              and monthly["afterCommitted"] - third >= 0, leftAfter=left_plain, cost=0.0, schedule=sched,
              notes=[f"£{due_now:,.2f} is due before {'payday' if payday else 'the same date next month'}; the later "
@@ -258,6 +388,7 @@ def assess(tx, price, today=None, merchant=None):
     most = [o["kind"] for o in ok if o["leftAfter"] == max(x["leftAfter"] for x in ok)] if ok else []
 
     sale = next(((d, n) for d, n in SALES if 0 <= (d - today).days <= 60), None)
+    better, hist = better_price(product, price, merchant)
     return dict(
         asOf=as_of.isoformat(), today=today.isoformat(), price=money(price), merchant=merchant,
         income=dict(name=income["name"], monthly=income["monthly"], nextPayday=payday.isoformat(),
@@ -267,9 +398,9 @@ def assess(tx, price, today=None, merchant=None):
         balance=balance, safeToSpend=safe, safeToSpendDefinition=SAFE_DEF + ("" if payday else
                                                                               " No salary was detected, so the window is one month after asOf."),
         monthly=monthly, options=options, cheapest=cheapest, mostLeftUntilPayday=most,
-        saleNote=dict(event=sale[1], date=sale[0].isoformat(), daysToGo=(sale[0] - today).days, note=SALE_TEXT)
-        if sale else None,
-        betterPrice=None,  # ponytail: no price catalogue yet (T09, awaiting Harrison's decision); fill from it when ready
+        saleNote=dict(event=sale[1], date=sale[0].isoformat(), daysToGo=(sale[0] - today).days, note=SALE_TEXT,
+                      priceHistory=hist) if sale else None,
+        betterPrice=better, product=product,
     )
 
 
@@ -350,7 +481,7 @@ class Handler(BaseHTTPRequestHandler):
             merchant = req.get("merchant")
             if merchant is not None and not isinstance(merchant, str):
                 raise StatementError("merchant must be a string.")
-            out = assess(parse(text), req.get("price"), today, merchant)
+            out = assess(parse(text), req.get("price"), today, merchant, req.get("product"))
             out["persona"] = req.get("persona")
             self.send(200, out)
         except StatementError as e:
@@ -397,6 +528,7 @@ def check():
             assert sum(s["amount"] for s in o["bnplPot"]["schedule"]) == p or abs(
                 sum(s["amount"] for s in o["bnplPot"]["schedule"]) - p) < 0.005
             assert o["payNow"]["affordable"] == o["bnplPot"]["affordable"] == (a["safeToSpend"] >= p)
+            assert 0 <= o["bnplPot"]["potInterest"]["interest"] <= p * o["bnplPot"]["potInterest"]["rateAnnual"] / 100
             tally[p][0 if o["payNow"]["affordable"] else 1 if o["bnplPlain"]["affordable"] else 2] += 1
     bad = ["", "a,b\n1,2\n", ",".join(COLUMNS) + "\n",
            ",".join(COLUMNS) + "\n31/02/2026,DEB,0,0,X,1.00,,5.00\n",
@@ -412,7 +544,38 @@ def check():
             raise AssertionError(f"accepted malformed CSV {b!r}")
     a = assess(parse(files[0].read_text(encoding="utf-8")), 300, dt.date(2026, 11, 7))
     assert a["saleNote"] and a["saleNote"]["event"] == "Black Friday" and a["saleNote"]["daysToGo"] == 20
-    assert a["betterPrice"] is None
+    assert a["betterPrice"] is None and a["saleNote"]["priceHistory"] is None
+    thanksgiving = [d for d in range(1, 31) if dt.date(2026, 11, d).weekday() == 3][3]
+    assert SALES[0][0] == dt.date(2026, 11, thanksgiving + 1) and SALES[1][0] == dt.date(2026, 11, thanksgiving + 4)
+
+    # betterPrice: mainstream only, marketplace flagged, no saving claimed unless the mainstream price is lower.
+    b, h = better_price("P02", 229.99, "John Lewis")
+    assert b["cheapest"]["retailer"] == "Amazon UK" and b["cheapest"]["price"] == 199.0 and b["saving"] == 30.99
+    assert not b["sameAsCurrent"] and b["marketplaceCheaper"]["retailer"] == "A1 Tech Deals" and h is None
+    assert any(c.startswith("Price history not shown") for c in b["caveats"])
+    assert better_price("sony wh-1000xm5", 229.99)[0]["product_id"] == "P02" == find_product("p02")
+    b = better_price("P02", 199.00)[0]
+    assert b["saving"] is None and b["sameAsCurrent"] and b["marketplaceCheaper"]["price"] == 173.49
+    b = better_price("P02", 100.00)[0]
+    assert b["saving"] is None and not b["sameAsCurrent"] and b["marketplaceCheaper"] is None
+    assert better_price("Nonexistent widget", 50) == (None, None) == better_price(None, 50) == better_price("apple", 50)
+    for pid in sorted({r["product_id"] for r in catalogue()}):
+        for p in (1, 199, 400, 5000):
+            b = better_price(pid, p)[0]
+            assert b["cheapest"] is None or b["cheapest"]["retailer"] in MAINSTREAM, pid
+            assert b["saving"] is None or b["saving"] > 0 and b["cheapest"]["price"] < p, pid
+            assert b["marketplaceCheaper"] is None or b["marketplaceCheaper"]["retailer"] not in MAINSTREAM, pid
+    b, h = better_price("P04", 469.49)
+    assert h and h["lowest3m"] == 360.0 and h["aboveLowBy"] == 109.49 and better_price("P03", 409)[1] is None
+    a = assess(parse(files[0].read_text(encoding="utf-8")), 469.49, dt.date(2026, 11, 7), "Amazon UK", "P04")
+    assert a["saleNote"]["priceHistory"] == h and a["betterPrice"]["product_id"] == "P04"
+
+    # Pot interest, by hand: £300 in on day 0, £100 out on days 0, 30 and 60 at 4%:
+    # 200 x 0.04 x 30/365 + 100 x 0.04 x 30/365 = 0.6575 + 0.3288 = £0.99.
+    d0 = dt.date(2026, 1, 1)
+    sch = [dict(due=(d0 + dt.timedelta(days=k)).isoformat(), amount=100.0) for k in (0, 30, 60)]
+    assert pot_interest(300, d0, sch, 4.0) == 0.99 and pot_interest(300, d0, sch, 0.0) == 0.0
+    assert bank_rate()[-1][0] >= dt.date(2026, 10, 1) and all(0 <= r < 20 for _, r in bank_rate())
 
     srv = serve(0, quiet=True)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -426,13 +589,19 @@ def check():
         with post(json.dumps(dict(persona=pid, price=300, merchant="Test")).encode()) as r:
             out = json.load(r)
             assert out["persona"] == pid and out["price"] == 300 and len(out["options"]) == 4
+            assert out["betterPrice"] is None
+        with post(json.dumps(dict(persona=pid, price=229.99, merchant="John Lewis", product="P02",
+                                  today="2026-11-07")).encode()) as r:
+            out = json.load(r)
+            assert out["betterPrice"]["saving"] == 30.99 and "potInterest" in out["options"][1]
         with post(json.dumps(dict(csv=files[0].read_text(encoding="utf-8"), price=50)).encode()) as r:
             assert json.load(r)["income"]
         with urllib.request.urlopen(url + "/personas") as r:
             ps = json.load(r)
             assert len(ps) == len(files) and all(x["region"] != "unknown" for x in ps)
         for body in (b"not json", b'{"persona": "persona079"}', b'{"persona": "x", "price": 3}',
-                     json.dumps(dict(csv="garbage", price=3)).encode(), b'{"persona": "persona001", "price": -1}'):
+                     json.dumps(dict(csv="garbage", price=3)).encode(), b'{"persona": "persona001", "price": -1}',
+                     b'{"persona": "persona001", "price": 3, "product": 2}'):
             try:
                 post(body)
             except urllib.error.HTTPError as e:
