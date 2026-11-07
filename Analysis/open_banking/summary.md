@@ -33,7 +33,7 @@ Written by `ob_generator.py` (seed 20261107, N = 100); 1 November 2025 to 31 Oct
 | Synthetic lumpy purchases | 100 |
 | Booked transactions | 67886 |
 | Pending transactions | 349 |
-| Main current-account end balance [GBP], min / lower quartile / median / upper quartile / max | -1743.76 / 6143.81 / 12120.44 / 18720.90 / 51968.01 |
+| Main current-account end balance [GBP], min / lower quartile / median / upper quartile / max | -1743.76 / 6115.82 / 12068.90 / 18137.32 / 51968.01 |
 
 Seasonal factors (ONS retail sales J5AH, mean of 2021 to 2025 with each year scaled to mean 1):
 

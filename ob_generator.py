@@ -802,7 +802,7 @@ def summary(results, seas, rates_fls):
     held = [r["h"]["held"] for r in results]
     ncards = [sum(k in CARDS for k in x) for x in held]
     ends = sorted(r["B"]["ca"].bal / 100 for r in results)
-    q = lambda xs, f: xs[min(len(xs) - 1, int(f * len(xs)))]
+    q = lambda xs, f: st.quantiles(xs, n=4, method="inclusive")[round(4 * f) - 1]  # median = the mean of the middle two
     dist = Counter(len(x) for x in held)
     fl = {"sv": "savings", "isa": "cash_isa", "ca2": "second_current"}
     lines = ["# Open Banking synthetic data: summary", "",
