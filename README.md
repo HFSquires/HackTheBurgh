@@ -21,3 +21,4 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-07 (Claude): Created the private GitHub repository https://github.com/HFSquires/HackTheBurgh and pushed `main`.
 - 2026-11-07 (notion-keeper, Claude): Read the Notion page after Harrison added four questions on the bank data the extension needs; moved them to the Idea section, added the parked Entire challenge line, the T05 proposals and the team/push needs from the main chat; updated `BRIEF.md`.
 - 2026-11-07 (notion-keeper, Claude): Read the Notion page after Harrison added an unfinished note on finding out what Open Banking data the app can use; recorded it under Open questions, relabelled a Claude note; `BRIEF.md` updated.
+- 2026-11-07 (notion-keeper, Claude): Harrison finished his Open Banking note; moved the complete note into Open questions (replacing the earlier fragment) and removed the duplicate from the foot of the page, leaving a pointer; `BRIEF.md` updated.
