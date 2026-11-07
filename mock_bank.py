@@ -11,7 +11,7 @@ the customer's explicit consent, given to their own bank through the Open Bankin
     python mock_bank.py --serve [--port 8766]   # mock bank on 127.0.0.1
     python mock_bank.py --check                 # self-check
 """
-import argparse, datetime as dt, functools, json, os, re, secrets, statistics, sys, threading, time
+import argparse, datetime as dt, functools, http.client, json, os, re, secrets, statistics, sys, threading, time
 import urllib.error, urllib.parse, urllib.request
 from decimal import Decimal
 from http import HTTPStatus
@@ -24,6 +24,8 @@ API = "/open-banking/v3.1/aisp"
 PAGE = 100  # transactions per page
 TOKEN_LIFE = 3600  # seconds
 MAX_RESPONSE = 5_000_000  # bytes the client reads from one bank response
+FETCH_SECONDS, FETCH_BYTES, MAX_PAGES = 30, 20_000_000, 200  # limits on one whole fetch (all requests together)
+DEFAULT_BANKS = ("http://127.0.0.1:8766", "http://localhost:8766")  # the mock bank's default --serve port
 # ponytail: descriptive ISO 20022 BankTransactionCode names for the four statement types, not checked against the OB
 # code list; the client trusts ProprietaryBankTransactionCode first. Upgrade with the bank's own code mapping.
 ISO = {"BGC": ("ReceivedCreditTransfers", "DomesticCreditTransfer"), "DD": ("IssuedDirectDebits", "DirectDebitPayment"),
@@ -143,7 +145,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise StatementError("Send a JSON body of at most 1000 bytes.")
             try:
                 req = json.loads(self.rfile.read(size))
-            except (json.JSONDecodeError, UnicodeDecodeError):
+            except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
                 raise StatementError("The body is not valid JSON.") from None
             if not isinstance(req, dict) or set(req) != {"persona"}:
                 raise StatementError('Send {"persona": "persona050"}.')
@@ -246,44 +248,81 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
 
 
+def origin(url):
+    """(origin 'scheme://host:port', in lower case with an explicit port, and the urlsplit parts) of an http(s) URL made
+    only of printable ASCII, without userinfo or fragment; None for anything else. Validating the raw string matters:
+    urlsplit silently drops tabs and newlines that urllib would then reject."""
+    if not isinstance(url, str) or not re.fullmatch(r"[\x21-\x7e]{1,4096}", url):
+        return None
+    try:
+        u = urllib.parse.urlsplit(url)
+        port = u.port or {"http": 80, "https": 443}.get(u.scheme)
+    except ValueError:
+        return None
+    if u.scheme not in ("http", "https") or not u.hostname or not port or "@" in u.netloc or u.fragment:
+        return None
+    host = f"[{u.hostname}]" if ":" in u.hostname else u.hostname
+    return f"{u.scheme}://{host}:{port}", u
+
+
 def bank_url(base):
-    """The validated base URL, without a trailing slash: http on 127.0.0.1 or localhost, or https on a host named in
-    the environment variable BANK_ALLOWED_HOSTS (comma-separated).
+    """The bank's normalised origin, 'scheme://host:port'. Only exact origins are allowed: DEFAULT_BANKS (the mock bank
+    on port 8766) and the comma-separated origins in the environment variable BANK_ALLOWED_HOSTS (for example
+    'http://127.0.0.1:9000,https://bank.example:443'); no path, query or other port.
     ponytail: a demo allow-list. In production the back end talks only to an FCA-authorised AISP such as TrueLayer,
     with OAuth consent and tokens held server-side, never a URL or token sent by the browser."""
-    extra = {h.strip().lower() for h in os.environ.get("BANK_ALLOWED_HOSTS", "").split(",") if h.strip()}
-    try:
-        u = urllib.parse.urlsplit(base)
-        u.port
-    except (TypeError, ValueError, AttributeError):
-        u = None
-    if not u or u.username or u.password or u.query or u.fragment or not (
-            u.scheme == "http" and u.hostname in ("127.0.0.1", "localhost") or u.scheme == "https" and u.hostname in extra):
-        raise StatementError("bank.baseUrl must be http://127.0.0.1:<port> or http://localhost:<port> (other https hosts "
-                             "only when listed in BANK_ALLOWED_HOSTS).")
-    return base.rstrip("/")
+    allowed = {o[0] for h in (*DEFAULT_BANKS, *os.environ.get("BANK_ALLOWED_HOSTS", "").split(",")) if (o := origin(h.strip()))}
+    o = origin(base)
+    if not o or o[1].path not in ("", "/") or o[1].query or o[0] not in allowed:
+        raise StatementError(f"bank.baseUrl must be an allowed bank origin with no path, such as {DEFAULT_BANKS[0]} "
+                             "(others only when listed in BANK_ALLOWED_HOSTS).")
+    return o[0]
 
 
-def call(url, token=None, body=None):
-    """GET (or POST `body`) one JSON resource; every failure becomes a StatementError."""
+class Budget:
+    """Time and bytes left for one whole fetch, shared by all its requests."""
+    def __init__(self, seconds=FETCH_SECONDS, size=FETCH_BYTES):
+        self.end, self.left = time.monotonic() + seconds, size
+
+    def timeout(self):
+        """Seconds for the next socket operation (at most 10); raises once the fetch has run out of time."""
+        t = self.end - time.monotonic()
+        if t <= 0:
+            raise StatementError("The bank took too long to respond.")
+        return min(10.0, t)
+
+    def take(self, n):
+        self.left -= n
+        if self.left < 0:
+            raise StatementError("The bank sent more data than expected.")
+        self.timeout()
+
+
+def call(url, token=None, body=None, budget=None):
+    """GET (or POST `body`) one JSON resource within `budget` (default: a fresh Budget); every failure becomes a
+    StatementError whose message holds the HTTP status at most, never text from the bank."""
+    budget = budget or Budget()
     head = {"Accept": "application/json"} | ({"Authorization": f"Bearer {token}"} if token else {}) | (
         {"Content-Type": "application/json"} if body else {})
     try:
-        with OPENER.open(urllib.request.Request(url, data=body, headers=head), timeout=10) as r:
-            data = r.read(MAX_RESPONSE + 1)
+        with OPENER.open(urllib.request.Request(url, data=body, headers=head), timeout=budget.timeout()) as r:
+            chunks, size = [], 0
+            while chunk := r.read1(65536):  # one socket read at a time, so the budget's deadline is checked often
+                chunks.append(chunk)
+                size += len(chunk)
+                budget.take(len(chunk))
+                if size > MAX_RESPONSE:
+                    raise StatementError("A bank response was larger than expected.")
+    except StatementError:
+        raise
     except urllib.error.HTTPError as e:
-        try:
-            msg = json.loads(e.read(10_000))["Message"]
-        except Exception:
-            msg = e.reason
-        raise StatementError(f"The bank returned {e.code} for {urllib.parse.urlsplit(url).path}: {msg}") from None
-    except (urllib.error.URLError, OSError) as e:
-        raise StatementError(f"Could not reach the bank: {getattr(e, 'reason', e)}.") from None
-    if len(data) > MAX_RESPONSE:
-        raise StatementError("A bank response was larger than expected.")
+        e.close()
+        raise StatementError(f"The bank returned HTTP {e.code}.") from None
+    except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError):
+        raise StatementError("Could not read a response from the bank.") from None
     try:
-        return json.loads(data)
-    except ValueError:
+        return json.loads(b"".join(chunks))
+    except (ValueError, RecursionError):
         raise StatementError("A bank response was not JSON.") from None
 
 
@@ -300,28 +339,33 @@ def signed(b):
     return pennies(b["Amount"]["Amount"]) * (-1 if b["CreditDebitIndicator"] == "Debit" else 1)
 
 
-def read_account(base, token):
+def read_account(base, token, budget=None):
     """(transactions, balances, direct debits, standing orders) of the token's one current account; follows Links.Next
-    across transaction pages, only within `base`."""
-    api = base + API
-    accounts = [a for a in call(api + "/accounts", token)["Data"]["Account"] if a.get("AccountSubType") == "CurrentAccount"]
+    across at most MAX_PAGES transaction pages, only to the origin `base` (from bank_url) and never to a page already
+    read, all within one Budget."""
+    budget, api = budget or Budget(), base + API
+    accounts = [a for a in call(api + "/accounts", token, budget=budget)["Data"]["Account"]
+                if a.get("AccountSubType") == "CurrentAccount"]
     if len(accounts) != 1:  # ponytail: one current account per consent; upgrade by letting the user pick an AccountId
         raise StatementError(f"Expected one current account, found {len(accounts)}.")
     acc = f"{api}/accounts/{urllib.parse.quote(str(accounts[0]['AccountId']), safe='')}"
-    rows, url = [], acc + "/transactions"
-    for _ in range(1000):
-        page = call(url, token)
+    rows, url, seen = [], acc + "/transactions", set()
+    for _ in range(MAX_PAGES):
+        seen.add(url)
+        page = call(url, token, budget=budget)
         rows += page["Data"].get("Transaction", [])
         url = (page.get("Links") or {}).get("Next")
         if not url:
             break
-        if not isinstance(url, str) or not url.startswith(base + "/"):
+        if (origin(url) or [None])[0] != base:
             raise StatementError("A transactions page linked outside the bank's base URL.")
+        if url in seen:
+            raise StatementError("The bank's transaction pages link back to a page already read.")
     else:
         raise StatementError("Too many transaction pages.")
-    return (rows, call(acc + "/balances", token)["Data"]["Balance"],
-            call(acc + "/direct-debits", token)["Data"].get("DirectDebit", []),
-            call(acc + "/standing-orders", token)["Data"].get("StandingOrder", []))
+    return (rows, call(acc + "/balances", token, budget=budget)["Data"]["Balance"],
+            call(acc + "/direct-debits", token, budget=budget)["Data"].get("DirectDebit", []),
+            call(acc + "/standing-orders", token, budget=budget)["Data"].get("StandingOrder", []))
 
 
 def to_transactions(rows, balances, direct_debits=(), standing_orders=()):
@@ -329,8 +373,10 @@ def to_transactions(rows, balances, direct_debits=(), standing_orders=()):
     oldest first. type = ProprietaryBankTransactionCode.Code, else the statement type of the ISO BankTransactionCode,
     else DD or SO when the description names a direct debit or standing order, else DEB for a debit and BGC for a
     credit. Running balances are rebuilt backwards from the InterimBooked (else ClosingBooked) balance; any balance the
-    bank gives per transaction must agree to the penny. ponytail: pending transactions are ignored, and same-day order
-    is the bank's (newest-first lists are reversed); upgrade with the provider's own ordering key."""
+    bank gives per transaction must agree to the penny. Order: a list whose first row is dated after its last is
+    reversed; when every row has the same date, the order (newest first, as the mock bank sends it, or as given) that
+    reconciles with the per-transaction balances is used, newest first when there are none. ponytail: pending
+    transactions are ignored, and same-day order is otherwise the bank's; upgrade with the provider's own ordering key."""
     try:
         names = {d["Name"]: "DD" for d in direct_debits} | {s["Reference"]: "SO" for s in standing_orders if "Reference" in s}
         closing = next((b for kind in ("InterimBooked", "ClosingBooked") for b in balances if b["Type"] == kind), None)
@@ -355,52 +401,160 @@ def to_transactions(rows, balances, direct_debits=(), standing_orders=()):
         raise StatementError(f"The bank's data are not in the expected Open Banking shape ({e}).") from None
     if not tx:
         raise StatementError("The bank returned no booked transactions.")
-    if tx[0]["date"] > tx[-1]["date"]:
-        tx.reverse()
-    tx.sort(key=lambda t: t["date"])  # stable: same-day order kept
-    for t in reversed(tx):
+    first, last = tx[0]["date"], tx[-1]["date"]
+    for order in [tx[::-1]] if first > last else [tx] if first < last else [tx[::-1], tx]:
+        try:
+            return rebuild(order, bal)
+        except StatementError as e:
+            err = e
+    raise err
+
+
+def rebuild(tx, bal):
+    """`tx` sorted by date (stable: same-day order kept), with running balances rebuilt backwards from the closing
+    balance `bal` [pence]; raises when a per-transaction balance disagrees."""
+    out = []
+    for t in reversed(sorted(tx, key=lambda t: t["date"])):
         if t["balance"] is not None and t["balance"] != bal:
             raise StatementError(f"The bank's running balance on {t['date']} does not reconcile with its closing balance "
                                  "and transactions.")
-        t["balance"] = bal / 100
-        bal -= t.pop("change")
-    return tx
+        out.append({k: v for k, v in t.items() if k != "change"} | {"balance": bal / 100})
+        bal -= t["change"]
+    return out[::-1]
 
 
 def fetch(base_url, token=None, persona=None):
     """Transactions of the one current account behind `token`, or behind a mock consent for `persona`, from the Open
     Banking AISP API at `base_url`, as affordability.parse would give them from the CSV."""
-    base = bank_url(base_url)
+    base, budget = bank_url(base_url), Budget()
     if (token is None) == (persona is None):
         raise StatementError('bank needs "baseUrl" and exactly one of "token" or "persona".')
     if persona is not None:
         if not isinstance(persona, str) or not re.fullmatch(r"persona\d{3}", persona):
             raise StatementError("bank.persona must look like 'persona079'.")
-        consent = call(base + "/mock/consent", body=json.dumps({"persona": persona}).encode())
+        consent = call(base + "/mock/consent", body=json.dumps({"persona": persona}).encode(), budget=budget)
         token = consent.get("access_token") if isinstance(consent, dict) else None
     if not isinstance(token, str) or not re.fullmatch(r"[\x21-\x7e]{1,4096}", token):
         raise StatementError("bank.token must be a printable bearer token.")
     try:
-        account = read_account(base, token)
+        account = read_account(base, token, budget)
     except (KeyError, TypeError, AttributeError, IndexError) as e:
         raise StatementError(f"The bank's data are not in the expected Open Banking shape ({e!r}).") from None
     return to_transactions(*account)
 
 
 # ---------------------------------------------------------------- self-check
+def check_t23(base):
+    """T23 review regressions, against the running mock bank at `base` and a misbehaving local server."""
+    def fails(f, *a, **k):
+        try:
+            f(*a, **k)
+        except StatementError as e:
+            return str(e)
+        raise AssertionError(f"{f.__name__} accepted {a} {k}")
+
+    # Exact allow-listed origins only (default: the mock bank on 8766), normalised; no path, no other port.
+    env = os.environ.pop("BANK_ALLOWED_HOSTS")
+    try:
+        assert bank_url("HTTP://LOCALHOST:8766/") == "http://localhost:8766" and bank_url(DEFAULT_BANKS[0]) == DEFAULT_BANKS[0]
+        for u in ("http://127.0.0.1:8765", "http://127.0.0.1:8766/internal/admin", "http://127.0.0.1", base,
+                  "http://127.0.0.1:8766/?x", "http://[::1]:8766"):
+            fails(bank_url, u)
+        os.environ["BANK_ALLOWED_HOSTS"] = "https://Bank.Example, http://127.0.0.1:9000, not a url"
+        assert bank_url("https://bank.example") == "https://bank.example:443" == bank_url("https://BANK.example:443/")
+        assert bank_url("http://127.0.0.1:9000") == "http://127.0.0.1:9000"
+        fails(bank_url, "http://bank.example:443")
+    finally:
+        os.environ["BANK_ALLOWED_HOSTS"] = env
+
+    # Case: an upper-case scheme or host is the same origin, so a second transactions page is followed. (The scheme is
+    # tested live because "localhost" costs about 2 s per connection on Windows: ::1 is tried first, the mock is IPv4.)
+    assert fetch(base.replace("http", "HTTP"), persona="persona050") == af.parse(af.load_persona("persona050"))
+    assert bank_url(base.replace("127.0.0.1", "LOCALHOST")) == base.replace("127.0.0.1", "localhost")
+
+    # Same-day feed (one date only, newest first from the mock): order chosen by the per-transaction balances.
+    c = call(base + "/mock/consent", body=b'{"persona": "persona001"}')
+    acc, tok = c["accountId"], c["access_token"]
+    rows = call(f"{base}{API}/accounts/{acc}/transactions?fromBookingDateTime=2026-10-31T00:00:00", tok)["Data"]["Transaction"]
+    bal = call(f"{base}{API}/accounts/{acc}/balances", tok)["Data"]["Balance"]
+    want = [t for t in af.parse(af.load_persona("persona001")) if t["date"] == dt.date(2026, 10, 31)]
+    assert len(rows) == len(want) >= 2 and len({t["desc"] for t in want}) == len(want)
+    bare = [{k: v for k, v in r.items() if k != "Balance"} for r in rows]
+    assert to_transactions(rows, bal) == want == to_transactions(rows[::-1], bal) == to_transactions(bare, bal)
+
+    # A misbehaving server: looping pages, a slow drip, bad framing, deep nesting, an error banner.
+    hits = []
+
+    class Bad(BaseHTTPRequestHandler):
+        def do_GET(self):
+            hits.append(self.path)
+            try:
+                if self.path == "/drip":  # one byte every 0.25 s
+                    self.send_response(200)
+                    self.send_header("Content-Length", "20")
+                    self.end_headers()
+                    for _ in range(20):
+                        time.sleep(0.25)
+                        self.wfile.write(b" ")
+                        self.wfile.flush()
+                    return
+                if self.path == "/chunked":
+                    self.send_response(200)
+                    self.send_header("Transfer-Encoding", "chunked")
+                    self.end_headers()
+                    return self.wfile.write(b"zz\r\nabc")
+                code, body = 200, b"[" * 200_000
+                if self.path.endswith("/accounts"):
+                    body = json.dumps({"Data": {"Account": [{"AccountId": "a", "AccountSubType": "CurrentAccount"}]}})
+                elif self.path.endswith("/transactions"):  # Next points back at this page
+                    body = json.dumps({"Data": {"Transaction": []},
+                                       "Links": {"Next": f"http://127.0.0.1:{self.server.server_port}{self.path}"}})
+                elif self.path == "/secret":
+                    code, body = 403, json.dumps({"Message": "SECRET-internal-banner"})
+                body = body.encode() if isinstance(body, str) else body
+                self.send_response(code)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except OSError:
+                pass  # the client gave up
+
+        def log_message(self, *a):
+            pass
+
+    bad_srv = ThreadingHTTPServer(("127.0.0.1", 0), Bad)
+    threading.Thread(target=bad_srv.serve_forever, daemon=True).start()
+    bad = f"http://127.0.0.1:{bad_srv.server_port}"
+    try:
+        assert "already read" in fails(read_account, bad, "t" * 30) and len(hits) == 2, hits
+        t0 = time.monotonic()
+        assert "too long" in fails(call, bad + "/drip", budget=Budget(seconds=1)) and time.monotonic() - t0 < 3
+        assert "more data" in fails(call, bad + "/deep", budget=Budget(size=1000))
+        assert "not JSON" in fails(call, bad + "/deep")  # RecursionError inside json.loads
+        fails(call, bad + "/chunked")                    # http.client.IncompleteRead
+        fails(call, bad + "/a b")                        # http.client.InvalidURL
+        msg = fails(call, bad + "/secret")
+        assert msg == "The bank returned HTTP 403." and "SECRET" not in msg
+        assert fails(call, "http://127.0.0.1:1/x") == "Could not read a response from the bank."
+    finally:
+        bad_srv.shutdown()
+
+
 def check():
     srv = serve(0, quiet=True)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{srv.server_port}"
+    os.environ["BANK_ALLOWED_HOSTS"] = f"{base},http://localhost:{srv.server_port}"  # the check's ephemeral port
 
     def status(path, token=None, body=None):
         try:
             call(base + path, token, body)
         except StatementError as e:
-            return int(re.search(r"returned (\d+)", str(e))[1]) if "returned" in str(e) else str(e)
+            return int(re.search(r"returned HTTP (\d+)", str(e))[1]) if "returned" in str(e) else str(e)
         return 200
 
     try:
+        check_t23(base)
         pids = [p["id"] for p in af.personas()]
         assert len(pids) >= 10
         multi = 0
@@ -478,7 +632,8 @@ def check():
             assert status(f"{path}?{q}", tok) == 400, q
         assert status(f"{API}/accounts/{acc}/balances?page=1", tok) == 400
         for url in ("http://example.com", "https://127.0.0.1:1", "file:///etc/passwd", "http://127.0.0.1@example.com",
-                    "http://localhost:99999", None, 5, base + "?x=1"):
+                    "http://localhost:99999", None, 5, base + "?x=1", "http://127.0.0.1:1", base + "/internal/admin",
+                    base + "/a b", base[:-2] + "\n" + base[-2:], base + "#x", f"http://user@127.0.0.1:{srv.server_port}"):
             try:
                 fetch(url, persona="persona050")
             except StatementError:

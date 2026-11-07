@@ -12,7 +12,7 @@ brings numpy and scipy, so the API needs the project .venv.
     python affordability.py --serve [--port 8765]   # JSON API on 127.0.0.1
     python affordability.py --check                 # self-check over every persona CSV
 """
-import argparse, calendar, csv, datetime as dt, functools, io, json, math, re, statistics, sys, threading, urllib.request
+import argparse, calendar, csv, datetime as dt, functools, io, json, math, os, re, statistics, sys, threading, urllib.request
 from collections import defaultdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -53,14 +53,19 @@ AFFORD_DEF = ("An option is affordable when safeToSpend minus what it takes from
               "least 0 (payNow, bnplPot, cardPaidInFull: the full price; bnplPlain: the instalments due before payday), "
               "and, for bnplPlain, a month's income less committed payments, existing BNPL and typical everyday spending "
               "(monthly.leftOver) is at least one later instalment. leftAfter = safeToSpend minus what the option takes "
-              "before nextPayday. These quantities and affordability are null when assessmentStatus is incomplete; "
-              "assessmentWarnings explains the missing information.")
+              "before nextPayday. What an option takes before payday includes anything due today, even when today is "
+              "payday. These quantities and affordability are null when assessmentStatus is incomplete; "
+              "assessmentWarnings explains the missing information. An estimated assessment can also carry warnings, "
+              "about estimates weaker than usual.")
 SHORTFALL_DEF = ("shortfallProbability = the Bayesian model's probability that the balance falls below zero before "
                  "nextPayday after this option: P(everyday spending until payday > safeToSpendBeforeEverydaySpending "
                  "minus what the option takes before payday). bnplPot and cardPaidInFull take the full price, as payNow; "
                  "card0 is null (no card data).")
 CARD_DAYS = 40  # ponytail: assumed average interest-free period of a card cleared in full; real periods run to about 56 days
-S75 = (100, 30000)  # GBP: Section 75 of the Consumer Credit Act 1974 covers single items priced in this range
+# GBP: Section 75 of the Consumer Credit Act 1974 covers a single item priced over £100 and up to £30,000 (s.75(3)(b)):
+# on a credit card and, since 15 July 2026, on regulated third-party BNPL (Presentation/fact_check.md, claim 4).
+S75 = (100, 30000)
+S75_RANGE = "a single item priced over £100 and up to £30,000"
 
 
 class StatementError(ValueError):
@@ -366,12 +371,21 @@ def assess(tx, price, today=None, merchant=None, product=None):
     if payday and payday < today:
         raise StatementError(f"A payday ({payday}) has passed since the statement's last transaction ({as_of}); "
                              "use a newer statement.")
+    missed = None  # the salary payday after lastPaid, when it fell before asOf (a statement ending on it may be partial)
+    if income:
+        missed, paid = next_payday(income, income["lastPaid"]), income["lastPaid"]
+        if (missed.year, missed.month) == (paid.year, paid.month):  # this month's salary came early (e.g. Christmas)
+            missed = next_payday(income, missed)
+        missed = missed if missed < as_of else None
     horizon = payday or add_months(as_of, 1)  # no salary detected: look one month ahead
     committed = detect_committed(tx, as_of)
     plans = detect_bnpl(tx)
     warnings = []
     if not income:
         warnings.append("No regular income or payday was detected; supply a statement with identifiable regular income.")
+    if missed:
+        warnings.append(f"The salary ({income['name']}) expected on {missed} is not in the statement, which runs to "
+                        f"{as_of}; income cannot be assumed to continue.")
     if any(p["uncertain"] for p in plans):
         warnings.append("BNPL payments cannot be separated into plans; confirm outstanding repayment schedules.")
     before = lambda d: as_of < dt.date.fromisoformat(d) < horizon
@@ -387,7 +401,8 @@ def assess(tx, price, today=None, merchant=None, product=None):
     spend_summary = bayes.spending_summary(F) if payday else dict(mean=0.0, interval80=[0.0, 0.0])
     spend_mean = money(spend_summary["mean"])
     predicted = (dict(mean=spend_mean, interval80=[money(x) for x in spend_summary["interval80"]],
-                      firstDay=(as_of + dt.timedelta(days=1)).isoformat(), lastDay=(payday - dt.timedelta(days=1)).isoformat(),
+                      firstDay=(as_of + dt.timedelta(days=1)).isoformat() if F is not None else None,  # None: no days
+                      lastDay=(payday - dt.timedelta(days=1)).isoformat() if F is not None else None,
                       definition="Everyday (discretionary) card spending predicted from the day after asOf to the day "
                                  "before nextPayday by bayes.py (population prior from net pay, updated with this "
                                  "statement's daily card spending): posterior predictive mean and central 80% interval, "
@@ -402,33 +417,47 @@ def assess(tx, price, today=None, merchant=None, product=None):
 
     # Monthly view: one month after asOf.
     month_end = add_months(as_of, 1)
-    spend = card_spend(tx, committed)
+    spend, caution = card_spend(tx, committed), []  # caution: warnings that leave the assessment estimated
+    typical = money(statistics.median(spend)) if spend else None
+    if not spend and income:  # no full month observed: the Bayesian posterior mean monthly budget, never £0
+        import bayes
+        h = bayes.population()
+        typical = money(max(0.0, bayes.posterior(bayes.prior(h, income["monthly"]), bayes.blocks(tx), h["phi"])[0]))
+        caution.append("The statement has no full calendar month of card spending, so typical monthly everyday "
+                       "spending is the Bayesian model's estimate (posterior mean monthly budget), not an observed median.")
     monthly = dict(
         income=income["monthly"] if income else 0.0,
         committed=money(sum(c["amount"] for c in committed)),
         bnpl=money(sum(s["amount"] for p in plans for s in p["schedule"]
                        if as_of < dt.date.fromisoformat(s["due"]) <= month_end)),
-        typicalCardSpending=money(statistics.median(spend)) if spend else 0.0,
+        typicalCardSpending=typical,
         monthsUsed=len(spend))
     monthly["afterCommitted"] = money(monthly["income"] - monthly["committed"] - monthly["bnpl"])
-    monthly["leftOver"] = money(monthly["afterCommitted"] - monthly["typicalCardSpending"])
+    monthly["leftOver"] = money(monthly["afterCommitted"] - typical) if typical is not None else None
     monthly["definition"] = ("afterCommitted = income (latest salary credit) - committed (one month of recurring "
                              "payments) - bnpl (existing BNPL instalments due in the month after asOf); leftOver = "
                              "afterCommitted - typicalCardSpending (median monthly everyday card spending over the full "
-                             "months in the statement, excluding BNPL and committed card payments).")
+                             "calendar months in the statement, excluding BNPL and committed card payments; when there "
+                             "is none, monthsUsed is 0 and it is bayes.py's posterior mean monthly budget, with a "
+                             "warning in assessmentWarnings).")
 
     # Payment options: facts only. cost = extra cost over the price, if every payment is made on time.
     left_now = money(safe - price)
     third = money(price / 3)
     sched = pay_in_3(price, today)
-    due_now = money(sum(s["amount"] for s in sched if dt.date.fromisoformat(s["due"]) < horizon))
+    # Taken before payday: due before it, or due today (the first instalment, even when today is payday, as payNow).
+    due_now = money(sum(s["amount"] for s in sched if dt.date.fromisoformat(s["due"]) < horizon or s["due"] == str(today)))
     left_plain = money(safe - due_now)
     spend_note = (f"Predicted everyday card spending until payday, about £{spend_mean:,.0f} (80% interval "
                   f"£{predicted['interval80'][0]:,.0f} to £{predicted['interval80'][1]:,.0f}), is already deducted."
                   if not warnings else "Affordability is unknown. " + " ".join(warnings))
     rate_day, rate = rate_on(today)
     card_float = card_interest(price, rate)
-    in_s75 = S75[0] <= price <= S75[1]
+    in_s75 = S75[0] < price <= S75[1]
+    s75_bnpl = ("Pay-in-3 from a regulated third-party lender, agreed on or after 15 July 2026, usually has Section 75 "
+                f"cover, as a credit card does, for {S75_RANGE}; pay-in-3 run by the retailer itself does not. Check the "
+                "details." if in_s75 else f"Section 75 cover for regulated third-party pay-in-3 usually applies only to "
+                f"{S75_RANGE}; £{price:,.2f} is outside that range.")
     pot = dict(rateAnnual=rate, rateDate=rate_day.isoformat(), interest=pot_interest(price, today, sched, rate),
                rateSource="Bank of England database, series IUDBEDR (Official Bank Rate), latest value on or before "
                           f"today ({rate_day.isoformat()}); file data/{BANK_RATE.name}",
@@ -446,16 +475,16 @@ def assess(tx, price, today=None, merchant=None, product=None):
                     "The pot takes the same money as paying now, so it is affordable exactly when paying now is.",
                     f"At Bank Rate ({rate:g}% a year) the pot would earn about £{pot['interest']:,.2f} before the last "
                     f"instalment ({POT_ASSUMPTION}). It is not deducted from the cost.",
-                    spend_note]),
+                    s75_bnpl, spend_note]),
         dict(kind="bnplPlain", label="Pay in 3, without a pot", affordable=left_plain >= 0
-             and monthly["leftOver"] - third >= 0, leftAfter=left_plain, cost=0.0,
+             and monthly["leftOver"] is not None and monthly["leftOver"] - third >= 0, leftAfter=left_plain, cost=0.0,
              shortfallProbability=shortfall(due_now), schedule=sched,
-             notes=[f"£{due_now:,.2f} is due before {'payday' if payday else 'the same date next month'}; the later "
-                    "instalments come from future income.",
+             notes=[f"£{due_now:,.2f} is due before {'payday' if payday else 'the same date next month'}, including the "
+                    "first instalment today; the later instalments come from future income.",
                     f"Each later instalment is £{third:,.2f}. A month's income less committed payments and existing "
                     f"BNPL is £{monthly['afterCommitted']:,.2f}; after typical everyday spending it is "
-                    f"£{monthly['leftOver']:,.2f}.",
-                    "A missed instalment can bring a late fee from the provider.", spend_note]),
+                    + (f"£{monthly['leftOver']:,.2f}." if monthly["leftOver"] is not None else "unknown."),
+                    *caution, "A missed instalment can bring a late fee from the provider.", s75_bnpl, spend_note]),
         dict(kind="card0", label="0% purchase credit card", affordable=None, leftAfter=None, cost=None,
              shortfallProbability=None,
              notes=["We have no data on your cards: this depends on whether you hold a card with a 0% purchase "
@@ -474,10 +503,10 @@ def assess(tx, price, today=None, merchant=None, product=None):
                     f"Leaving £{price:,.2f} in an easy-access account until the card is cleared would earn about "
                     f"£{card_float:,.2f} at Bank Rate ({rate:g}% a year) over an assumed {CARD_DAYS} days "
                     f"({POT_ASSUMPTION}).",
-                    "Purchases of £100 to £30,000 on a credit card are usually covered by Section 75 of the Consumer "
-                    "Credit Act; check the details." if in_s75 else
-                    f"Section 75 of the Consumer Credit Act usually covers credit-card purchases of £100 to £30,000; "
-                    f"£{price:,.2f} is outside that range.",
+                    f"Section 75 of the Consumer Credit Act usually covers {S75_RANGE} bought on a credit card; check "
+                    "the details." if in_s75 else
+                    f"Section 75 of the Consumer Credit Act usually covers {S75_RANGE} bought on a credit card (or with "
+                    f"regulated third-party pay-in-3); £{price:,.2f} is outside that range.",
                     "Affordability is judged as for paying now: the card is assumed to be cleared before or around "
                     "payday, so the money leaves within this pay period. We have no data on your cards or their limits.",
                     spend_note]),
@@ -489,6 +518,7 @@ def assess(tx, price, today=None, merchant=None, product=None):
         safe = safe_before = None
         if not income:
             committed_due = None
+        if not income or missed:
             monthly["income"] = None
         if any(p["uncertain"] for p in plans):
             monthly["bnpl"] = None
@@ -500,12 +530,17 @@ def assess(tx, price, today=None, merchant=None, product=None):
 
     sale = next(((d, n) for d, n in SALES if 0 <= (d - today).days <= 60), None)
     better, hist = better_price(product, price, merchant)
+    # Float interest only for options marked affordable (both need the full price set aside); the saving names the shop.
     verdict = [f"spreading this purchase with pay-in-3 and the pot would earn about £{pot['interest']:,.2f} in "
-               f"interest at {rate:.2f}%"] if pot["interest"] > 0 else []
+               f"interest at {rate:.2f}%"] if pot["interest"] > 0 and options[1]["affordable"] else []
     verdict += [f"paying by credit card and clearing it in full would earn about £{card_float:,.2f} over an "
-                f"assumed {CARD_DAYS} days at the same rate"] if card_float > 0 else []
-    verdict += [f"the cheapest mainstream price elsewhere would save £{better['saving']:,.2f}"] if (
-        better and better["saving"]) else []
+                f"assumed {CARD_DAYS} days at the same rate"] if card_float > 0 and options[4]["affordable"] else []
+    if better and better["saving"]:
+        c = better["cheapest"]
+        verdict.append((f"the catalogue price at {c['retailer']} itself (£{c['price']:,.2f})"
+                        if merchant and merchant.strip().lower() == c["retailer"].lower()
+                        else f"the cheapest mainstream price, at {c['retailer']} (£{c['price']:,.2f}),")
+                       + f" would save £{better['saving']:,.2f}")
     fv = "; ".join(verdict)
     return dict(
         asOf=as_of.isoformat(), today=today.isoformat(), price=money(price), merchant=merchant,
@@ -514,7 +549,7 @@ def assess(tx, price, today=None, merchant=None, product=None):
         committed=committed, committedDueBeforePayday=committed_due,
         bnplPlans=plans, bnplActive=[p for p in plans if p["remaining"] != 0], bnplDueBeforePayday=bnpl_due,
         balance=balance, safeToSpend=safe, safeToSpendBeforeEverydaySpending=safe_before,
-        assessmentStatus="incomplete" if warnings else "estimated", assessmentWarnings=warnings,
+        assessmentStatus="incomplete" if warnings else "estimated", assessmentWarnings=warnings + caution,
         predictedSpendingUntilPayday=predicted,
         safeToSpendDefinition=SAFE_DEF + (" Values are null because affordability cannot be established. "
                                          + " ".join(warnings) if warnings else ""),
@@ -585,6 +620,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path != "/assess":
             return self.send(404, dict(error="Unknown path; POST /assess."))
+        if self.headers.get_content_type() != "application/json":  # also makes browsers send a CORS preflight
+            return self.send(415, dict(error="Send the body with Content-Type: application/json."))
         try:
             size = self.headers.get("Content-Length", "")
             size = int(size) if size.isdigit() else 0
@@ -592,7 +629,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise StatementError(f"Send a JSON body of at most {MAX_BODY} bytes.")
             try:
                 req = json.loads(self.rfile.read(size))
-            except (json.JSONDecodeError, UnicodeDecodeError):
+            except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
                 raise StatementError("The body is not valid JSON.") from None
             if not isinstance(req, dict) or sum(k in req for k in ("persona", "csv", "bank")) != 1:
                 raise StatementError('Send an object with exactly one of "persona", "csv" or "bank", plus "price".')
@@ -701,10 +738,69 @@ def check_regressions(text):
     return malformed
 
 
+def check_t23(text):
+    """T23 review regressions in the engine, on persona001's statement (salary on the 28th; payday 27 November)."""
+    import bayes
+    tx = parse(text)
+
+    def rethread(rows, start):
+        out = []
+        for t in rows:
+            start += t["credit"] - t["debit"]
+            out.append(dict(t, balance=money(start)))
+        return out
+
+    # No full calendar month of card spending: the Bayesian estimate with a warning, never £0; still estimated.
+    rows = [t for t in tx if dt.date(2026, 9, 10) <= t["date"] <= dt.date(2026, 10, 20) and t["type"] != "BGC"]
+    rows += [dict(date=dt.date(2026, m, 15), type="BGC", desc="EMPLOYER SALARY", debit=0.0, credit=2400.0, balance=0.0)
+             for m in (9, 10)]
+    rows = rethread(sorted(rows, key=lambda t: t["date"]), 1000.0)
+    a = assess(rows, 600)
+    m = a["monthly"]
+    assert m["monthsUsed"] == 0 and a["assessmentStatus"] == "estimated", m
+    assert any("no full calendar month" in w for w in a["assessmentWarnings"])
+    assert m["typicalCardSpending"] > 100 and m["leftOver"] == money(m["afterCommitted"] - m["typicalCardSpending"]), m
+    assert any("no full calendar month" in n for n in a["options"][2]["notes"])
+
+    # The latest salary missing: incomplete, with a warning naming the date it was expected.
+    i = max(k for k, t in enumerate(tx) if t["type"] == "BGC")
+    gone = [dict(t, balance=money(t["balance"] - tx[i]["credit"]) if k > i else t["balance"]) for k, t in enumerate(tx) if k != i]
+    a = assess(gone, 50)
+    assert a["assessmentStatus"] == "incomplete" and any(str(tx[i]["date"]) in w for w in a["assessmentWarnings"])
+    assert a["monthly"]["income"] is None and a["safeToSpend"] is None and all(o["affordable"] is None for o in a["options"])
+
+    # Buying on payday: the pay-in-3 instalment due today counts before payday, as paying now does.
+    a = assess(tx, 300, dt.date(2026, 11, 27))
+    o = {x["kind"]: x for x in a["options"]}
+    assert a["income"]["nextPayday"] == "2026-11-27" and o["bnplPlain"]["schedule"][0]["due"] == "2026-11-27"
+    assert o["bnplPlain"]["leftAfter"] == money(a["safeToSpend"] - 100) and o["payNow"]["leftAfter"] == money(a["safeToSpend"] - 300)
+    early = [t for t in tx if t["date"] < dt.date(2026, 10, 28)]  # ends the day before payday: today = payday by default
+    a = assess(early, 300)
+    o, ps = {x["kind"]: x for x in a["options"]}, a["predictedSpendingUntilPayday"]
+    assert a["today"] == a["income"]["nextPayday"] == "2026-10-28" and a["assessmentStatus"] == "estimated"
+    assert ps["firstDay"] is None and ps["lastDay"] is None and ps["mean"] == 0
+    assert o["bnplPlain"]["leftAfter"] == money(a["safeToSpend"] - 100)
+    q = bayes.shortfall_probability(early, 300, pay_in_3=True)["probability"]
+    assert abs(q - o["bnplPlain"]["shortfallProbability"]) < 1e-4, q
+
+    # Section 75: over £100 and up to £30,000, noted for regulated pay-in-3 as well as cards.
+    for p, cover in ((100, False), (100.01, True), (30000, True), (30000.01, False)):
+        o = {x["kind"]: x for x in assess(tx, p)["options"]}
+        assert o["cardPaidInFull"]["section75"] is cover, p
+        assert all(any("Section 75" in n and "pay-in-3" in n for n in o[k]["notes"]) for k in ("bnplPot", "bnplPlain"))
+
+    # floatVerdict: no float interest from options marked unaffordable; a saving at the merchant itself is not elsewhere.
+    a = assess(tx, 229.99, dt.date(2026, 11, 7), "amazon uk", "P02")
+    assert a["floatVerdict"].endswith("; the catalogue price at Amazon UK itself (£199.00) would save £30.99."), a["floatVerdict"]
+    a = assess(tx, money(assess(tx, 50)["safeToSpend"] + 50))
+    assert a["options"][0]["affordable"] is False and a["floatVerdict"] is None, a["floatVerdict"]
+
+
 def check():
     files = sorted(STATEMENTS.glob("persona[0-9][0-9][0-9]_*.csv"))
     assert files, f"no persona CSVs in {STATEMENTS}"
     malformed = check_regressions(files[0].read_text(encoding="utf-8"))
+    check_t23(files[0].read_text(encoding="utf-8"))
     prices, tally = (50, 300, 1200), {p: [0, 0, 0] for p in (50, 300, 1200)}
     for f in files:
         text = f.read_text(encoding="utf-8")
@@ -733,7 +829,7 @@ def check():
                 "cardPaidInFull"]["shortfallProbability"] and o["card0"]["shortfallProbability"] is None
             assert 0 <= o["bnplPlain"]["shortfallProbability"] <= o["payNow"]["shortfallProbability"] <= 1, f.name
             assert o["cardPaidInFull"]["affordable"] == o["payNow"]["affordable"] and o["cardPaidInFull"]["cost"] == 0
-            assert o["cardPaidInFull"]["section75"] == (100 <= p <= 30000)
+            assert o["cardPaidInFull"]["section75"] == (100 < p <= 30000)
             assert o["cardPaidInFull"]["floatInterest"]["interest"] == money(p * o["cardPaidInFull"]["floatInterest"][
                 "rateAnnual"] / 100 * CARD_DAYS / 365)
             if f.name[7:10] in ("001", "037", "073") and p == 300:  # same probability as bayes.shortfall_probability
@@ -800,12 +896,22 @@ def check():
     for s in (srv, bank):
         threading.Thread(target=s.serve_forever, daemon=True).start()
     burl = f"http://127.0.0.1:{bank.server_port}"
+    os.environ["BANK_ALLOWED_HOSTS"] = burl  # the check's ephemeral mock-bank port
     url = f"http://127.0.0.1:{srv.server_port}"
     post = lambda body: urllib.request.urlopen(urllib.request.Request(url + "/assess", data=body,
                                                                       headers={"Content-Type": "application/json"}))
     try:
         with urllib.request.urlopen(url + "/health") as r:
             assert json.load(r) == {"status": "ok"} and r.headers["Access-Control-Allow-Origin"] == "*"
+        for kind in ("text/plain", None):  # a simple (preflight-free) cross-origin POST is refused
+            req = urllib.request.Request(url + "/assess", data=b'{"persona": "persona001", "price": 50}',
+                                         headers={"Content-Type": kind} if kind else {})
+            try:
+                urllib.request.urlopen(req)
+            except urllib.error.HTTPError as e:
+                assert e.code == 415 and json.load(e)["error"], kind
+            else:
+                raise AssertionError(f"accepted Content-Type {kind}")
         pid = files[0].name[:10]
         with post(json.dumps(dict(persona=pid, price=300, merchant="Test")).encode()) as r:
             out = json.load(r)
@@ -818,7 +924,8 @@ def check():
                 assert json.load(r) | dict(persona=pid) == out
         bad_bank = [dict(bank=b, price=50) for b in (dict(baseUrl="http://example.com", persona=pid),
                     dict(baseUrl="file:///etc/passwd", persona=pid), dict(baseUrl=burl), dict(baseUrl=burl, token="x" * 40),
-                    dict(baseUrl=burl, persona="persona999"), dict(baseUrl=burl, persona=pid, path="/"), "x")]
+                    dict(baseUrl=burl, persona="persona999"), dict(baseUrl=burl, persona=pid, path="/"), "x",
+                    dict(baseUrl=burl + "/internal/admin", persona=pid), dict(baseUrl="http://127.0.0.1:1", persona=pid))]
         bad_bank.append(dict(persona=pid, bank=dict(baseUrl=burl, persona=pid), price=50))
         with post(json.dumps(dict(persona=pid, price=229.99, merchant="John Lewis", product="P02",
                                   today="2026-11-07")).encode()) as r:
@@ -829,7 +936,8 @@ def check():
                 f"Spreading this purchase with pay-in-3 and the pot would earn about "
                 f"£{out['options'][1]['potInterest']['interest']:,.2f} in interest at {r:.2f}%; paying by credit card "
                 f"and clearing it in full would earn about £{money(229.99 * r / 100 * CARD_DAYS / 365):,.2f} over an "
-                f"assumed {CARD_DAYS} days at the same rate; the cheapest mainstream price elsewhere would save £30.99.")
+                f"assumed {CARD_DAYS} days at the same rate; the cheapest mainstream price, at Amazon UK (£199.00), "
+                "would save £30.99.")
             json.dumps(out, allow_nan=False)  # no NaN or infinity reaches the extension
         with post(json.dumps(dict(csv=files[0].read_text(encoding="utf-8"), price=50)).encode()) as r:
             assert json.load(r)["income"]
@@ -846,7 +954,7 @@ def check():
                      json.dumps(dict(csv="garbage", price=3)).encode(), b'{"persona": "persona001", "price": -1}',
                      b'{"persona": "persona001", "price": 3, "product": 2}',
                      *(json.dumps(dict(csv=text, price=50)).encode() for text in malformed),
-                     *(json.dumps(b).encode() for b in bad_bank)):
+                     *(json.dumps(b).encode() for b in bad_bank), b"[" * 100_000 + b"]" * 100_000):
             try:
                 post(body)
             except urllib.error.HTTPError as e:
