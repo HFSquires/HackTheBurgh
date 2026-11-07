@@ -41,3 +41,6 @@ npm-debug.log*
 *.fls
 *.synctex.gz
 *.out
+
+# Large raw downloads (see data/README.md for the download command)
+data/ashe_table14_2025revised.zip

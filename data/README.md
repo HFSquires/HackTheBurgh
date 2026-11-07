@@ -1,0 +1,17 @@
+# data/
+
+Raw inputs exactly as received; never edited. Obtained on 7 November 2026 by the T05 sub-agent (Claude).
+
+| File | Source | Licence | Notes |
+|---|---|---|---|
+| `personas_rows_offset0.json` ... `personas_rows_offset400.json` | Hugging Face datasets-server `rows` API, `nvidia/Nemotron-Personas-UK`, config `default`, split `train`, offsets 0, 100, 200, 300, 400, length 100 each (500 rows; 53 have `region` = `Scotland`) | CC BY 4.0 (credit NVIDIA in the demo) | Unfiltered pages as returned. The datasets-server `filter` endpoint failed with an authentication-check error on 7 November, so Scottish rows are selected in code. `country` is `United Kingdom` for every row; Scotland is in `region` |
+| `ashe_table14_7a_annual_gross_2025revised.xlsx` | ONS ASHE Table 14, 2025 revised edition, file "Table 14.7a Annual pay - Gross 2025", extracted unchanged from `ashetable142025revised.zip`; page https://www.ons.gov.uk/employmentandlabourmarket/peopleinwork/earningsandworkinghours/datasets/occupation4digitsoc2010ashetable14 | Open Government Licence v3.0 | SOC 2020, 3-digit groups published (codes with a leading apostrophe), UK only |
+| `fs_workbook2_by_income_fye2025.xlsx` | ONS Family Spending workbook 2 (by income), FYE 2025: https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/datasets/familyspendingworkbook2expenditurebyincome/fye2025/workbook2expenditurebyincome.xlsx | Open Government Licence v3.0 | Tables A4, A23, A32 used |
+| `fs_workbook3_by_region_fye2025.xlsx` | ONS Family Spending workbook 3 (by region), FYE 2025: https://www.ons.gov.uk/file?uri=/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/datasets/familyspendingworkbook3expenditurebyregion/fye2025/workbook3expenditurebyregion.xlsx | Open Government Licence v3.0 | Tables A33 and A35 used (three-year average, FYE 2023 to 2025) |
+| `ashe_table14_2025revised.zip` (gitignored, 9.6 MB) | https://www.ons.gov.uk/file?uri=/employmentandlabourmarket/peopleinwork/earningsandworkinghours/datasets/occupation4digitsoc2010ashetable14/2025revised/ashetable142025revised.zip | Open Government Licence v3.0 | Download: `curl -L -A "Mozilla/5.0" -o data/ashe_table14_2025revised.zip "<URL>"`, then extract the Table 14.7a file. Only the extracted workbook is needed |
+
+Note: ONS also lists ASHE 2025 provisional and a 2026 provisional edition on the same page; the 2025 revised edition was used because it matches the spending period (April 2024 to March 2025).
+
+## Log
+
+- 2026-11-07 (Claude, T05): downloaded the files above.
