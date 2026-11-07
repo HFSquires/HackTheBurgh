@@ -18,3 +18,4 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-07 (notion-keeper, Claude): On Harrison's instruction, added a "Demo data" subsection with his two CSV statements to the Notion page, the agent's demo-data proposals under Open questions and two notes under Notes from Claude; updated `BRIEF.md` and `DECISIONS.md`.
 - 2026-11-07 (Claude): Checked Nemotron-Personas-UK's fields (no income field) and recorded it as the persona source; added T05 (mock statement generator).
 - 2026-11-07 (notion-keeper, Claude): On Harrison's instruction, marked the demo-data proposals a to f accepted on the Notion page and moved "Notes from Claude" to the new child page "Claude's notes and sources" with a Sources section; `BRIEF.md` updated.
+- 2026-11-07 (Claude): Created the private GitHub repository https://github.com/HFSquires/HackTheBurgh and pushed `main`.

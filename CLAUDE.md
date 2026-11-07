@@ -135,7 +135,7 @@ LaTeX documents follow the `latex-house-style` skill and its style guide (`C:\Us
 
 ## Open items
 
-The challenge is Bank of Scotland's "Smart Cost of Living"; the idea is an affordability browser extension with an opt-in buy-now-pay-later float, whose scope is still open (see `BRIEF.md`, `DECISIONS.md`). The rules, judging criteria, deadline and team are not yet known. There is no GitHub remote yet. The web and interface palette above was extrapolated by an agent and has not yet been confirmed by the user.
+The challenge is Bank of Scotland's "Smart Cost of Living"; the idea is an affordability browser extension with an opt-in buy-now-pay-later float, whose scope is still open (see `BRIEF.md`, `DECISIONS.md`). The rules, judging criteria, deadline and team are not yet known. The GitHub remote is the private repository https://github.com/HFSquires/HackTheBurgh (created 7 November 2026 so that Harrison's teammates can follow the work); it must not be made public. The web and interface palette above was extrapolated by an agent and has not yet been confirmed by the user.
 
 ## Log
 
@@ -148,3 +148,4 @@ The challenge is Bank of Scotland's "Smart Cost of Living"; the idea is an affor
 - 2026-11-07 (Claude): After the session restart, recreated the 5-minute Notion check with the registered agent types (a Haiku check now costs about 25,000 tokens, down from 58,000) and, on the user's instruction, scheduled it to stop at midday on 8 November 2026.
 - 2026-11-07 (Claude): On the user's instruction, chat decisions and proposals are now synced to the Notion page; recorded the choice of Nemotron-Personas-UK for mock statements and added T05.
 - 2026-11-07 (Claude): On the user's instruction, allowed `notion-keeper` to create Notion subpages for long or reference sections; both Notion agents now also check child pages for edits.
+- 2026-11-07 (Claude): On the user's instruction, created the private GitHub repository `HFSquires/HackTheBurgh` and pushed `main`, so that teammates can be invited; it is not to be public.
