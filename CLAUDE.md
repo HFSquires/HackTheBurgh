@@ -1,6 +1,6 @@
 # HackTheBurgh 2026
 
-Code and records for the HackTheBurgh hackathon, started 7 November 2026. The topic had not been announced when this repository was set up. Current state: challenge and idea recorded; no code yet.
+Code and records for the HackTheBurgh hackathon, started 7 November 2026. The topic had not been announced when this repository was set up. Current state (7 November 2026): synthetic data (generation-1 statements and generation-2 Open Banking data for 100 personas), a mock Open Banking bank, the statement parser and detectors (`statements.py`) and Auro's extension and account site are in place. The model is Andrew's (`model outline/`), designed but not yet built; the old Bayesian model and affordability engine are in `archive/` (task T29). The team joins the back end to the front end itself.
 
 `CLAUDE.md` (read by Claude Code) and `AGENTS.md` (read by Astra and other agents) are identical. Whoever edits one copies it over the other in the same commit. Every other folder in this repository that gets a `CLAUDE.md` gets an identical `AGENTS.md` beside it, and the reverse. Both files are self-contained: they restate the rules from Harrison's skills and from the PhD workspace `CLAUDE.md` (`C:\Users\s2191671\OneDrive - University of Edinburgh\PhD\CLAUDE.md`) that apply here, so do not rely on `@` imports or on instruction files in parent folders.
 
@@ -65,6 +65,8 @@ Fix bugs at the root cause, not the symptom: search every caller of the function
 | `Analysis/[<group>/]` | Derived tables and intermediate outputs, written by code |
 | `Figures/[<group>/]` | Plots (PDF and SVG), each with its companion statistics `.md` |
 | `Presentation/` | The demo deck, if there is one |
+| `model outline/` | The model's design: Andrew's outline and Claude's mapping and implementation instructions |
+| `archive/` | Retired code and outputs, kept for reference and not maintained; `archive/README.md` lists what and why |
 
 Create a folder only when it is first needed. Outputs are written into `Figures/` and `Analysis/` by code and are never moved by hand. New dated folders are named `YYYY-MM-DD_Name`.
 
@@ -154,3 +156,4 @@ The challenge is Bank of Scotland's "Smart Cost of Living"; the idea is an affor
 - 2026-11-07 (Claude): On Harrison's instruction, interfaces now use Auro's front-end style instead of the house palette, and back-end work merges into Auro's front end rather than replacing it.
 - 2026-11-07 (Claude): Harrison confirmed that plots keep the TeXFormat style, and set the direction: one tool built on Auro's extension with our data, and a model trained on the 100 personas' data.
 - 2026-11-07 (Claude): New session after the usage limit. On Harrison's request wrote the model outline (`model outline/MODEL_OUTLINE.md`, building on Andrew's `HackTheBurgh.md`); Harrison: "dont implement yet". Restarted the interrupted T22 engine, T26 and T27 work.
+- 2026-11-07 (Claude): On Harrison's instruction ("scrap old model implementations and clean / archive old files ... we intend to simplify the back-end ... we will then merge this with the front-end afterwards (do not do this for us)"), T29 archived the old model and engine and kept the parser and detectors as `statements.py`; T26 parked unmerged, T22 stopped, T27 merged. Added `model outline/` and `archive/` to File organisation.
