@@ -6,7 +6,7 @@ Files: `balances_and_overdraft.pdf`, `balances_and_overdraft.svg` (this file: `b
 
 ## Source data
 
-Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `4287a78`; read by `ob_figures.py` (commit `unknown` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
+Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `9107100`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
 
 ## Filters, transformations and units
 
@@ -26,33 +26,33 @@ n = 100 for every day and month.
 
 | Month | Persons overdrawn at end of a day | Persons beyond arranged limit |
 |---|---|---|
-| Nov 2025 | 5 | 3 |
-| Dec 2025 | 6 | 3 |
-| Jan 2026 | 6 | 3 |
-| Feb 2026 | 7 | 4 |
-| Mar 2026 | 7 | 5 |
-| Apr 2026 | 7 | 5 |
-| May 2026 | 7 | 4 |
-| Jun 2026 | 7 | 5 |
-| Jul 2026 | 7 | 5 |
-| Aug 2026 | 10 | 5 |
-| Sep 2026 | 10 | 5 |
-| Oct 2026 | 10 | 5 |
+| Nov 2025 | 4 | 0 |
+| Dec 2025 | 4 | 2 |
+| Jan 2026 | 4 | 2 |
+| Feb 2026 | 5 | 2 |
+| Mar 2026 | 5 | 3 |
+| Apr 2026 | 5 | 3 |
+| May 2026 | 5 | 3 |
+| Jun 2026 | 6 | 3 |
+| Jul 2026 | 6 | 3 |
+| Aug 2026 | 5 | 3 |
+| Sep 2026 | 5 | 3 |
+| Oct 2026 | 5 | 3 |
 
 Daily median and quartiles (selected days):
 
 | Date | Q1 [GBP] | Median [GBP] | Q3 [GBP] | Persons below 0 |
 |---|---|---|---|---|
-| 2025-11-01 | 1,382.33 | 1,916.41 | 2,521.41 | 0 |
-| 2026-01-30 | 3,436.58 | 4,969.01 | 7,103.72 | 3 |
-| 2026-04-30 | 4,152.09 | 6,533.90 | 10,195.76 | 3 |
-| 2026-07-29 | 4,961.64 | 8,879.15 | 13,807.15 | 3 |
-| 2026-10-31 | 5,437.18 | 10,981.61 | 17,043.25 | 3 |
+| 2025-11-01 | 1,437.34 | 1,874.07 | 2,531.40 | 0 |
+| 2026-01-30 | 3,638.93 | 5,267.53 | 7,462.18 | 0 |
+| 2026-04-30 | 4,576.60 | 7,407.52 | 10,970.54 | 1 |
+| 2026-07-29 | 5,246.47 | 9,696.32 | 14,886.35 | 2 |
+| 2026-10-31 | 6,115.82 | 12,068.90 | 18,137.32 | 3 |
 
 ## Statistics
 
-Over the year 12 persons were overdrawn at the end of at least one day and 5 were beyond their arranged limit on at least one day.
-The median balance moved from GBP 1,916.41 on 1 November 2025 to GBP 10,981.61 on 31 October 2026. No tests or
+Over the year 6 persons were overdrawn at the end of at least one day and 3 were beyond their arranged limit on at least one day.
+The median balance moved from GBP 1,874.07 on 1 November 2025 to GBP 12,068.90 on 31 October 2026. No tests or
 error bars (not applicable; quartiles describe the spread across persons).
 
 ## Interpretation

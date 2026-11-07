@@ -15,3 +15,4 @@ Derived tables behind the seven figures in `Figures/open_banking/`, written by `
 ## Log
 
 - 2026-11-07 (Claude, T25 sub-agent): first version. Everyday spending is defined in each companion file in `Figures/open_banking/`. Three lumpy purchases listed in `ground_truth.csv` never appear in the transactions (the generator foregoes card purchases while the main account is overdrawn) and are skipped.
+- 2026-11-07 (Claude, T24 sub-agent): regenerated on the corrected statements (rent scaled by regional gross rent, council tax limited to the council-tax share of ONS 13.1, package holidays out of the recreation pool). Mean everyday spending 661.26 GBP a month (was 653.81); 6 persons overdrawn at a day end (was 12), 3 beyond the arranged limit (was 5).

@@ -6,7 +6,7 @@ Files: `where_the_money_goes.pdf`, `where_the_money_goes.svg` (this file: `where
 
 ## Source data
 
-Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `4287a78`; read by `ob_figures.py` (commit `unknown` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
+Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `9107100`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
 
 ## Filters, transformations and units
 
@@ -19,27 +19,27 @@ Amounts are in GBP; pounds are the booked `Amount`. Plotted data: [`Analysis/ope
 
 ## Plotted data
 
-n = 100 personas, 52,031 booked everyday card purchases; total everyday spending GBP 784,574.36 (mean GBP 653.81 per household per month).
+n = 100 personas, 52,882 booked everyday card purchases; total everyday spending GBP 793,512.69 (mean GBP 661.26 per household per month).
 
 | Category | Total [GBP] | Share [%] | Transactions | Mean per household-month [GBP] |
 |---|---|---|---|---|
-| Groceries | 218,024.55 | 27.79 | 16,693 | 181.69 |
-| Transport and fuel | 127,688.03 | 16.27 | 9,095 | 106.41 |
-| Eating out and drink | 104,117.56 | 13.27 | 8,325 | 86.76 |
-| Home and DIY | 95,439.56 | 12.16 | 2,326 | 79.53 |
-| Health and personal care | 69,552.34 | 8.86 | 4,601 | 57.96 |
-| Leisure and entertainment | 64,704.88 | 8.25 | 5,140 | 53.92 |
-| Clothing and sport | 43,058.77 | 5.49 | 2,410 | 35.88 |
-| Other | 61,988.67 | 7.90 | 3,441 | 51.66 |
+| Groceries | 220,251.98 | 27.76 | 16,964 | 183.54 |
+| Transport and fuel | 128,985.10 | 16.25 | 9,247 | 107.49 |
+| Eating out and drink | 105,093.30 | 13.24 | 8,463 | 87.58 |
+| Home and DIY | 96,465.31 | 12.16 | 2,357 | 80.39 |
+| Health and personal care | 70,654.89 | 8.90 | 4,680 | 58.88 |
+| Leisure and entertainment | 65,700.46 | 8.28 | 5,230 | 54.75 |
+| Clothing and sport | 43,626.71 | 5.50 | 2,452 | 36.36 |
+| Other | 62,734.94 | 7.91 | 3,489 | 52.28 |
 
 ## Statistics
 
 The pie and bars show shares of one pooled total; there are no error bars, tests or fits (not applicable). The one-off
-purchases excluded here total GBP 128,102.48 in 192 transactions.
+purchases excluded here total GBP 128,697.42 in 192 transactions.
 
 ## Interpretation
 
 Groceries is the largest everyday category at 27.8% of spending, followed by Transport and fuel (16.3%)
-and Eating out and drink (13.3%). These shares follow from the ONS category averages and the generator's merchant
+and Eating out and drink (13.2%). These shares follow from the ONS category averages and the generator's merchant
 mix and are not a finding about customers.
 

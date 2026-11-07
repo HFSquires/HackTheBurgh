@@ -6,7 +6,7 @@ Files: `monthly_spending_by_category.pdf`, `monthly_spending_by_category.svg` (t
 
 ## Source data
 
-Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `4287a78`; read by `ob_figures.py` (commit `unknown` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
+Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `9107100`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
 
 ## Filters, transformations and units
 
@@ -21,18 +21,18 @@ Plotted data: [`Analysis/open_banking_figures/monthly_by_category.csv`](../../An
 
 ## Plotted data
 
-All households, n = 100; total mean GBP 653.81 per month.
+All households, n = 100; total mean GBP 661.26 per month.
 
 | Category | Mean [GBP/month] | SE [GBP/month] |
 |---|---|---|
-| Groceries | 181.69 | 7.77 |
-| Transport and fuel | 106.41 | 5.90 |
-| Eating out and drink | 86.76 | 4.58 |
-| Home and DIY | 79.53 | 3.70 |
-| Health and personal care | 57.96 | 2.66 |
-| Leisure and entertainment | 53.92 | 2.73 |
-| Clothing and sport | 35.88 | 1.84 |
-| Other | 51.66 | 2.38 |
+| Groceries | 183.54 | 7.54 |
+| Transport and fuel | 107.49 | 5.85 |
+| Eating out and drink | 87.58 | 4.51 |
+| Home and DIY | 80.39 | 3.61 |
+| Health and personal care | 58.88 | 2.59 |
+| Leisure and entertainment | 54.75 | 2.72 |
+| Clothing and sport | 36.36 | 1.81 |
+| Other | 52.28 | 2.36 |
 
 Owned outright, n = 22; total mean GBP 662.92 per month.
 
@@ -47,31 +47,31 @@ Owned outright, n = 22; total mean GBP 662.92 per month.
 | Clothing and sport | 40.25 | 4.35 |
 | Other | 50.45 | 4.37 |
 
-Social rented, n = 29; total mean GBP 733.87 per month.
+Social rented, n = 29; total mean GBP 735.39 per month.
 
 | Category | Mean [GBP/month] | SE [GBP/month] |
 |---|---|---|
-| Groceries | 211.25 | 17.84 |
-| Transport and fuel | 120.55 | 10.38 |
-| Eating out and drink | 97.19 | 7.90 |
-| Home and DIY | 84.72 | 7.95 |
-| Health and personal care | 62.38 | 4.63 |
-| Leisure and entertainment | 57.71 | 4.48 |
-| Clothing and sport | 40.41 | 3.44 |
-| Other | 59.64 | 5.14 |
+| Groceries | 211.84 | 17.75 |
+| Transport and fuel | 120.63 | 10.36 |
+| Eating out and drink | 97.33 | 7.86 |
+| Home and DIY | 84.79 | 7.94 |
+| Health and personal care | 62.60 | 4.59 |
+| Leisure and entertainment | 57.78 | 4.47 |
+| Clothing and sport | 40.50 | 3.42 |
+| Other | 59.93 | 5.10 |
 
-Private rented, n = 49; total mean GBP 602.34 per month.
+Private rented, n = 49; total mean GBP 616.64 per month.
 
 | Category | Mean [GBP/month] | SE [GBP/month] |
 |---|---|---|
-| Groceries | 161.67 | 9.75 |
-| Transport and fuel | 99.00 | 8.55 |
-| Eating out and drink | 80.49 | 7.08 |
-| Home and DIY | 75.92 | 5.06 |
-| Health and personal care | 55.10 | 4.02 |
-| Leisure and entertainment | 51.43 | 4.21 |
-| Clothing and sport | 31.24 | 2.37 |
-| Other | 47.47 | 3.14 |
+| Groceries | 165.11 | 9.17 |
+| Transport and fuel | 101.16 | 8.45 |
+| Eating out and drink | 82.07 | 6.92 |
+| Home and DIY | 77.63 | 4.81 |
+| Health and personal care | 56.85 | 3.88 |
+| Leisure and entertainment | 53.09 | 4.22 |
+| Clothing and sport | 32.15 | 2.31 |
+| Other | 48.58 | 3.11 |
 
 ## Statistics
 
@@ -80,7 +80,7 @@ tenure groups are small (22 to 49 persons) and no claim of a difference between 
 
 ## Interpretation
 
-The average household spent GBP 653.81 per month on everyday card purchases, of which Groceries was GBP 181.69.
+The average household spent GBP 661.26 per month on everyday card purchases, of which Groceries was GBP 183.54.
 Differences between tenure groups reflect the ONS tenure-specific spending averages used by the generator and the
 spread of habits across persons, not behaviour of real customers.
 
