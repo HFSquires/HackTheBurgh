@@ -1,0 +1,33 @@
+group,category,n,mean,se
+All households,Groceries,100,181.687125,7.766417
+All households,Transport and fuel,100,106.406692,5.900210
+All households,Eating out and drink,100,86.764633,4.584767
+All households,Home and DIY,100,79.532967,3.698029
+All households,Health and personal care,100,57.960283,2.658900
+All households,Leisure and entertainment,100,53.920733,2.725062
+All households,Clothing and sport,100,35.882308,1.842853
+All households,Other,100,51.657225,2.383553
+Owned outright,Groceries,22,187.299129,12.252557
+Owned outright,Transport and fuel,22,104.259053,12.869690
+Owned outright,Eating out and drink,22,86.982083,8.643496
+Owned outright,Home and DIY,22,80.727689,6.965582
+Owned outright,Health and personal care,22,58.499053,5.414858
+Owned outright,Leisure and entertainment,22,54.462273,5.657845
+Owned outright,Clothing and sport,22,40.249583,4.346005
+Owned outright,Other,22,50.446098,4.374082
+Social rented,Groceries,29,211.254655,17.838944
+Social rented,Transport and fuel,29,120.549282,10.384987
+Social rented,Eating out and drink,29,97.194626,7.903469
+Social rented,Home and DIY,29,84.724569,7.949200
+Social rented,Health and personal care,29,62.379511,4.632248
+Social rented,Leisure and entertainment,29,57.711178,4.480970
+Social rented,Clothing and sport,29,40.409971,3.441717
+Social rented,Other,29,59.644569,5.144269
+Private rented,Groceries,49,161.668299,9.752443
+Private rented,Transport and fuel,49,99.000833,8.550597
+Private rented,Eating out and drink,49,80.494150,7.076448
+Private rented,Home and DIY,49,75.923980,5.059568
+Private rented,Health and personal care,49,55.102925,4.022041
+Private rented,Leisure and entertainment,49,51.434269,4.210531
+Private rented,Clothing and sport,49,31.241854,2.369698
+Private rented,Other,49,47.473793,3.139170
