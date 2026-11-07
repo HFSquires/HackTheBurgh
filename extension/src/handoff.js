@@ -491,7 +491,9 @@ globalThis.ST = globalThis.ST || {};
   // `wanted` = { name, variant, qty, paymentMethod } from the original checkout.
   // `productUrl` = the product page, to fall back to if a basket link doesn't actually add the item.
   function record(url, merchant, details, added, wanted = {}, productUrl = url) {
-    return { domain: baseDomain(new URL(url).hostname), merchant, details, wanted, productUrl, created: Date.now(), step: 0, added };
+    // Started on the product page: never send the shopper back there from the basket.
+    const triedProductPage = new URL(url).pathname === new URL(productUrl).pathname;
+    return { domain: baseDomain(new URL(url).hostname), merchant, details, wanted, productUrl, triedProductPage, created: Date.now(), step: 0, added };
   }
 
   const atCheckoutForm = () => ST.detect.isCheckout() && formFields().some(fieldKey);
@@ -508,9 +510,24 @@ globalThis.ST = globalThis.ST || {};
     return want.filter((w) => page.includes(` ${w} `)).length / want.length >= 0.6;
   }
 
+  // Basket pages often fill in their items after loading: look again for a few seconds before deciding it's missing.
+  async function basketHasItemSoon(h) {
+    for (let i = 0; i < 4; i++) {
+      const has = basketHasItem(h);
+      if (has !== false) return has;
+      await sleep(1500);
+    }
+    return basketHasItem(h);
+  }
+
   // The basket link didn't add the item: try the product page once, else hand back. Never check out without it.
   async function itemMissing(h, status, overToYou) {
-    ST.log.error("handoff: the item isn't in this basket, so not going to checkout", { wanted: h.wanted?.name, page: location.pathname });
+    const page = ` ${words(document.body.innerText).join(" ")} `;
+    ST.log.error("handoff: the item isn't in this basket, so not going to checkout", {
+      wanted: h.wanted?.name,
+      wordsNotFound: [...new Set(words(h.wanted?.name))].filter((w) => !page.includes(` ${w} `)),
+      page: location.pathname,
+    });
     h.added = false;
     if (h.productUrl && !h.triedProductPage && new URL(h.productUrl).pathname !== location.pathname) {
       h.triedProductPage = true;
@@ -520,7 +537,7 @@ globalThis.ST = globalThis.ST || {};
       return true;
     }
     await store.set(h);
-    overToYou(`${h.wanted?.name || "Your item"} isn't in your ${h.merchant} basket, so we stopped before checkout`);
+    overToYou(`We couldn't spot ${h.wanted?.name || "your item"} in your ${h.merchant} basket, so we stopped before checkout. Check your basket`);
     return true;
   }
 
@@ -631,14 +648,14 @@ globalThis.ST = globalThis.ST || {};
     ST.log("page: ready", { waitedMs: waited, buttonsAndLinks: document.querySelectorAll("button, a[href]").length });
 
     if (atCheckoutForm()) {
-      if (basketHasItem(h) === false) return itemMissing(h, status, overToYou);
+      if ((await basketHasItemSoon(h)) === false) return itemMissing(h, status, overToYou);
       return finishAtCheckout(h, status, ask);
     }
 
     // 1) Simple rules: basket already has the item -> checkout button.
     const checkout = findButton(GO_TO_CHECKOUT);
     if (checkout && (h.added || /cart|basket|bag|trolley/i.test(location.pathname + location.hash) || h.step > 1)) {
-      if (basketHasItem(h) === false) return itemMissing(h, status, overToYou);
+      if ((await basketHasItemSoon(h)) === false) return itemMissing(h, status, overToYou);
       ST.log("handoff: rule clicked checkout", labelOf(checkout));
       status(`Going to checkout at ${h.merchant}`, "Your item is in the basket.");
       await sleep(400);
