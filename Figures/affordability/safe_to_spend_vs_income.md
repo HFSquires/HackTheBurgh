@@ -5,7 +5,7 @@ Files: `safe_to_spend_vs_income.pdf`, `safe_to_spend_vs_income.svg` (this file: 
 
 ## Source data
 
-The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `4617bf4`), read by `affordability.py` at commit `7098d56` (with `bayes.py` at commit `7098d56` for everyday spending), called by `affordability_figures.py` (commit `f209ff6` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
+The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `7fa4ca1`), read by `affordability.py` at commit `7098d56` (with `bayes.py` at commit `7098d56` for everyday spending), called by `affordability_figures.py` (commit `f209ff6` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
 
 ## Filters, transformations and units
 
@@ -51,19 +51,19 @@ All: 100. Owned outright: 22. Social rented: 29. Private rented: 49.
 
 | Group | n | Median | Q1 | Q3 | IQR | Min | Max | n below 0 |
 |---|---|---|---|---|---|---|---|---|
-| All | 100 | 3855.51 | 1418.74 | 5718.31 | 4299.58 | -3031.40 | 15059.36 | 14 |
-| Owned outright | 22 | 4974.22 | 3959.81 | 6671.66 | 2711.85 | 942.64 | 15059.36 | 0 |
-| Social rented | 29 | 5070.77 | 2408.31 | 7179.43 | 4771.12 | -414.70 | 12790.30 | 1 |
-| Private rented | 49 | 2326.69 | -39.40 | 4375.94 | 4415.34 | -3031.40 | 7275.75 | 13 |
+| All | 100 | 4638.00 | 1984.94 | 6579.35 | 4594.40 | -2355.02 | 15747.66 | 7 |
+| Owned outright | 22 | 5656.18 | 4456.61 | 7174.41 | 2717.80 | 1352.84 | 15747.66 | 0 |
+| Social rented | 29 | 5827.90 | 3380.16 | 7784.35 | 4404.19 | 44.69 | 14063.41 | 0 |
+| Private rented | 49 | 3135.50 | 936.16 | 4858.69 | 3922.53 | -2355.02 | 8340.54 | 7 |
 
 `monthly.leftOver` [GBP]:
 
 | Group | n | Median | Q1 | Q3 | IQR | Min | Max | n below 0 |
 |---|---|---|---|---|---|---|---|---|
-| All | 100 | 940.67 | 349.85 | 1400.95 | 1051.11 | -766.44 | 3746.52 | 14 |
-| Owned outright | 22 | 1230.70 | 997.73 | 1642.27 | 644.54 | 224.99 | 3746.52 | 0 |
-| Social rented | 29 | 1236.11 | 573.15 | 1776.29 | 1203.14 | -111.02 | 3165.91 | 1 |
-| Private rented | 49 | 567.04 | -45.25 | 1063.32 | 1108.57 | -766.44 | 1797.70 | 13 |
+| All | 100 | 1145.84 | 485.44 | 1612.31 | 1126.87 | -593.14 | 3916.00 | 8 |
+| Owned outright | 22 | 1400.88 | 1114.80 | 1759.91 | 645.11 | 328.43 | 3916.00 | 0 |
+| Social rented | 29 | 1425.27 | 831.95 | 1910.67 | 1078.72 | 0.73 | 3481.64 | 0 |
+| Private rented | 49 | 767.38 | 210.25 | 1201.02 | 990.77 | -593.14 | 2071.47 | 8 |
 
 Error bars: not applicable (none drawn).
 
@@ -75,8 +75,8 @@ p-values; read p only as far below 0.001.
 
 | y | rho | p |
 |---|---|---|
-| `safeToSpend` | 0.816 | 4.52e-16 |
-| `monthly.leftOver` | 0.814 | 5.37e-16 |
+| `safeToSpend` | 0.792 | 3.33e-15 |
+| `monthly.leftOver` | 0.788 | 4.65e-15 |
 
 No fit is drawn.
 
@@ -87,8 +87,8 @@ None (the engine is deterministic; the mock statements were generated with the s
 
 ## Interpretation
 
-Median `safeToSpend` is 3855.51 GBP (IQR 4299.58); 14 of
-100 households are below 0. Median `monthly.leftOver` is 940.67 GBP; 14 are below 0.
-The Spearman correlation of `safeToSpend` with income is 0.816. `safeToSpend` deducts the
-predicted everyday spending until payday (median 639.20 GBP); the mock end balances
+Median `safeToSpend` is 4638.00 GBP (IQR 4594.40); 7 of
+100 households are below 0. Median `monthly.leftOver` is 1145.84 GBP; 8 are below 0.
+The Spearman correlation of `safeToSpend` with income is 0.792. `safeToSpend` deducts the
+predicted everyday spending until payday (median 585.06 GBP); the mock end balances
 are still on the high side because several ONS spending items are excluded (`Analysis/mock_statements/README.md`).

@@ -4,31 +4,31 @@ Plot: `cold_start.pdf` / `.svg`. Written by `bayes.py`; regenerate with it.
 
 ## Source and transformations
 
-Source: the 100 statements in `Analysis/mock_statements/`, via `bayes.py` (which reuses `forecast.py` and `affordability.py`). Discretionary spending as in `affordability.card_spend` (card payments that are neither BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. Every model is fitted on the rows up to 30 September only (August and September); each person's prior comes from a fit on the other persons, by person-level 10-fold cross-validation with forecast.py's folds (seed 20261107). October is used only to score. Statements last changed in commit `4617bf4`; `bayes.py` at commit `7098d56`; `forecast.py` at commit `f209ff6`; `affordability.py` at commit `7098d56` (or later, if uncommitted changes were run).
+Source: the 100 statements in `Analysis/mock_statements/`, via `bayes.py` (which reuses `forecast.py` and `affordability.py`). Discretionary spending as in `affordability.card_spend` (card payments that are neither BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. Every model is fitted on the rows up to 30 September only (August and September); each person's prior comes from a fit on the other persons, by person-level 10-fold cross-validation with forecast.py's folds (seed 20261107). October is used only to score. Statements last changed in commit `7fa4ca1`; `bayes.py` at commit `7098d56`; `forecast.py` at commit `f209ff6`; `affordability.py` at commit `7098d56` (or later, if uncommitted changes were run).
 
 Model (full derivation in the docstring of `bayes.py`): daily discretionary spending, Gaussian on the raw scale; within a calendar month of D days each day has mean beta / D (beta: the person's monthly budget) and variance sigma^2, and two days of the same month have correlation (phi - 1) / (D - 1), so a month's total has variance phi D sigma^2. Normal-Inverse-Gamma prior on (beta, sigma^2) centred on a population regression of ln budget on ln net pay; exact conjugate update after each day; Student-t predictive for the sum over any set of future days. The independent-days model is the same with phi fixed at 1.
 
-Two example persons, chosen by rule: the persons whose prior mean budget is closest to (persona012) and furthest from (persona061) their posterior mean after 30 September (absolute log ratio). For t = 0 (prior only) to 61 days observed from 1 August, the monthly-budget posterior after the first t days: posterior mean of beta (line), 95 % central credible interval of beta (dark band), and 95 % central posterior predictive interval of the October total (light band; budget uncertainty plus October's own variation). Dashed: the generator's expected October discretionary spending (`forecast.generator_mean`, a reference using the generator's internals); dotted: the actual October total; grey vertical line: end of August. Each person's prior comes from the cross-validation fold that excludes them. Units GBP. n = 1 person per panel, 62 posteriors each.
+Two example persons, chosen by rule: the persons whose prior mean budget is closest to (persona091) and furthest from (persona061) their posterior mean after 30 September (absolute log ratio). For t = 0 (prior only) to 61 days observed from 1 August, the monthly-budget posterior after the first t days: posterior mean of beta (line), 95 % central credible interval of beta (dark band), and 95 % central posterior predictive interval of the October total (light band; budget uncertainty plus October's own variation). Dashed: the generator's expected October discretionary spending (`forecast.generator_mean`, a reference using the generator's internals); dotted: the actual October total; grey vertical line: end of August. Each person's prior comes from the cross-validation fold that excludes them. Units GBP. n = 1 person per panel, 62 posteriors each.
 
 ## Values at selected days
 
 | Person | Days observed | Prior mean [GBP] | Posterior mean budget [GBP] | 95 % credible [GBP] | Width [GBP] | 95 % predictive, October total [GBP] | Width [GBP] | a (posterior shape) |
 |---|---|---|---|---|---|---|---|---|
-| persona012 | 0 | 869.82 | 869.82 | 632.34 to 1107.31 | 474.97 | 628.28 to 1111.37 | 483.08 | 31.8 |
-| persona012 | 7 | 869.82 | 859.71 | 637.31 to 1082.11 | 444.80 | 632.94 to 1086.48 | 453.54 | 35.3 |
-| persona012 | 14 | 869.82 | 827.86 | 635.19 to 1020.53 | 385.33 | 630.51 to 1025.20 | 394.69 | 38.8 |
-| persona012 | 30 | 869.82 | 843.28 | 776.96 to 909.61 | 132.65 | 765.17 to 921.39 | 156.22 | 46.8 |
-| persona012 | 61 | 869.82 | 871.26 | 842.30 to 900.22 | 57.92 | 820.54 to 921.98 | 101.44 | 62.3 |
-| persona061 | 0 | 456.18 | 456.18 | 336.70 to 575.65 | 238.95 | 334.42 to 577.94 | 243.52 | 24.3 |
-| persona061 | 7 | 456.18 | 433.21 | 325.62 to 540.81 | 215.20 | 323.27 to 543.15 | 219.88 | 27.8 |
-| persona061 | 14 | 456.18 | 400.18 | 305.01 to 495.35 | 190.34 | 302.48 to 497.88 | 195.39 | 31.3 |
-| persona061 | 30 | 456.18 | 312.94 | 279.36 to 346.52 | 67.16 | 273.24 to 352.64 | 79.40 | 39.3 |
-| persona061 | 61 | 456.18 | 306.64 | 293.38 to 319.89 | 26.51 | 283.41 to 329.87 | 46.46 | 54.8 |
+| persona091 | 0 | 962.21 | 962.21 | 696.76 to 1227.65 | 530.89 | 692.30 to 1232.12 | 539.82 | 23.4 |
+| persona091 | 7 | 962.21 | 986.66 | 740.35 to 1232.97 | 492.62 | 735.57 to 1237.75 | 502.18 | 26.9 |
+| persona091 | 14 | 962.21 | 978.64 | 760.84 to 1196.44 | 435.60 | 755.60 to 1201.68 | 446.08 | 30.4 |
+| persona091 | 30 | 962.21 | 933.18 | 859.71 to 1006.65 | 146.94 | 846.65 to 1019.71 | 173.06 | 38.4 |
+| persona091 | 61 | 962.21 | 962.60 | 930.83 to 994.37 | 63.53 | 906.97 to 1018.23 | 111.27 | 53.9 |
+| persona061 | 0 | 421.26 | 421.26 | 310.06 to 532.47 | 222.41 | 307.86 to 534.67 | 226.81 | 25.1 |
+| persona061 | 7 | 421.26 | 398.74 | 298.23 to 499.25 | 201.03 | 295.96 to 501.52 | 205.56 | 28.6 |
+| persona061 | 14 | 421.26 | 369.51 | 280.49 to 458.53 | 178.05 | 278.03 to 460.99 | 182.95 | 32.1 |
+| persona061 | 30 | 421.26 | 290.75 | 259.15 to 322.36 | 63.21 | 253.21 to 328.30 | 75.09 | 40.1 |
+| persona061 | 61 | 421.26 | 284.46 | 271.76 to 297.17 | 25.41 | 262.19 to 306.74 | 44.55 | 55.6 |
 
 | Person | Generator mean, October [GBP] | Actual October [GBP] | Net monthly pay [GBP] |
 |---|---|---|---|
-| persona012 | 846.28 | 812.48 | 2973.19 |
-| persona061 | 308.41 | 305.28 | 1242.77 |
+| persona091 | 961.36 | 965.85 | 3814.81 |
+| persona061 | 286.10 | 283.53 | 1242.77 |
 
 Random seed: not applicable.
 

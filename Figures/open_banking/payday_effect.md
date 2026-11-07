@@ -6,7 +6,7 @@ Files: `payday_effect.pdf`, `payday_effect.svg` (this file: `payday_effect.md`),
 
 ## Source data
 
-Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `4287a78`; read by `ob_figures.py` (commit `unknown` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
+Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `9107100`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
 
 ## Filters, transformations and units
 
@@ -23,26 +23,26 @@ across the n = 100 persons; error bars are standard errors of the mean, SE = s /
 
 | Day | n | Mean [GBP/day] | SE |
 |---|---|---|---|
-| -5 | 100 | 17.991 | 1.015 |
-| -4 | 100 | 18.475 | 1.029 |
-| -3 | 100 | 18.590 | 1.104 |
-| -2 | 100 | 17.844 | 1.061 |
-| -1 | 100 | 17.887 | 1.014 |
-| 0 | 100 | 50.424 | 2.594 |
-| 1 | 100 | 52.209 | 2.768 |
-| 2 | 100 | 49.070 | 2.506 |
-| 3 | 100 | 17.501 | 0.843 |
-| 4 | 100 | 19.193 | 1.005 |
-| 5 | 100 | 17.896 | 0.989 |
-| 6 | 100 | 18.334 | 0.934 |
-| 7 | 100 | 18.292 | 0.907 |
-| 8 | 100 | 17.860 | 0.873 |
-| 9 | 100 | 18.142 | 0.908 |
-| 10 | 100 | 17.902 | 0.902 |
+| -5 | 100 | 18.400 | 0.989 |
+| -4 | 100 | 18.941 | 1.011 |
+| -3 | 100 | 18.808 | 1.086 |
+| -2 | 100 | 18.185 | 1.012 |
+| -1 | 100 | 18.179 | 0.979 |
+| 0 | 100 | 50.586 | 2.548 |
+| 1 | 100 | 52.345 | 2.730 |
+| 2 | 100 | 49.094 | 2.492 |
+| 3 | 100 | 17.674 | 0.817 |
+| 4 | 100 | 19.322 | 0.989 |
+| 5 | 100 | 17.996 | 0.984 |
+| 6 | 100 | 18.350 | 0.931 |
+| 7 | 100 | 18.482 | 0.904 |
+| 8 | 100 | 18.013 | 0.865 |
+| 9 | 100 | 18.349 | 0.881 |
+| 10 | 100 | 17.968 | 0.900 |
 
 ## Statistics
 
-Mean daily spending on days 0 to 2 is GBP 50.568, against GBP 18.147 on the other plotted days (ratio 2.79; ratio of means, no
+Mean daily spending on days 0 to 2 is GBP 50.675, against GBP 18.359 on the other plotted days (ratio 2.76; ratio of means, no
 uncertainty calculated). No tests were run (not applicable).
 
 ## Interpretation

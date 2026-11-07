@@ -1,12 +1,12 @@
 group,category,n,mean,se
-All households,Groceries,100,181.687125,7.766417
-All households,Transport and fuel,100,106.406692,5.900210
-All households,Eating out and drink,100,86.764633,4.584767
-All households,Home and DIY,100,79.532967,3.698029
-All households,Health and personal care,100,57.960283,2.658900
-All households,Leisure and entertainment,100,53.920733,2.725062
-All households,Clothing and sport,100,35.882308,1.842853
-All households,Other,100,51.657225,2.383553
+All households,Groceries,100,183.543317,7.542126
+All households,Transport and fuel,100,107.487583,5.851765
+All households,Eating out and drink,100,87.577750,4.511625
+All households,Home and DIY,100,80.387758,3.607864
+All households,Health and personal care,100,58.879075,2.594605
+All households,Leisure and entertainment,100,54.750383,2.721783
+All households,Clothing and sport,100,36.355592,1.811165
+All households,Other,100,52.279117,2.359820
 Owned outright,Groceries,22,187.299129,12.252557
 Owned outright,Transport and fuel,22,104.259053,12.869690
 Owned outright,Eating out and drink,22,86.982083,8.643496
@@ -15,19 +15,19 @@ Owned outright,Health and personal care,22,58.499053,5.414858
 Owned outright,Leisure and entertainment,22,54.462273,5.657845
 Owned outright,Clothing and sport,22,40.249583,4.346005
 Owned outright,Other,22,50.446098,4.374082
-Social rented,Groceries,29,211.254655,17.838944
-Social rented,Transport and fuel,29,120.549282,10.384987
-Social rented,Eating out and drink,29,97.194626,7.903469
-Social rented,Home and DIY,29,84.724569,7.949200
-Social rented,Health and personal care,29,62.379511,4.632248
-Social rented,Leisure and entertainment,29,57.711178,4.480970
-Social rented,Clothing and sport,29,40.409971,3.441717
-Social rented,Other,29,59.644569,5.144269
-Private rented,Groceries,49,161.668299,9.752443
-Private rented,Transport and fuel,49,99.000833,8.550597
-Private rented,Eating out and drink,49,80.494150,7.076448
-Private rented,Home and DIY,49,75.923980,5.059568
-Private rented,Health and personal care,49,55.102925,4.022041
-Private rented,Leisure and entertainment,49,51.434269,4.210531
-Private rented,Clothing and sport,49,31.241854,2.369698
-Private rented,Other,49,47.473793,3.139170
+Social rented,Groceries,29,211.835144,17.750525
+Social rented,Transport and fuel,29,120.626523,10.362158
+Social rented,Eating out and drink,29,97.328075,7.858909
+Social rented,Home and DIY,29,84.790115,7.939900
+Social rented,Health and personal care,29,62.602557,4.588268
+Social rented,Leisure and entertainment,29,57.777787,4.466815
+Social rented,Clothing and sport,29,40.503678,3.424762
+Social rented,Other,29,59.927759,5.099149
+Private rented,Groceries,49,165.112891,9.170010
+Private rented,Transport and fuel,49,101.161020,8.454103
+Private rented,Eating out and drink,49,82.074592,6.918999
+Private rented,Home and DIY,49,77.629660,4.805829
+Private rented,Health and personal care,49,56.846003,3.879469
+Private rented,Leisure and entertainment,49,53.088010,4.223085
+Private rented,Clothing and sport,49,32.152279,2.307814
+Private rented,Other,49,48.575357,3.109103

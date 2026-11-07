@@ -127,7 +127,7 @@ The style is 16:9, CMU Serif, a cream background `#F7F1E6`, headings in red `#D5
 
 ### Interfaces and web pages
 
-There is no established app style yet. Until the user decides otherwise, use the same palette: cream background `#F7F1E6`, black text, red `#D50032` headings and accents, DeepTeal `#005F73` as the base or link colour, the `tf.CYCLE` hex values for data series, and a serif face (CMU Serif or Computer Modern, falling back to a standard serif). Interactive charts follow the plot conventions above. If the brief or a sponsor requires its own branding, that takes precedence; record the choice in `DECISIONS.md`.
+Every interface, web page and dashboard uses the style of Auro's front end ("Second Thought": `extension/src/overlay.js` and `web/public/styles.css` are the reference; Harrison, 7 November 2026: "use auros front end style for all work here"). In short: a system sans-serif face (`ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`) with bold headings and slightly tight letter-spacing; background `#f7f7f5`, white cards with a `#e5e4e0` border and 14 to 16 px corners, ink `#17171c`, muted text `#6a6a75`; violet accent `#6d4aff` (`#8b6cff` in dark mode); the ring gradient `#7c5cff`, `#3ec9ff`, `#ff6ad5` for the brand mark and the first data series; green `#16a34a`, amber `#d97706` and red `#dc2626` only for good, caution and over-budget states; solid, rounded bars. Copy the values from Auro's files rather than retyping them where possible, and never edit Auro's files to restyle them. This replaces the earlier house palette for interfaces; plots made with Matplotlib keep the TeXFormat conventions above (Harrison, 7 November 2026: "plots are fine for now").
 
 ### Documents
 
@@ -135,7 +135,7 @@ LaTeX documents follow the `latex-house-style` skill and its style guide (`C:\Us
 
 ## Open items
 
-The challenge is Bank of Scotland's "Smart Cost of Living"; the idea is an affordability browser extension with an opt-in buy-now-pay-later float, whose scope is still open (see `BRIEF.md`, `DECISIONS.md`). The rules, judging criteria, deadline and team are not yet known. The GitHub remote is the private repository https://github.com/HFSquires/HackTheBurgh (created 7 November 2026 so that Harrison's teammates can follow the work); it must not be made public. The web and interface palette above was confirmed by Harrison for the extension interface on 7 November 2026 ("house palette"), in preference to sponsor branding.
+The challenge is Bank of Scotland's "Smart Cost of Living"; the idea is an affordability browser extension with an opt-in buy-now-pay-later float, whose scope is still open (see `BRIEF.md`, `DECISIONS.md`). The rules, judging criteria, deadline and team are not yet known. The GitHub remote is the private repository https://github.com/HFSquires/HackTheBurgh (created 7 November 2026 so that Harrison's teammates can follow the work); it must not be made public. The interface style was first the house palette (Harrison, 7 November 2026) and later the same day changed to Auro's front-end style for all interface work; see Interfaces and web pages. Harrison wants the front end merged with, not overwritten by, the back-end work, to make one system ("we want to merge not overwrite the front end to make a holistic system").
 
 ## Log
 
@@ -151,3 +151,6 @@ The challenge is Bank of Scotland's "Smart Cost of Living"; the idea is an affor
 - 2026-11-07 (Claude): On the user's instruction, created the private GitHub repository `HFSquires/HackTheBurgh` and pushed `main`, so that teammates can be invited; it is not to be public.
 - 2026-11-07 (Claude): Harrison confirmed the house palette for the interface and asked for real retailer prices where possible in the catalogue (T09).
 - 2026-11-07 (Claude): Paused the recurring Notion check on Harrison's instruction; restart only when he asks.
+- 2026-11-07 (Claude): On Harrison's instruction, interfaces now use Auro's front-end style instead of the house palette, and back-end work merges into Auro's front end rather than replacing it.
+- 2026-11-07 (Claude): Harrison confirmed that plots keep the TeXFormat style, and set the direction: one tool built on Auro's extension with our data, and a model trained on the 100 personas' data.
+- 2026-11-07 (Claude): New session after the usage limit. On Harrison's request wrote the model outline (`model outline/MODEL_OUTLINE.md`, building on Andrew's `HackTheBurgh.md`); Harrison: "dont implement yet". Restarted the interrupted T22 engine, T26 and T27 work.

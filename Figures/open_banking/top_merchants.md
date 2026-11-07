@@ -6,7 +6,7 @@ Files: `top_merchants.pdf`, `top_merchants.svg` (this file: `top_merchants.md`),
 
 ## Source data
 
-Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `4287a78`; read by `ob_figures.py` (commit `unknown` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
+Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `9107100`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
 
 ## Filters, transformations and units
 
@@ -17,25 +17,25 @@ Plotted data and all merchants: [`Analysis/open_banking_figures/merchants.csv`](
 
 ## Plotted data
 
-n = 100 persons; 52,223 booked card purchases in total, GBP 912,676.84.
+n = 100 persons; 53,074 booked card purchases in total, GBP 922,210.11.
 
 | Merchant | MCC | Total [GBP] | Everyday [GBP] | One-off [GBP] | Transactions | Persons |
 |---|---|---|---|---|---|---|
-| JET2HOLIDAYS | 4722 | 73,020.54 | 0.00 | 73,020.54 | 95 | 95 |
-| TESCO STORES | 5411 | 48,950.40 | 48,950.40 | 0.00 | 4234 | 99 |
-| SAINSBURYS S/MKTS | 5411 | 40,679.96 | 40,679.96 | 0.00 | 2803 | 99 |
-| CO-OP FOOD | 5411 | 40,248.95 | 40,248.95 | 0.00 | 2738 | 98 |
-| ALDI STORES | 5411 | 39,254.27 | 39,254.27 | 0.00 | 2745 | 99 |
-| ASDA SUPERSTORE | 5411 | 37,923.38 | 37,923.38 | 0.00 | 2616 | 98 |
-| CURRYS | 5732 | 37,818.47 | 23,573.94 | 14,244.53 | 1199 | 99 |
-| DFS | 5712 | 31,271.70 | 0.00 | 31,271.70 | 43 | 36 |
-| IKEA | 5712 | 24,769.10 | 24,769.10 | 0.00 | 577 | 97 |
-| ARGOS | 5399 | 23,945.57 | 23,945.57 | 0.00 | 589 | 97 |
-| B&Q | 5200 | 23,445.31 | 23,445.31 | 0.00 | 570 | 98 |
-| BARBERS | 7230 | 22,859.95 | 22,859.95 | 0.00 | 1124 | 98 |
-| SUPERDRUG | 5912 | 22,747.91 | 22,747.91 | 0.00 | 1160 | 98 |
-| HOME BARGAINS | 5331 | 22,596.36 | 22,596.36 | 0.00 | 551 | 98 |
-| ROYAL MAIL | 9402 | 22,570.00 | 22,570.00 | 0.00 | 1101 | 99 |
+| JET2HOLIDAYS | 4722 | 72,968.80 | 0.00 | 72,968.80 | 95 | 95 |
+| TESCO STORES | 5411 | 49,507.91 | 49,507.91 | 0.00 | 4314 | 100 |
+| SAINSBURYS S/MKTS | 5411 | 41,125.94 | 41,125.94 | 0.00 | 2849 | 100 |
+| CO-OP FOOD | 5411 | 40,451.84 | 40,451.84 | 0.00 | 2767 | 100 |
+| ALDI STORES | 5411 | 39,733.47 | 39,733.47 | 0.00 | 2797 | 100 |
+| ASDA SUPERSTORE | 5411 | 38,339.05 | 38,339.05 | 0.00 | 2661 | 100 |
+| CURRYS | 5732 | 38,069.00 | 23,824.47 | 14,244.53 | 1216 | 100 |
+| DFS | 5712 | 31,951.30 | 0.00 | 31,951.30 | 43 | 35 |
+| IKEA | 5712 | 25,082.00 | 25,082.00 | 0.00 | 587 | 99 |
+| ARGOS | 5399 | 24,175.11 | 24,175.11 | 0.00 | 593 | 98 |
+| B&Q | 5200 | 23,718.85 | 23,718.85 | 0.00 | 580 | 99 |
+| BARBERS | 7230 | 23,157.00 | 23,157.00 | 0.00 | 1146 | 100 |
+| SUPERDRUG | 5912 | 23,047.63 | 23,047.63 | 0.00 | 1182 | 99 |
+| ROYAL MAIL | 9402 | 22,880.67 | 22,880.67 | 0.00 | 1118 | 100 |
+| HOME BARGAINS | 5331 | 22,806.13 | 22,806.13 | 0.00 | 558 | 100 |
 
 ## Statistics
 
@@ -43,7 +43,7 @@ Totals only; no error bars, tests or fits (not applicable). The top 15 account f
 
 ## Interpretation
 
-JET2HOLIDAYS has the largest total (GBP 73,020.54), driven by one-off purchases where the red segment is large
-(73,020.54 GBP). Among everyday merchants, the supermarkets lead. The merchant list and the share of each
+JET2HOLIDAYS has the largest total (GBP 72,968.80), driven by one-off purchases where the red segment is large
+(72,968.80 GBP). Among everyday merchants, the supermarkets lead. The merchant list and the share of each
 merchant within a category are assumptions of the generator, not market shares.
 
