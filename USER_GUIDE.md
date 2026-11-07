@@ -1,6 +1,6 @@
 # User guide
 
-Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. At present the only runnable code is the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c). The browser extension does not exist yet.
+Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c) and the back end (`affordability.py`, task T07). The browser extension front end is being built by Auro (T10) and is not yet in the repository.
 
 ## Purpose
 
@@ -46,3 +46,17 @@ The CSV layout is an unchecked belief about the Lloyds export format. Net pay us
 ## Troubleshooting
 
 If the Hugging Face or ONS files need refreshing, use the URLs in `data/README.md`; the datasets-server `filter` endpoint returned an authentication error on 7 November 2026, so personas are selected in code from unfiltered pages.
+
+## Back end API
+
+`affordability.py` (standard library only) reads a statement CSV in the layout above and serves a JSON API for the extension on `127.0.0.1` (default port 8765; CORS allows any origin). Start it with `.venv\Scripts\python -X utf8 affordability.py --serve [--port N]`; stop with Ctrl+C. Self-check: `.venv\Scripts\python -X utf8 affordability.py --check` (all persona CSVs at £50, £300 and £1,200, malformed CSVs, and the HTTP endpoints; prints how many personas can pay now, only with plain pay-in-3, or neither).
+
+Endpoints: `GET /health`; `GET /personas` (id, age, region, household, occupation, tenure); `POST /assess` with `{"persona": "persona079"}` or `{"csv": "<CSV text>"}`, plus `"price"` in GBP (> 0), optional `"merchant"` and `"today"` (YYYY-MM-DD; default the day after the last transaction; must be after it and not after a missed payday). Errors return status 400 and `{"error": "..."}`. Example (Git Bash):
+
+```
+curl -s -X POST http://127.0.0.1:8765/assess -H "Content-Type: application/json" -d '{"persona": "persona004", "price": 300, "merchant": "Argos", "today": "2026-11-07"}'
+```
+
+The response gives the detected salary and next payday, committed payments (direct debits, standing orders, same-amount card payments in three or more months) with due dates, buy-now-pay-later plans (Klarna, Clearpay, PayPal Pay in 3) with remaining instalments, `safeToSpend` (balance minus committed payments and BNPL instalments due before payday; everyday spending not deducted), a monthly view, and four payment options (`payNow`, `bnplPot`, `bnplPlain`, `card0`) with facts only, marking `cheapest` and `mostLeftUntilPayday` without recommending. `saleNote` names the next UK sale event within 60 days; `betterPrice` is null until the price catalogue (T09) is linked. Definitions are returned in the response.
+
+Limitations: UK bank holidays are ignored in payday prediction; annual debits are treated as monthly; card subscriptions younger than three months are missed; BNPL instalment counts are assumed by provider; there is no card data, so the 0% card option is descriptive only; the sale dates are typed into the code and not yet checked against a source.

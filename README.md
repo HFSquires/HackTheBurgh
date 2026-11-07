@@ -30,3 +30,4 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-07 (Claude): Recorded that Auro is working on the front end (T10).
 - 2026-11-07 (notion-keeper, Claude): Batched chat sync: recorded Harrison's requests (100 personas, analysis tool, Auro on front end), build status and two open questions on the Notion page and its child page; `BRIEF.md` updated.
 - 2026-11-07 (Claude): Recorded Harrison's decisions: real prices where possible for the catalogue (T09, started), house palette for the interface.
+- 2026-11-07 (Claude): Merged T07, the back end (`affordability.py`: engine and local JSON API for Auro's front end); self-check passes on `main`. Added the "Back end API" section to `USER_GUIDE.md`. On the T05c data, of 100 households at £50 / £300 / £1,200: 90 / 89 / 83 can pay now, 0 / 0 / 6 only with plain pay-in-3, 10 / 11 / 11 neither (before T05b).
