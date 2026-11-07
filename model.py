@@ -434,7 +434,7 @@ NAMES = {"seasonal": "Deseasonalised mean (Andrew, corrected)", "plain": "Plain 
 def write_outputs(rows, per, stats, comp, val, ks=range(1, 7)):
     import subprocess
     import matplotlib.pyplot as plt
-    import TeXFormat as tf
+    import figstyle as tf
     ANALYSIS.mkdir(parents=True, exist_ok=True)
     FIGURES.mkdir(parents=True, exist_ok=True)
     cols = ["persona", "month", "actual"] + [f"{s}_k{k}" for s in ("seasonal", "plain") for k in ks]
@@ -443,18 +443,21 @@ def write_outputs(rows, per, stats, comp, val, ks=range(1, 7)):
         w.writerow(cols)
         for r in rows:
             w.writerow([r[c] if isinstance(r[c], str) else f"{r[c]:.6f}" for c in cols])
-    plt.style.use(Path(tf.__file__).with_name("TeXFormat.mplstyle"))
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for i, s in enumerate(("seasonal", "plain")):
-        m = [stats[f"{s}_k{k}"][0] for k in ks]
-        e = [stats[f"{s}_k{k}"][1] for k in ks]
-        ax.errorbar([k + (i - 0.5) * 0.08 for k in ks], m, yerr=e, color=tf.CYCLE[i], marker="os"[i], capsize=3,
-                    label=NAMES[s])
-    ax.set_xticks(list(ks))
-    ax.set_xlabel(r"Months averaged $k$", fontsize=tf.fontsizeSmall)
-    ax.set_ylabel(r"Mean absolute error [GBP per month]", fontsize=tf.fontsizeSmall)
-    ax.tick_params(labelsize=tf.fontsizeSmall)
-    ax.legend(frameon=True, fancybox=False, fontsize=tf.fontsizeSmall)
+    tf.use()
+    fig, ax = plt.subplots(figsize=(12, 6.75))
+    show = [("Simple average of the last 3 months", "plain_k3", tf.tint(tf.MUTED, 0.45)),
+            ("Copy last month", "plain_k1", tf.tint(tf.C1, 0.45)),
+            ("Our forecast (3 months, adjusted for the season)", "seasonal_k3", tf.C1)]
+    bars = tf.bar(ax, range(3), [stats[k][0] for _, k, _ in show], [c for _, _, c in show], width=0.7)
+    ax.bar_label(bars, labels=[f"£{stats[k][0]:.0f}" for _, k, _ in show], padding=4, color=tf.INK, fontsize=16,
+                 fontweight="semibold")
+    ax.set_xticks(range(3), [n.replace(" (", "\n(") for n, _, _ in show])
+    ax.set_yticks([])
+    ax.set_ylim(0, max(stats[k][0] for _, k, _ in show) * 1.2)
+    tf.clean(ax, grid=None)
+    saving = stats["plain_k3"][0] - stats["seasonal_k3"][0]
+    tf.headline(fig, f"Adjusting for the season cuts forecast error by about £{saving:.0f} a month",
+                "Average gap between forecast and actual monthly spending (lower is better), 100 test customers")
     for ext in ("pdf", "svg"):
         fig.savefig(FIGURES / f"forecast_errors.{ext}", bbox_inches="tight",
                     metadata={"pdf": {"CreationDate": None}, "svg": {"Date": None}}[ext])
@@ -489,7 +492,8 @@ def write_outputs(rows, per, stats, comp, val, ks=range(1, 7)):
              "spending (`ground_truth_monthly.csv`) less the BNPL instalments booked that month, which the model treats as regular payments.",
              "", "## Plotted data", "",
              "Per person, the absolute error is averaged over the 9 target months (one value per person); the plot shows the mean of these across "
-             "persons, with error bars ± SE = s / sqrt(n), ddof = 1. Points for the two models are offset by ±0.04 in k for legibility.", "", tab,
+             "persons. The figure, drawn for a general audience, shows three of these at a glance as bars (plain mean k = 3, last month, "
+             "deseasonalised mean k = 3) with no error bars; the full table with ± SE = s / sqrt(n), ddof = 1, is below.", "", tab,
              "", "## Sample size", "", f"n = {n} persons for every point; 9 target months each ({len(rows)} person-months).",
              "", "## Statistics and tests", "", ctab, "",
              f"Test: two-sided paired sign-flip permutation test on the per-person differences in MAE ({PERMUTATIONS} random sign assignments, "
