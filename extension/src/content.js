@@ -287,8 +287,8 @@
   // ---------- Earlier stages (stages.js) ----------
 
   // Product page: nothing visible. Adding to basket starts a silent price check that the checkout reuses.
-  ST.stages.onAddToBasket(() => {
-    if (ST.detect.isCheckout()) return;
+  ST.stages.onAddToBasket((el, label) => {
+    if (ST.detect.isCheckoutUrl()) return ST.log("add to basket: clicked, but this is a checkout page, so skipped", { button: label });
     const payload = ST.stages.productPayload();
     const item = payload.items[0];
     if (!item.name || payload.total == null) {

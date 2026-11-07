@@ -51,6 +51,9 @@ globalThis.ST = globalThis.ST || {};
     return false;
   }
 
+  // The address alone says checkout (product pages can have "Pay with Klarna" buttons, so no button check here).
+  const isCheckoutUrl = () => URL_HINT.test(location.pathname + location.search) || HOST_HINT.test(location.hostname);
+
   // Needs a checkout signal *and* a price on the page, to avoid firing on random pages.
   function isCheckout() {
     const signal =
@@ -170,5 +173,5 @@ globalThis.ST = globalThis.ST || {};
     };
   }
 
-  ST.detect = { isCheckout, scrape, parseMoney, PAYMENT_TYPES };
+  ST.detect = { isCheckout, isCheckoutUrl, scrape, parseMoney, PAYMENT_TYPES };
 })();
