@@ -67,3 +67,4 @@ All testing is on synthetic data whose spending follows the ONS seasonal profile
 ## Log
 
 - 2026-11-07 (Claude): written on Harrison's request after T29; defaults proposed, not yet confirmed by the team.
+- 2026-11-07 (Claude): implemented as `model.py` (T30). Step 1's done criterion was met with two explained differences rather than to the penny everywhere: 970 of 1,200 person-months exact, 230 differing only by lumpy purchases below GBP 250 and BNPL instalments.

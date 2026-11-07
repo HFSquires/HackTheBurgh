@@ -1,6 +1,6 @@
 # User guide
 
-Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the generation-1 statement generator (`mock_statements.py`, tasks T05 and T05c), the Open Banking data generator (`ob_generator.py`, task T20) and its figures (`ob_figures.py`, task T25), the statement parser and detectors (`statements.py`, task T29), the market data (`market_data.py`, task T14) and the mock bank (`mock_bank.py`, tasks T18b and T21). Auro's extension and account site are in `extension/` and `web/`. The old spending model and affordability engine (`affordability.py`, `bayes.py`, `forecast.py`, `affordability_figures.py`) were archived on 7 November 2026 (task T29; see `archive/README.md`); the new back end will implement Andrew's model (`model outline/`) and is not yet built.
+Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the generation-1 statement generator (`mock_statements.py`, tasks T05 and T05c), the Open Banking data generator (`ob_generator.py`, task T20) and its figures (`ob_figures.py`, task T25), the statement parser and detectors (`statements.py`, task T29), Andrew's model (`model.py`, task T30), the market data (`market_data.py`, task T14) and the mock bank (`mock_bank.py`, tasks T18b and T21). Auro's extension and account site are in `extension/` and `web/`. The old spending model and affordability engine (`affordability.py`, `bayes.py`, `forecast.py`, `affordability_figures.py`) were archived on 7 November 2026 (task T29; see `archive/README.md`); the new back end is `model.py`.
 
 ## Purpose
 
@@ -68,6 +68,33 @@ If the Hugging Face or ONS files need refreshing, use the URLs in `data/README.m
 The check runs over all 100 generation-1 statements (salary equal to the BGC credits, every direct debit and standing order of the last month detected as committed, BNPL found exactly where present, payday within 35 days on a weekday), the BNPL ambiguity cases, zero and malformed amounts (NaN, infinity, wrong field counts, impossible dates, out-of-order dates) and the Bank Rate file.
 
 Input validation: each transaction needs exactly one non-negative debit or credit and a finite balance; zero amounts and negative balances are allowed. Limitations: UK bank holidays are ignored in payday prediction; annual debits are treated as monthly; card subscriptions younger than three months are missed; BNPL instalment counts are assumed by provider. BNPL detection assumes one plan per transaction description: more payments than the provider's plan length, amounts differing by more than a penny, or gaps outside the provider cadence by more than three days make that description uncertain, with null `remaining` and `instalment` and an empty `schedule` meaning unknown, not debt-free.
+
+## Andrew's model (model.py)
+
+`model.py` (task T30) implements Andrew's model (`model outline/`): from a customer picture read through an Open Banking aggregator (`mock_bank.fetch_customer`; here the v2 mock bank), it forecasts this calendar month's everyday spending and decides whether a purchase keeps the customer on their net-worth goal. It uses `statements.py`, `mock_bank.py` and `market_data.py`; the decision and the endpoint use the standard library only, the backtest figure needs matplotlib, TeXFormat and MiKTeX. Every default is a proposal from `model outline/IMPLEMENTATION.md` section 2, set as a constant at the top of the file (`K`, `ONE_OFF_GBP`, `ONE_OFF_MCC`, `JOINT_SHARE`, `GOOD_MARGIN`, `MAX_DAYS`).
+
+```
+.venv\Scripts\python -X utf8 model.py                          # backtest: Analysis/model/ and Figures/model/ (about 40 s)
+.venv\Scripts\python -X utf8 model.py --check                  # self-check, writes nothing (a few minutes)
+.venv\Scripts\python -X utf8 mock_bank.py --serve --source v2  # terminal 1: mock bank on 8766
+.venv\Scripts\python -X utf8 model.py --serve [--port 8765]    # terminal 2: POST /decide, GET /health
+```
+
+All three need the 100 persona JSON files in `Analysis/open_banking/` (run `ob_generator.py` first; only five are committed). Example request (Git Bash):
+
+```
+curl -s -X POST http://127.0.0.1:8765/decide -H "Content-Type: application/json" -d '{"bank": {"baseUrl": "http://127.0.0.1:8766", "persona": "persona004"}, "price": 409}'
+```
+
+Request: `bank` as `{"baseUrl", "persona"}` or `{"baseUrl", "tokens": {provider: token}}` (same allow-list as the mock bank client), `price` in GBP (above 0, at most 1,000,000), optional `today` (YYYY-MM-DD, in the month of the bank's balances and not before their date; default that date, 2 November 2026 for the synthetic data) and optional `goalRate` (a fraction a year between -0.5 and 1; default the 12-month CPI all-items inflation from `data/ons_mm23_cpi_index_D7BT.csv`, 3.4458% to September 2026). `Content-Type: application/json` is required (415 otherwise); bad input returns 400 with a message; CORS allows any origin.
+
+Response: `verdict` (`good`, `caution`, `reconsider` or `neutral`, the extension's four states), `title`, `message`, `daysToAfford` (when the goal is missed: days of this month's forecast surplus needed to cover the shortfall, null beyond 90 days), `income` (salary, next payday, salary still due this month, other income by description), `regularDueThisMonth` (direct debits, standing orders and regular card payments due after the last booked day, own-account transfers excluded), `everyday` (forecast for the month, spent so far including pending purchases, remainder, the linear remainder for comparison, the k months used), `netWorth` (now, start of month, goal, forecast month end with and without the purchase, headroom, surplus), `assumptions` and `notAdvice`.
+
+Definitions. Everyday spending: card purchases (rows with a merchant category code) on every account, less regular card payments (same description and amount, the same number of times, in at least three calendar months and seen in the last 35 days: `statements.detect_committed` on card rows), BNPL instalments (regular payments, their outstanding schedule already subtracted from net worth) and one-offs (merchant category 4722, package holidays, or a single purchase of GBP 250 or more). Forecast: `f_target × mean(r_j / f_j)` over the last k = 3 full months, f the ONS retail-sales seasonal factor (mean 1). Net worth: every account's booked balance (a joint account at half, cards negative) less outstanding BNPL scheduled payments and pending purchases. Goal: start-of-month net worth plus `max(W, 0) × ((1 + g)^(1/12) - 1)`. Verdict: `good` when the forecast month-end net worth after the purchase exceeds the goal by at least 10% of monthly salary, `caution` when it meets the goal by less, `reconsider` when it misses, `neutral` without a salary or a full month of history.
+
+Self-check: hand-worked forecast and statistics helpers; on all 100 personas, everyday totals against the generator's ground truth (970 of 1,200 person-months exact, the other 230 explained by lumpy purchases below GBP 250 and BNPL instalments), salaries (100 of 100) and recent mandates; no look-ahead in the backtest; verdicts never improve as the price rises; the four personas in unarranged overdraft get `reconsider` at GBP 300; a missing salary gives `neutral`; the endpoint round-trips three personas and rejects malformed requests.
+
+Outputs of the backtest: `Analysis/model/backtest.csv`, `Analysis/model/validation.md`, `Figures/model/forecast_errors.{pdf,svg,md}`. Limitations: synthetic data only, and the seasonal factors are the generator's own profile (the forecast's advantage over a plain mean is therefore not evidence of learning); the joint-account share, the GBP 250 one-off threshold and the interest-free `daysToAfford` are stated simplifications; other income is reported but not added to the month's flows; pensions and investments outside Open Banking are not in net worth; guidance, not financial advice.
 
 ## Mock bank API
 
