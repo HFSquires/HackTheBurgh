@@ -32,6 +32,13 @@ def pct(p):
     return "under 1%" if p < 0.005 else "over 99%" if p > 0.995 else f"{round(100 * p)}%"
 
 
+def chance(p):
+    """'a 3% chance', 'an 8% chance', 'over a 99% chance'."""
+    n = round(100 * p)
+    return ("under a 1%" if p < 0.005 else "over a 99%" if p > 0.995
+            else f"{'an' if n in (8, 11, 18) or 80 <= n <= 89 else 'a'} {n}%") + " chance"
+
+
 def number(v, name):
     if v is None:
         return None
@@ -47,31 +54,37 @@ def text(v, name, limit=1000):
 
 
 def budget(a):
-    """(verdict, title, message, insights, safeToSpend) from safeToSpend and the pay-now shortfall probability only."""
+    """(verdict, title, message, insights, safeToSpend) from safeToSpend and the pay-now shortfall probability only.
+    Wording follows Auro's mock responses (extension/src/mock.js, precheck.js): short, plain, sentence case; facts only.
+    'Left before payday' is safeToSpend: balance minus bills, BNPL and predicted everyday spending until payday."""
     price, safe = a["price"], a["safeToSpend"]
     if a["assessmentStatus"] != "estimated" or safe is None:
-        why = ("No regular income was found in the account" if not a["income"]
-               else "The account's income or BNPL repayments could not be established")
-        return "neutral", "Budget check unavailable", f"{why}, so safe-to-spend cannot be worked out.", [], None
+        why = ("We couldn't find a regular income in your account" if not a["income"]
+               else "We couldn't confirm your income or pay-later repayments")
+        return "neutral", "We couldn't check your budget", f"{why}, so we can't tell what's left before payday.", [], None
     p = next(o for o in a["options"] if o["kind"] == "payNow")["shortfallProbability"]
     pay = dt.date.fromisoformat(a["income"]["nextPayday"])
-    day = f"{pay:%a} {pay.day} {pay:%b}"
+    day, after = f"{pay:%a} {pay.day} {pay:%b}", af.money(safe - price)
+    risk = f"There's {chance(p)} you go overdrawn before then."
     if price > safe or p >= RECONSIDER_P:
-        v, title = "reconsider", "More than is safe to spend" if price > safe else "Likely to go below £0"
+        v, title = "reconsider", "This would put you over budget" if price > safe else "You could go overdrawn"
     elif price > GOOD_SHARE * safe or p >= CAUTION_P:
-        v, title = "caution", "Uses most of safe-to-spend" if price > GOOD_SHARE * safe else "Some chance of going below £0"
+        v, title = "caution", "This uses most of what's left" if price > GOOD_SHARE * safe else "You could go overdrawn"
     else:
-        v, title = "good", "Within safe-to-spend"
+        v, title = "good", "This fits your budget"
     if safe <= 0:
-        msg = f"Nothing is safe to spend before payday on {day} (safe-to-spend is {gbp(safe)})."
+        msg = f"Before payday on {day}, your bills and usual spending already come to {gbp(-safe)} more than you have."
     elif price > safe:
-        msg = f"{gbp(price)} is {gbp(price - safe)} more than the {gbp(safe)} safe to spend before payday on {day}."
+        msg = f"It's {gbp(price)} and you have {gbp(safe)} left before payday on {day}."
+    elif v == "caution" and price > GOOD_SHARE * safe:
+        msg = f"This uses {round(100 * price / safe)}% of the {gbp(safe)} you have left before payday on {day}."
     else:
-        msg = f"{gbp(price)} is {round(100 * price / safe)}% of the {gbp(safe)} safe to spend before payday on {day}."
+        msg = f"You'll still have {gbp(after)} left before payday on {day}."
     if v != "good":
-        msg += f" The chance of the balance going below £0 before payday is {pct(p)}."
-    insights = [("Safe to spend until payday", gbp(safe)), ("Left after this", gbp(af.money(safe - price))),
-                ("Next payday", day), ("Chance of going below £0", pct(p))]
+        msg += f" {risk}"
+    insights = [("Left before payday", gbp(safe)),
+                ("After this", gbp(after)) if after >= 0 else ("Over budget by", gbp(-after)),
+                ("Payday", day), ("Chance of going overdrawn", pct(p))]
     return v, title, msg, insights, safe
 
 
@@ -81,20 +94,20 @@ def alternatives(a):
     if not b:
         return []
     when = dt.date.fromisoformat(b["cheapest"]["retrieved"]) if b["cheapest"] else None
-    delivery = " · delivery may not be included" if "Delivery charges may not be included." in b["caveats"] else ""
+    delivery = " · delivery may be extra" if "Delivery charges may not be included." in b["caveats"] else ""
     out = []
     if b["saving"] and b["cheapest"]:
         c = b["cheapest"]
-        via = " via PriceSpy UK" if c["source_type"] == "comparison site" else ""
+        via = " on PriceSpy UK" if c["source_type"] == "comparison site" else ""
         out.append(dict(merchant=c["retailer"], price=c["price"], url=c["source_url"],
-                        note=f"Price{via} on {when.day} {when:%b %Y}{delivery}"))
+                        note=f"Price seen{via}, {when.day} {when:%b}{delivery}"))
     if b["marketplaceCheaper"]:
         m = b["marketplaceCheaper"]
         out.append(dict(merchant=m["retailer"], price=m["price"], url=m["source_url"],
-                        note="Marketplace or third-party seller: check the model, condition and seller"))
+                        note="Marketplace seller · condition not checked"))
     # ponytail: the catalogue is matched by product name, so the colour or variant is unknown; upgrade with EAN matching
     out = [x | dict(currency="GBP", savings=af.money(a["price"] - x["price"]), match="different_variant",
-                    matchNote="Colour or variant may differ", variant="")
+                    matchNote="Colour or version may differ", variant="")
            for x in out if x["price"] < a["price"] and re.match(r"https?://", x["url"] or "")]
     return sorted(out, key=lambda x: x["price"])[:3]
 
@@ -108,7 +121,7 @@ def outlook(a):
     d, h = dt.date.fromisoformat(s["date"]), s["priceHistory"]
     return dict(likelihood="possible" if a["betterPrice"] else "unknown", expectedPrice=None, byDate=s["date"],
                 # The date only: daysToGo counts from the engine's today (the day after the statement), not the request.
-                reason=f"{s['event']}: {d.day} {d:%b}. Sale prices are not always lower than earlier prices.",
+                reason=f"Next sale: {s['event']}, {d.day} {d:%b}. Sale prices aren't always lower than earlier ones.",
                 signals=[h["note"]] if h else [])
 
 
@@ -118,7 +131,7 @@ def actions(v, cheaper):
         return [dict(id="proceed", label="Continue to pay", variant="secondary" if cheaper else "primary"),
                 dict(id="dismiss", label="Dismiss", variant="ghost")]
     return [dict(id="remind", label="Remind me in 24h", variant="secondary" if cheaper else "primary",
-                 confirmation="Reminder set for this time tomorrow."),
+                 confirmation="Got it. We'll remind you tomorrow."),
             dict(id="proceed", label="Continue to pay", variant="ghost"),
             dict(id="dismiss", label="Dismiss", variant="ghost")]
 
@@ -141,12 +154,12 @@ def analyze(req):
     base = dict(sessionId=sid, persona=pid, alternatives=[], priceOutlook=None)
     if price is None:
         v = "neutral"
-        out = dict(title="Price not found", message="The price could not be read from this page, so it was not "
-                                                    "compared with safe-to-spend.", insights=[])
+        out = dict(title="We couldn't read the price",
+                   message="Without it we can't check this against your budget.", insights=[])
     elif currency != "GBP":
         v = "neutral"
-        out = dict(title="Budget check unavailable",
-                   message=f"The budget check works in pounds; this checkout is in {currency}.", insights=[])
+        out = dict(title="We couldn't check your budget",
+                   message=f"This checkout is in {currency}, and the budget check works in pounds.", insights=[])
     else:
         a = af.assess(af.parse(af.load_persona(pid)), price, merchant=merchant,
                       product=af.find_product(product[:300]) if product else None)
@@ -225,6 +238,9 @@ def validate(r, total):
 
 
 def check():
+    assert [chance(p) for p in (0.001, 0.03, 0.08, 0.11, 0.5, 0.84, 0.999)] == [
+        "under a 1% chance", "a 3% chance", "an 8% chance", "an 11% chance", "a 50% chance", "an 84% chance",
+        "over a 99% chance"]
     srv = af.serve(0, quiet=True)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{srv.server_port}"
