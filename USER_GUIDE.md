@@ -156,3 +156,17 @@ Outputs in `Analysis/open_banking/`: `persona<NNN>_<uuid8>.json` (one block per 
 
 Limitations: synthetic, not real bank data; every assumption is listed in the SYNTHETIC block of the code (overdraft and card limits by pay band, 39.9% overdraft EAR, 24.9% card APR, 60% of card holders pay in full, savings rates at Bank Rate minus 0.75 points, opening balances); five personas (029, 032, 054, 060, 100) reach unarranged overdraft because their committed payments exceed their pay and no benefits are modelled; balances are high because some ONS spending is not modelled; prices and pay are held at their 2026 level for the whole year. The CSV export covers the main account only, so card and second-account spending is invisible in it, and `affordability.py` counts standing orders to a person's own savings or joint accounts as committed payments.
 
+## Open Banking figures (T25)
+
+`ob_figures.py` reads the 100 persona JSON files, `ground_truth.csv` and `summary.md` in `Analysis/open_banking/` and draws seven figures describing the synthetic data set: where the money goes (pie and bars), average monthly spending by category and tenure, spending through the year, accounts held against FCA Financial Lives 2024, top 15 merchants, the payday effect and main-account balances with overdraft use. Everyday spending means booked card purchases (`DEB` and `PUR`) across all accounts, excluding own-account transfers and one-off purchases (the package holiday and the lumpy purchases in `ground_truth.csv`). The figures describe the generator, not real customers.
+
+```
+.venv\Scripts\python -X utf8 ob_figures.py          # about 1 minute
+.venv\Scripts\python -X utf8 ob_figures.py --check  # about 1 minute
+```
+
+Requirements: the setup above and the TeXFormat link (`texformat.pth`); LaTeX must be on the PATH. Run `ob_generator.py` first, because the persona JSONs are gitignored apart from five samples and the script stops if fewer than 100 are present. Outputs: `Figures/open_banking/<name>.{pdf,svg,md}` (each `.md` is the companion statistics file) and the derived tables in `Analysis/open_banking_figures/` (listed in its README). The `--check` mode recomputes one month (March 2026) from the raw JSON with a separate code path, confirms the category shares sum to 1, the account-count bars sum to 100 and the `.md` tables match the CSVs, and compares the count of persons overdrawn with `summary.md`. Limitations: three lumpy purchases the generator forgoes (the person was overdrawn) are skipped, an overdraft is counted from the end-of-day balance (not intraday dips), and error bars are standard errors across 100 people.
+
+## Browser extension and account site (Auro)
+
+Auro's checkout extension ("Second Thought") is in `extension/` and its account site (Auth0, Firebase, Vercel) in `web/`, merged from the branch `frontend-extension` on 7 November 2026. Their own READMEs (`extension/README.md`, `web/README.md`) give setup and the back-end contract: with `BACKEND_URL` empty in `extension/src/config.js`, the extension uses built-in mock responses or, with the user's own OpenAI or ELM key, an AI web search; with `BACKEND_URL` set, it calls `POST /analyze` and `POST /action` on that server. Connecting it to `affordability.py` is task T26.
