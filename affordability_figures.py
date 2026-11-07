@@ -322,9 +322,16 @@ def savings():
 def savings_table(sv):
     return md_table(["Product", "n mainstream prices", "Dearest mainstream [GBP] (retailer)",
                      "Cheapest mainstream [GBP] (retailer)"] + [f"{SAVINGS[k].replace(chr(92), '')} [GBP]" for k in SAVINGS],
-                    [[f"{r.product_id} {r.product}", r.n_mainstream_prices, f"{r.dearest:.2f} ({r.dearest_retailers})",
+                    [[f"{r.product_id} {r['product']}", r.n_mainstream_prices,  # r.product is Series.prod f"{r.dearest:.2f} ({r.dearest_retailers})",
                       f"{r.cheapest:.2f} ({r.cheapest_retailers})"] + [f"{r[k]:.2f}" for k in SAVINGS]
                      for _, r in sv.iterrows()])
+
+
+def no_saving(sv):
+    """Products whose cheapest-price saving is 0, each with the reason: one mainstream price only (missing data, not
+    evidence of equal prices), or equal mainstream prices."""
+    why = lambda n: "only one mainstream price was obtained" if n == 1 else "the mainstream prices are equal"
+    return ", ".join(f"{r.product_id} ({why(r.n_mainstream_prices)})" for _, r in sv[sv.cheapest_saving == 0].iterrows()) or "none"
 
 
 def fig_savings(sv):
@@ -405,9 +412,8 @@ None.
 
 Over the five products, buying at the cheapest mainstream price instead of the dearest saves {tot['cheapest_saving']:.2f} GBP
 in total, an assumed {CASHBACK:.0%} cashback {tot['cashback']:.2f} GBP, the pay-in-3 pot's float interest
-{tot['pot']:.2f} GBP and a credit card cleared in full {tot['card']:.2f} GBP, at Bank Rate {rate:.2f}%. For
-{', '.join(sv.product_id[sv.cheapest_saving == 0])} the catalogue lists no price difference between mainstream retailers,
-so only the other three sources save money. The float interest on a few hundred pounds over one to two months is a
+{tot['pot']:.2f} GBP and a credit card cleared in full {tot['card']:.2f} GBP, at Bank Rate {rate:.2f}%. The
+cheapest-price saving is 0 for {no_saving(sv)}, so only the other three sources save money on them. The float interest on a few hundred pounds over one to two months is a
 few pounds at most. These are facts about five products on one day, not a recommendation.
 """, encoding="utf-8")
 
@@ -448,7 +454,12 @@ def check():
     assert (df.safeToSpend <= df.safeToSpendBeforeEverydaySpending).all()
     sv = pd.read_csv(VALUE_A / f"{F3}.csv")
     pd.testing.assert_frame_equal(sv, pd.read_csv(io.StringIO(savings().to_csv(index=False, float_format="%.2f"))))
-    assert savings_table(sv) in (VALUE_F / f"{F3}.md").read_text(encoding="utf-8")
+    m3 = (VALUE_F / f"{F3}.md").read_text(encoding="utf-8")
+    assert savings_table(sv) in m3 and "bound method" not in m3
+    assert all(f"| {r.product_id} {r['product']} | {r.n_mainstream_prices} |" in m3 for _, r in sv.iterrows())
+    assert no_saving(sv) in m3 and no_saving(pd.DataFrame(dict(product_id=["A", "B", "C"], cheapest_saving=[0, 0, 1],
+                                                                n_mainstream_prices=[1, 2, 2]))) == (
+        "A (only one mainstream price was obtained), B (the mainstream prices are equal)")
     assert all((VALUE_F / f"{F3}.{e}").stat().st_size > 0 for e in ("pdf", "svg"))
     print(f"Check passed: {len(df)} households, counts sum to {len(df)} at every price, 4 personas spot-checked, "
           f".md tables match the CSV; savings comparison ({len(sv)} products) matches a fresh calculation.")
