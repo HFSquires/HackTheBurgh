@@ -15,11 +15,11 @@ uv venv --python 3.12
 uv pip install --no-cache -r requirements.txt
 ```
 
-The only dependency is `openpyxl`. The raw inputs are already committed in `data/`, except the 9.6 MB ASHE zip, which is not needed (the extracted workbook is committed); `data/README.md` gives its download command.
+Dependencies (`requirements.txt`): `openpyxl`, `pandas` and `odfpy` (the last two read the English Housing Survey `.ods` table used for tenure); `affordability.py` needs only the standard library. The raw inputs are already committed in `data/`, except the 9.6 MB ASHE zip, which is not needed (the extracted workbook is committed); `data/README.md` gives its download command.
 
 ## Inputs
 
-All in `data/` (sources, licences and dates in `data/README.md`): five pages of persona rows (`personas_rows_offset*.json`, 500 rows from all 12 UK regions; 245 are usable, i.e. working-age, aged 21 to 64, in one of the four household compositions with a Family Spending column, and with an ASHE occupation median), the ASHE Table 14.7a annual gross pay workbook (2025 revised), and Family Spending workbooks 2 and 3 (financial year ending 2025).
+All in `data/` (sources, licences and dates in `data/README.md`): five pages of persona rows (`personas_rows_offset*.json`, 500 rows from all 12 UK regions; 245 are usable, i.e. working-age, aged 21 to 64, in one of the four household compositions with a Family Spending column, and with an ASHE occupation median), the ASHE Table 14.7a annual gross pay workbook (2025 revised), Family Spending workbooks 2 and 3 (financial year ending 2025), and English Housing Survey table FA1201 (tenure by age, 2024-25).
 
 ## Commands
 
@@ -41,7 +41,7 @@ If the console shows encoding errors, add `-X utf8` after `python`.
 
 ## Limitations
 
-The CSV layout is an unchecked belief about the Lloyds export format. Net pay uses rest-of-UK income tax and National Insurance bands, which are wrong only for the Scottish personas. Spending is the regional average adjusted by household type and is not scaled to income, so 6 of 100 personas end overdrawn (worst about £2,615) and the largest end balance is about £16,586 (median about £5,173). Tenure is sampled (56 own outright, 23 rent privately, 21 rent socially). Pensioners, multi-adult and other household types are excluded because Family Spending has no matching column, so all 100 are working-age. Rail operators and football clubs used for merchant flavour are typed into the code. Merchant names, transaction dates and buy-now-pay-later schedules are synthetic flavour. Each approximation is marked with a `ponytail:` comment in the code. Fixes are planned as T05b.
+The CSV layout is an unchecked belief about the Lloyds export format. Net pay uses 2025/26 income tax (Scottish bands for Scottish personas, rest-of-UK bands otherwise) and UK-wide National Insurance, with no pension, student loan, tax code or personal-allowance taper; the statements fall in 2026/27, whose Scottish starter and basic thresholds are higher. Spending is the regional average adjusted by household type (Table A23) and by the gross-income decile of the persona's own salary (Family Spending workbook 2, Table A4), the decile being taken from that salary alone because a partner's income is not modelled; the two adjustments overlap, so some spending is double-counted, and rent, energy and water, and council tax are not decile-scaled. End balances after three months range from -£862 to £15,910 (median about £5,215, three overdrawn); they remain on the high side because vehicle purchases, package holidays, maintenance and other expenditure (ONS category 13 apart from council tax) are excluded. Tenure is sampled by age band from English Housing Survey 2024-25 table FA1201 (England only, applied to the UK); mortgagors are excluded because ONS excludes mortgage interest from category 4 and pools it with council tax in item 13.1, so the shares of the other three tenures are renormalised (22 own outright, 29 social rented, 49 private rented). Pensioners, multi-adult and other household types are excluded because Family Spending has no matching column, so all 100 are working-age. Rail operators and football clubs used for merchant flavour are typed into the code. Merchant names, transaction dates and buy-now-pay-later schedules are synthetic flavour. Each approximation is marked with a `ponytail:` comment in the code.
 
 ## Troubleshooting
 
