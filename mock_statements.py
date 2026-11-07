@@ -1,0 +1,318 @@
+"""Mock bank-statement generator for the HackTheBurgh demo (task T05).
+
+Personas: Nemotron-Personas-UK rows (data/personas_rows_offset*.json).
+Salary:   ONS ASHE Table 14.7a (annual gross pay, 2025 revised), 3-digit SOC 2020 median.
+Spending: ONS Family Spending FYE 2025, workbooks 2 and 3.
+Output:   Analysis/mock_statements/<persona>.csv and personas.md.
+
+Run:   .venv\\Scripts\\python mock_statements.py
+Check: .venv\\Scripts\\python mock_statements.py --check  (asserts; regenerates twice and compares bytes)
+Every ONS figure is read from the spreadsheets in data/; none is typed in here.
+Merchant names, dates, transaction counts and the BNPL plans are synthetic flavour.
+"""
+import calendar
+import csv
+import datetime as dt
+import json
+import random
+import sys
+import tempfile
+from pathlib import Path
+
+import openpyxl
+
+ROOT = Path(__file__).resolve().parent
+DATA = ROOT / "data"
+OUT = ROOT / "Analysis" / "mock_statements"
+SEED = 20261107
+END = dt.date(2026, 10, 31)
+MONTHS = [(2026, 8), (2026, 9), (2026, 10)]  # three calendar months ending 31 October 2026
+WK = 52 / 12  # weeks per month; ONS figures are GBP per week
+
+# ---- Lloyds Banking Group export layout (unchecked belief; change here only) ----
+COLUMNS = ["Transaction Date", "Transaction Type", "Sort Code", "Account Number",
+           "Transaction Description", "Debit Amount", "Credit Amount", "Balance"]
+DATE_FMT = "%d/%m/%Y"
+LINE_END = "\n"
+SORT_CODE = "00-00-00"  # obviously fake
+
+# ---- Spreadsheet locations. Rows are 1-based, columns 0-based; labels are asserted before use ----
+F_ASHE = DATA / "ashe_table14_7a_annual_gross_2025revised.xlsx"   # sheet "All": col 1 SOC code, col 3 median
+F_INC = DATA / "fs_workbook2_by_income_fye2025.xlsx"              # A4 (all households), A23 (composition), A32 (tenure)
+F_REG = DATA / "fs_workbook3_by_region_fye2025.xlsx"              # A33 (categories), A35 (detail), 3-year average
+SCO, UK = 16, 4            # A33 / A35 columns: Scotland, United Kingdom
+A4_ALL = 14                # A4 column: all households
+CAT_A33 = {1: 24, 2: 26, 3: 28, 4: 30, 5: 32, 6: 34, 7: 36, 8: 38, 9: 40, 10: 42, 11: 44, 12: 46}
+CAT_A4 = {c: r + 3 for c, r in CAT_A33.items()}
+CAT_A23 = {c: r + 1 for c, r in CAT_A33.items()}
+# A23 columns used: household type -> (column, persons per household as published, adults sharing the bills)
+A23_COLS = {"alone": (10, "1.0", 1), "couple": (11, "2.0", 2),
+            "lone_parent": (13, "2.0", 1), "couple_kids": (17, "4.0", 2)}
+# A35 detail rows (Scotland column), with a label fragment asserted at each row
+A35 = {"maint": (142, "Maintenance"), "water": (144, "relating to the dwelling"), "energy": (146, "Electricity, gas"),
+       "veh_purchase": (210, "Purchase of vehicles"), "tel": (232, "Telephone and telefax services"),
+       "internet": (233, "Internet"), "combined_tel": (234, "Combined telecom"),
+       "sports": (283, "and equipment hire"), "tv": (286, "and TV licences"), "council_tax": (382, "council tax etc.")}
+# A32 (tenure): housing row 30; households row 13; columns for owned outright, all social, all private rented
+A32_ROW, A32_HH_ROW = 30, 13
+A32_TENURE = {"Owned outright": 4, "Social rented": 9, "Private rented": 13}
+
+
+def num(x):
+    """ONS cells are text such as '12.30', '[0.40]', '0.00~', '..' or ':'. Return a float, or None if suppressed."""
+    if isinstance(x, (int, float)):
+        return float(x)
+    try:
+        return float(str(x).replace(",", "").strip("[]~ "))
+    except ValueError:
+        return None
+
+
+def sheet(path, name):
+    return list(openpyxl.load_workbook(path, read_only=True)[name].iter_rows(values_only=True))
+
+
+def label(row):
+    return " ".join(str(c) for c in row[:4] if c)
+
+
+def load_ons():
+    ashe = {str(r[1]).lstrip("'"): (n, r) for n, r in enumerate(sheet(F_ASHE, "All"), 1) if r[1]}
+    ons = dict(ashe=ashe, a33=sheet(F_REG, "A33"), a35=sheet(F_REG, "A35"), a4=sheet(F_INC, "A4"),
+               a23=sheet(F_INC, "A23"), a32=sheet(F_INC, "A32"))
+    assert ons["a33"][5][SCO] == "Scotland" and ons["a35"][5][SCO] == "Scotland" and ons["a33"][5][UK] == "United"
+    assert ons["a4"][5][A4_ALL] == "All"
+    for name, (r, frag) in A35.items():
+        assert frag in label(ons["a35"][r - 1]), (name, r, label(ons["a35"][r - 1]))
+    assert ons["a35"][23][SCO] is not None and "Food" in label(ons["a35"][23])
+    assert "Housing" in label(ons["a32"][A32_ROW - 1])
+    return ons
+
+
+# ---- Personas ----
+SLOTS = [  # (household key, Nemotron household_type, age range): one persona per slot, drawn by the seeded RNG
+    ("alone", "Lives alone, under 65/66", (21, 30)),
+    ("couple", "Cohabiting couple, no children", (28, 45)),
+    ("lone_parent", "Lone parent, dependent children", (25, 55)),
+    ("couple_kids", "Married or civil partnership couple, dependent children", (30, 55)),
+    ("alone", "Lives alone, under 65/66", (46, 64)),
+]
+# BNPL plans (synthetic): persona index -> (descriptor, ONS category, first date, interval days, instalments, share of that category's monthly spend)
+BNPL = {0: [("CLEARPAY*NEXT RETAIL", 3, dt.date(2026, 8, 21), 14, 4, 0.20)],
+        1: [("KLARNA*CURRYS", 9, dt.date(2026, 8, 9), 30, 3, 0.25)],
+        2: [("KLARNA*ARGOS", 5, dt.date(2026, 9, 9), 30, 3, 0.25)]}
+
+
+def choose_personas(ons):
+    rows = []
+    for f in sorted(DATA.glob("personas_rows_offset*.json")):
+        rows += [r["row"] for r in json.load(open(f, encoding="utf-8"))["rows"] if r["row"]["region"] == "Scotland"]
+    rng = random.Random(SEED)
+    chosen = []
+    for key, htype, (lo, hi) in SLOTS:
+        ok = [r for r in rows if r["household_type"] == htype and lo <= r["age"] <= hi
+              and r["occupation"][:3] in ons["ashe"] and num(ons["ashe"][r["occupation"][:3]][1][3]) is not None
+              and r["uuid"] not in [c[1]["uuid"] for c in chosen]]
+        assert ok, f"no candidate for {htype}"
+        chosen.append((key, rng.choice(ok)))
+    return chosen
+
+
+def net_monthly(gross):
+    # ponytail: 2025/26 rest-of-UK income tax and employee NI bands; no pension, student loan or tax code, and Scottish
+    # bands differ slightly. Ceiling: a payslip. Upgrade: per-persona tax code and Scottish bands.
+    pa, basic = 12570, 50270
+    tax = 0.2 * max(0, min(gross, basic) - pa) + 0.4 * max(0, min(gross, 125140) - basic)
+    ni = 0.08 * max(0, min(gross, basic) - pa) + 0.02 * max(0, gross - basic)
+    return round((gross - tax - ni) / 12, 2)
+
+
+def payday(y, m):
+    d = dt.date(y, m, 28)
+    return d - dt.timedelta(days=max(0, d.weekday() - 4))  # Saturday or Sunday -> Friday
+
+
+def spend_model(key, tenure, ons):
+    """Weekly GBP per category pool (everyday card spending) and per regular debit, for the persona's share of the household."""
+    col, persons, adults = A23_COLS[key]
+    assert ons["a23"][18][col] == persons, "A23 column does not match the household composition"
+    d = lambda k: num(ons["a35"][A35[k][0] - 1][SCO]) or 0.0
+    cat = {}
+    for c in range(1, 13):
+        sco = num(ons["a33"][CAT_A33[c] - 1][SCO])
+        h, allh = num(ons["a23"][CAT_A23[c] - 1][col]), num(ons["a4"][CAT_A4[c] - 1][A4_ALL])
+        cat[c] = (sco, h / allh if h is not None and allh else 1.0)  # suppressed cell ('..'): Scottish average, unscaled
+    # ponytail: Scottish level x (household type / all households, UK FYE 2025); the persona's account pays an equal share
+    # of the household's spending and the partner's income is not modelled. Ceiling: averages, not this person.
+    share = 1 / adults
+    f = lambda c: cat[c][1]
+    reg = {"energy": (d("energy") + d("water")) * share,
+           # ponytail: ONS 13.1 pools council tax with mortgage interest, averaged over all Scottish households
+           "council_tax": d("council_tax") * share,
+           "phone": (d("tel") + d("internet") + d("combined_tel")) * f(8) * share,
+           "tv": d("tv") * f(9) * share, "sports": d("sports") * f(9) * share}
+    if tenure != "Owned outright":
+        # ponytail: rent = UK net housing cost (A32, category 4) for the tenure less Scottish maintenance, water and energy;
+        # mixes UK and Scottish figures. Mortgagors are not modelled (ONS puts mortgage interest in the pooled 13.1).
+        reg["rent"] = max(0.0, num(ons["a32"][A32_ROW - 1][A32_TENURE[tenure]]) - d("maint") - d("water") - d("energy")) * share
+    pool = {c: cat[c][0] * f(c) * share for c in range(1, 13)}
+    pool[8] = max(0.0, pool[8] - reg["phone"])
+    pool[9] = max(0.0, pool[9] - reg["tv"] - reg["sports"])  # package holidays (9.6) stay excluded: lumpy
+    pool[7] = max(0.0, pool[7] - d("veh_purchase") * f(7) * share)  # vehicle purchases (7.1) excluded: lumpy
+    pool[12] += pool.pop(10) + pool.pop(8)  # education and leftover communications fold into miscellaneous
+    return pool, reg
+
+
+MERCH = {1: (["TESCO STORES", "SAINSBURYS S/MKTS", "ASDA SUPERSTORE", "ALDI STORES", "CO-OP FOOD"], 12),
+         2: (["TESCO STORES", "MORRISONS", "CENTRAL OFF LICENCE"], 4),
+         3: (["PRIMARK", "NEXT RETAIL", "H&M", "SPORTS DIRECT"], 2),
+         5: (["B&Q", "IKEA", "ARGOS", "HOME BARGAINS"], 2),
+         6: (["BOOTS", "WELL PHARMACY"], 2),
+         7: (["BP", "SHELL", "ESSO", "SCOTRAIL", "RINGGO PARKING", "NATIONAL EXPRESS"], 8),
+         9: (["AMAZON", "STEAM GAMES", "CINEWORLD", "WATERSTONES", "PETS AT HOME"], 5),
+         11: (["COSTA COFFEE", "GREGGS", "PIZZA EXPRESS", "DELIVEROO", "NANDOS", "WETHERSPOON"], 6),
+         12: (["SUPERDRUG", "BARBERS", "ROYAL MAIL", "CURRYS"], 4)}
+CLUBS = ["Celtic", "Rangers", "Hearts", "Hibernian", "Aberdeen", "Dundee United", "Dundee", "Motherwell", "St Mirren",
+         "Kilmarnock", "Partick Thistle", "Raith Rovers"]
+GYM = ("gym", "running", "cycling", "swimming", "yoga", "fitness", "hiking", "climbing")
+
+
+def sports_item(p):
+    """Light use of the lifestyle text: club tickets for a supporter, otherwise a gym or leisure membership."""
+    t = (p["sports_persona"] + " " + p["hobbies_and_interests_list"]).lower()
+    for c in CLUBS:
+        if c.lower() in t and ("supporter" in t or "football" in t or "fan" in t):
+            return "ticket", f"{c.upper()} FC TICKETS"
+    if "football" in t:
+        return "ticket", "FOOTBALL TICKETS ONLINE"
+    return ("gym", "PUREGYM MEMBERSHIP") if any(g in t for g in GYM) else ("gym", "LEISURE CENTRE MEMBERSHIP")
+
+
+def pence_split(total, weights):
+    """Split total (GBP) into pence amounts proportional to weights, summing exactly to total."""
+    p = round(total * 100)
+    raw = [p * w / sum(weights) for w in weights]
+    out = [int(x) for x in raw]
+    for i in sorted(range(len(raw)), key=lambda i: raw[i] - out[i], reverse=True)[: p - sum(out)]:
+        out[i] += 1
+    return [x / 100 for x in out]
+
+
+def build(idx, key, p, ons, tenure):
+    rng = random.Random(f"{SEED}-{idx}")
+    gross = num(ons["ashe"][p["occupation"][:3]][1][3])
+    net = net_monthly(gross)
+    pool, reg = spend_model(key, tenure, ons)
+    town = p["municipality"].upper().replace("CITY OF ", "")[:14]
+    skind, sname = sports_item(p)
+    tx = []  # (date, type, description, debit, credit)
+    for y, m in MONTHS:
+        dim = calendar.monthrange(y, m)[1]
+        D = lambda day: dt.date(y, m, min(day, dim))
+        tx.append((payday(y, m), "BGC", "FAKE EMPLOYER LTD SALARY", 0.0, net))
+        if "rent" in reg:
+            tx.append((D(1), "SO", "RENT " + ("COUNCIL HOUSING" if tenure == "Social rented" else "LETTING AGENT"),
+                       round(reg["rent"] * WK, 2), 0.0))
+        tx.append((D(5), "DD", "ENERGY SUPPLIER AND WATER", round(reg["energy"] * WK, 2), 0.0))
+        tx.append((D(15), "DD", p["municipality"].upper() + " COUNCIL TAX", round(reg["council_tax"] * WK, 2), 0.0))
+        tx.append((D(12), "DD", "MOBILE AND BROADBAND", round(reg["phone"] * WK, 2), 0.0))
+        tx.append((D(20), "DD", "STREAMING AND TV SUBSCRIPTION", round(reg["tv"] * WK, 2), 0.0))
+        if skind == "gym":
+            tx.append((D(3), "DD", sname, round(reg["sports"] * WK, 2), 0.0))
+        else:
+            for a, day in zip(pence_split(reg["sports"] * WK, [1.0, 1.0]), (8, 22)):
+                tx.append((D(day), "DEB", f"{sname} {town} GB", a, 0.0))
+        bnpl = {}  # category -> BNPL instalments this month, taken out of that category's card spending
+        for name, c, first, step, n, frac in BNPL.get(idx, []):
+            for k in range(n):
+                day = first + dt.timedelta(days=step * k)
+                if (day.year, day.month) == (y, m) and day <= END:
+                    amt = round(pool[c] * WK * frac, 2)
+                    tx.append((day, "DEB", f"{name} {town} GB", amt, 0.0))
+                    bnpl[c] = bnpl.get(c, 0.0) + amt
+        for c, (merchants, n) in MERCH.items():
+            total = max(0.0, pool[c] * WK * rng.uniform(0.9, 1.1) - bnpl.get(c, 0.0))
+            for a in pence_split(total, [rng.lognormvariate(0, 0.6) for _ in range(n)]):
+                tx.append((D(rng.randint(1, dim)), "DEB", f"{rng.choice(merchants)} {town} GB", a, 0.0))
+    tx = [t for t in tx if t[0] <= END and t[3] + t[4] > 0]
+    tx.sort(key=lambda t: (t[0], t[1] != "BGC", t[2], t[3]))
+    bal, acct, rows = net, f"{idx + 1:08d}", []  # opening balance: one month's net pay (assumption)
+    for d, ty, desc, db, cr in tx:
+        bal = round(bal - db + cr, 2)
+        rows.append([d.strftime(DATE_FMT), ty, SORT_CODE, acct, desc,
+                     f"{db:.2f}" if db else "", f"{cr:.2f}" if cr else "", f"{bal:.2f}"])
+    spend = {**{f"cat{c}": v * WK for c, v in pool.items()}, **{k: v * WK for k, v in reg.items()}}
+    return rows, gross, net, spend
+
+
+def generate(out):
+    out.mkdir(parents=True, exist_ok=True)
+    ons = load_ons()
+    rng = random.Random(SEED + 1)
+    a32 = ons["a32"]
+    hh = {t: num(a32[A32_HH_ROW - 1][c]) for t, c in A32_TENURE.items()}  # households (thousands), the sampling weights
+    summ = []
+    for i, (key, p) in enumerate(choose_personas(ons)):
+        tenure = rng.choices(list(hh), weights=list(hh.values()))[0]
+        rows, gross, net, spend = build(i, key, p, ons, tenure)
+        name = f"persona{i + 1}_{p['uuid'][:8]}.csv"
+        with open(out / name, "w", newline="", encoding="utf-8") as fh:
+            w = csv.writer(fh, lineterminator=LINE_END)
+            w.writerow(COLUMNS)
+            w.writerows(rows)
+        summ.append((name, p, tenure, gross, net, ons["ashe"][p["occupation"][:3]][0], spend))
+    keys = ["cat1", "cat2", "cat3", "cat5", "cat6", "cat7", "cat9", "cat11", "cat12", "rent", "energy", "council_tax", "phone", "tv", "sports"]
+    with open(out / "personas.md", "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(f"# Mock-statement personas\n\nGenerated by `mock_statements.py` (seed {SEED}). Salary: ONS ASHE Table 14.7a, 2025 revised, "
+                 "sheet `All`, median annual gross pay (UK, all employee jobs) for the persona's 3-digit SOC 2020 code; the net monthly "
+                 "credit follows a simple income-tax and NI rule (see the `ponytail` comment in the code). Spending: ONS Family Spending, "
+                 "April 2024 to March 2025. Tenure is sampled using the A32 household counts and is not in the persona data. "
+                 "Merchant names are synthetic.\n\n"
+                 "| File | uuid | Age | Household type | Occupation | Tenure (sampled) | Gross salary [GBP/yr] | ASHE `All` row | Net monthly pay [GBP] |\n"
+                 "|---|---|---|---|---|---|---|---|---|\n")
+        for n, p, t, g, nt, r, _ in summ:
+            fh.write(f"| {n} | {p['uuid']} | {p['age']} | {p['household_type']} | {p['occupation']} | {t} | {g:.0f} | {r} | {nt:.2f} |\n")
+        fh.write("\n## Modelled monthly spend by category [GBP/month, expectation]\n\n"
+                 "catN is the ONS category number: 1 food, 2 alcohol and tobacco, 3 clothing, 5 household goods, 6 health, 7 transport "
+                 "(vehicle purchase excluded), 9 recreation (package holidays, TV and sports subscriptions removed), 11 restaurants, "
+                 "12 miscellaneous (with education and leftover communications). Category 4 housing is replaced by the regular debits "
+                 "(rent, energy and water, council tax); maintenance and ONS categories 13 and 14 other than council tax are excluded. "
+                 "BNPL instalments are paid out of the named category's spending, so totals are unchanged.\n\n")
+        fh.write("| File | " + " | ".join(keys) + " | Total |\n|---|" + "---|" * (len(keys) + 1) + "\n")
+        for n, *_, s in summ:
+            fh.write(f"| {n} | " + " | ".join(f"{s.get(k, 0):.0f}" for k in keys) + f" | {sum(s.get(k, 0) for k in keys):.0f} |\n")
+    return [s[0] for s in summ], summ
+
+
+def check():
+    with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
+        names, _ = generate(Path(a))
+        generate(Path(b))
+        assert len(names) == 5
+        for n in names + ["personas.md"]:
+            assert (Path(a) / n).read_bytes() == (Path(b) / n).read_bytes(), f"{n} differs between runs"
+        for n in names:
+            rows = list(csv.reader(open(Path(a) / n, encoding="utf-8")))
+            assert rows[0] == COLUMNS
+            body = rows[1:]
+            assert all(len(r) == 8 for r in body)
+            prev = max(float(r[6]) for r in body if r[6])  # opening balance = one month's net pay
+            paid = set()
+            for r in body:
+                assert r[1] in ("DEB", "DD", "SO", "BGC") and (r[5] == "") != (r[6] == "")
+                prev = round(prev - float(r[5] or 0) + float(r[6] or 0), 2)
+                assert abs(prev - float(r[7])) < 0.005, (n, r)
+                if r[1] == "BGC":
+                    paid.add(r[0][3:])
+            assert paid == {"08/2026", "09/2026", "10/2026"}, paid
+            dates = [dt.datetime.strptime(r[0], DATE_FMT).date() for r in body]
+            assert dates == sorted(dates) and dates[-1] <= END
+        assert sum("KLARNA" in r[4] or "CLEARPAY" in r[4] for n in names for r in csv.reader(open(Path(a) / n, encoding="utf-8"))) >= 4
+    print("self-check passed")
+
+
+if __name__ == "__main__":
+    if "--check" in sys.argv:
+        check()
+    else:
+        print("\n".join(generate(OUT)[0]))
