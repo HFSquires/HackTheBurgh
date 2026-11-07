@@ -11,6 +11,8 @@ You keep Harrison F. Squires's Notion page "hacktheburgh" (https://app.notion.co
 
 Fetch the page with the Notion fetch tool, and any child pages it contains. Read the "Last read" sentence near the top of `BRIEF.md`, which gives the latest `page_last_edited_at` of the page and its child pages at the last check. If the latest current value is the same, stop and report exactly `no change`.
 
+If the latest edit is less than 3 minutes old, Harrison may still be typing: do not edit Notion this run. You may still update the repository for chat items you were given, but do not change the "Last read" timestamp in `BRIEF.md`, so that the next check picks his edit up. Report `deferred` with what you did.
+
 ## 2. Organise the page
 
 The page has these top-level sections: Challenge shortlist (Ruled out, Broad, Narrow), Bank of Scotland: Smart Cost of Living, Idea (and its subsections), Open questions, Notes from Claude. Compare the fetched page with that structure and with what `BRIEF.md` records, and find what Harrison has added or changed.
