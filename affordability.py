@@ -1,7 +1,7 @@
 """Affordability engine and local HTTP API for the checkout extension (task T07).
 
 Reads a bank-statement CSV (Lloyds Banking Group export layout, as written by mock_statements.py), or the same data
-from an Open Banking account-information API through mock_bank.fetch (task T18), and answers, for a
+from an Open Banking account-information API through mock_bank.from_request (tasks T18, T21), and answers, for a
 purchase at price P: what is safe to spend before the next payday, and the facts of each way to pay (pay now, BNPL with a
 set-aside pot, plain BNPL, a 0% card, a credit card cleared in full). Guidance, not advice: options are described and marked cheapest / most left until
 payday, never recommended. When a product is named, the price catalogue in data/ gives the cheapest mainstream
@@ -633,12 +633,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise StatementError("The body is not valid JSON.") from None
             if not isinstance(req, dict) or sum(k in req for k in ("persona", "csv", "bank")) != 1:
                 raise StatementError('Send an object with exactly one of "persona", "csv" or "bank", plus "price".')
-            if "bank" in req:  # Open Banking AISP endpoint (T18); mock_bank imports this module, hence the late import
+            customer = None
+            if "bank" in req:  # Open Banking AISP endpoint (T18, T21); mock_bank imports this module, hence the late import
                 import mock_bank
-                bank = req["bank"]
-                if not isinstance(bank, dict) or not set(bank) <= {"baseUrl", "token", "persona"}:
-                    raise StatementError('bank must be {"baseUrl": ..., "token": ...} or {"baseUrl": ..., "persona": ...}.')
-                tx = mock_bank.fetch(bank.get("baseUrl"), bank.get("token"), bank.get("persona"))
+                tx, customer = mock_bank.from_request(req["bank"])
             else:
                 tx = parse(load_persona(req["persona"]) if "persona" in req else req["csv"])
             try:
@@ -650,6 +648,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise StatementError("merchant must be a string.")
             out = assess(tx, req.get("price"), today, merchant, req.get("product"))
             out["persona"] = req.get("persona")
+            if customer is not None:  # "bank": {..., "allAccounts": true}: every account at every provider (T21)
+                out["customer"] = customer
             self.send(200, out)
         except StatementError as e:
             self.send(400, dict(error=str(e)))
