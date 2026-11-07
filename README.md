@@ -7,3 +7,4 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-07 (Claude): Set up the repository and its tracking files, with the parallel-agent rules and the design style. Plots import the shared TeXFormat module from `03_code/TeXFormat`; a test plot rendered correctly. No project code yet.
 - 2026-11-07 (Claude): Restated Harrison's skills (`ponytail` and others, with paths for Astra) and the workspace file-organisation, environment and writing rules in `CLAUDE.md`/`AGENTS.md`.
 - 2026-11-07 (Claude): Recorded the "Smart Cost of Living" challenge text in `BRIEF.md` and listed four candidate ideas as proposals; rules, judging criteria and deadline are still unknown.
+- 2026-11-07 (Claude): Recorded Harrison's idea (affordability browser extension with an opt-in BNPL float) in `BRIEF.md` and `DECISIONS.md`, with an estimate of the interest the float earns (about £1 per £300 at an assumed 4% AER).
