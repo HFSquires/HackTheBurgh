@@ -119,3 +119,4 @@ All results above are on synthetic data from `ob_generator.py` and say nothing a
 ## Log
 
 - 2026-11-07 (Claude): outline written from Andrew's `HackTheBurgh.md` (commit `1d8ad2d`), the existing engine and the unmerged T22 learning results (`t22-learning-test`, commit `5404760`). Not implemented, by Harrison's instruction.
+- 2026-11-07 (Claude): after this outline was written, T29 moved `bayes.py`, `forecast.py` and the old `affordability.py` engine to `archive/`; the parser and detectors cited in section 2 are now in `statements.py` (`statements.detect_income`, `detect_committed`, `detect_bnpl`, `next_payday`, `bank_rate`). References above to `bayes.py`, `affordability.pot_interest` and the T22 branches are historical. Implementation instructions: `IMPLEMENTATION.md`.
