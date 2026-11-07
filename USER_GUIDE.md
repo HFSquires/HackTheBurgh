@@ -1,6 +1,6 @@
 # User guide
 
-Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c) and the back end (`affordability.py`, task T07). The browser extension front end is being built by Auro (T10) and is not yet in the repository.
+Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c) the back end (`affordability.py`, task T07) and the affordability figures (`affordability_figures.py`, task T07b). The browser extension front end is being built by Auro (T10) and is not yet in the repository.
 
 ## Purpose
 
@@ -60,3 +60,17 @@ curl -s -X POST http://127.0.0.1:8765/assess -H "Content-Type: application/json"
 The response gives the detected salary and next payday, committed payments (direct debits, standing orders, same-amount card payments in three or more months) with due dates, buy-now-pay-later plans (Klarna, Clearpay, PayPal Pay in 3) with remaining instalments, `safeToSpend` (balance minus committed payments and BNPL instalments due before payday; everyday spending not deducted), a monthly view, and four payment options (`payNow`, `bnplPot`, `bnplPlain`, `card0`) with facts only, marking `cheapest` and `mostLeftUntilPayday` without recommending. `saleNote` names the next UK sale event within 60 days; `betterPrice` is null until the price catalogue (T09) is linked. Definitions are returned in the response.
 
 Limitations: UK bank holidays are ignored in payday prediction; annual debits are treated as monthly; card subscriptions younger than three months are missed; BNPL instalment counts are assumed by provider; there is no card data, so the 0% card option is descriptive only; the sale dates are typed into the code and not yet checked against a source.
+
+## Affordability figures
+
+`affordability_figures.py` (task T07b) runs the back end on every statement in `Analysis/mock_statements/` (default `today`: the day after each statement's last transaction) at test prices of £50, £100, £200, £300, £500, £750, £1,000 and £1,500, and writes the pitch figures. It needs `matplotlib` (in `requirements.txt`), a `texformat.pth` in the `.venv` (see Plots in `CLAUDE.md`) and LaTeX (MiKTeX) on the PATH.
+
+```
+.venv\Scripts\python -X utf8 affordability_figures.py           # writes everything, about 40 s
+.venv\Scripts\python -X utf8 affordability_figures.py --check   # verifies outputs; rewrites nothing
+```
+
+Outputs: `Analysis/affordability/households.csv` (one row per persona: tenure, region, household, income, next payday, balance, safeToSpend, monthly left-over, and the outcome at each price: `payNow`, `bnplPlainOnly` or `neither`); `Figures/affordability/affordability_by_price.{pdf,svg,md}` (stacked counts by price); `Figures/affordability/safe_to_spend_vs_income.{pdf,svg,md}` (safe to spend and monthly left-over against monthly net income, coloured by tenure). Each `.md` holds the definitions, data and statistics for its figure.
+
+Limitations: safe to spend does not yet deduct everyday spending until payday, so the counts are generous (fix planned in T15). Spearman p-values use a normal approximation (SciPy is not installed); read them only as far below 0.001. PDFs differ byte for byte between runs because of font-subset tags; SVGs do not.
+
