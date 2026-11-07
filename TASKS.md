@@ -10,3 +10,4 @@ Statuses: `todo`, `in progress`, `review`, `blocked`, `done`. Claim a task by se
 | T04 | Break the idea down into implementation tasks on this board | unassigned | todo | main | Depends on T02 |
 | T05 | Mock statement generator: pick personas from Nemotron-Personas-UK, give each a salary and category spending, write one statement CSV per persona | Claude | done | t05-mock-statements | Merged 7 November 2026 (`ff706cc`); self-check passes. Known issues carried to T05b |
 | T05b | Mock data fixes: scale spending to income, at least two renters, Scottish income tax bands; keep ASHE 2025 revised | unassigned | todo |  | Proposed by Claude; awaiting Harrison's go-ahead |
+| T05c | Scale the generator to 100 Scottish personas (one statement CSV each), fetching more persona rows as needed | Claude | in progress | t05c-100-personas | Requested by Harrison, 7 November 2026 ("generate 100 csv from 100 personnas if possible"); built by a Claude sub-agent |
