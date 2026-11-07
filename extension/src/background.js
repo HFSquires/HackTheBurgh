@@ -43,7 +43,8 @@ async function cached(kind, payload, fresh) {
 // budget verdict redone against the real total. Otherwise run the full analysis.
 async function analyze(payload) {
   const settings = await getSettings();
-  const earlier = await ST.precheck.find(payload);
+  // With the team backend, always ask it, so the checkout verdict is the backend's own (it is fast, no web search).
+  const earlier = !ST.config.BACKEND_URL && (await ST.precheck.find(payload));
   let result;
   if (earlier) {
     ST.log("analyse: reused the price check from earlier", { stage: earlier.stage, secondsAgo: Math.round((Date.now() - earlier.at) / 1000) });
@@ -51,7 +52,7 @@ async function analyze(payload) {
   } else {
     result = await cached("analyse", payload, analyzeFresh);
   }
-  return { ...result, budgetInfo: ST.precheck.budgetInfo(settings) };
+  return { ...result, budgetInfo: result.budgetInfo ?? ST.precheck.budgetInfo(settings) }; // backend's, if it sent one
 }
 
 // Silent price check when something goes in the basket (or the basket page is opened): no UI, just remembered,
@@ -72,7 +73,7 @@ async function precheck(payload, sender) {
     chrome.action.setBadgeText({ tabId, text: `-${sym}${Math.round(best)}` }).catch(() => {});
     chrome.action.setTitle({ tabId, title: `Cheaper elsewhere: save about ${sym}${best.toFixed(2)}` }).catch(() => {});
   }
-  return { ...result, budgetInfo: ST.precheck.budgetInfo(await getSettings()) };
+  return { ...result, budgetInfo: result.budgetInfo ?? ST.precheck.budgetInfo(await getSettings()) };
 }
 const outlook = (payload) => cached("outlook", payload, outlookFresh);
 
