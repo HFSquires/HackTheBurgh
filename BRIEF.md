@@ -1,6 +1,6 @@
 # Brief
 
-Fill this in when the challenge is announced. Keep `unknown` wherever the organisers have not said. Harrison's own shortlist of sponsor challenges is kept in the Notion page "hacktheburgh" (https://app.notion.com/p/hacktheburgh-411b2fb4d76580188ba4e5d313f4861a); re-read it before updating this file. Last read: 7 November 2026 14:22 UTC, page last edited 2026-11-07T14:21:57.075Z (the notion-keeper's own edit, on Harrison's instruction, adding a "Demo data" subsection under Idea with his two statements, the agent's demo-data proposals under Open questions, and two notes under Notes from Claude).
+Fill this in when the challenge is announced. Keep `unknown` wherever the organisers have not said. Harrison's own shortlist of sponsor challenges is kept in the Notion page "hacktheburgh" (https://app.notion.com/p/hacktheburgh-411b2fb4d76580188ba4e5d313f4861a); re-read it before updating this file. Last read: 7 November 2026 14:34 UTC, latest page_last_edited_at of the page and its child page 2026-11-07T14:33:37.666Z (the notion-keeper's own edit, on Harrison's instruction: demo-data proposals a to f marked accepted, and Claude's notes and the demo-data sources moved to the child page "Claude's notes and sources", https://app.notion.com/p/411b2fb4d7658139a9c9d6bb4d6edc0b).
 
 | Item | Detail |
 | --- | --- |
