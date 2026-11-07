@@ -485,8 +485,8 @@ def to_transactions(rows, balances, direct_debits=(), standing_orders=(), keep=F
             raise StatementError("The bank gave no InterimBooked or ClosingBooked balance.")
         tx = [ob_row(r, names) | {"row": r} for r in rows if r["Status"] == "Booked"]
         bal = signed(closing)
-    except (KeyError, TypeError, ValueError, AttributeError) as e:
-        raise StatementError(f"The bank's data are not in the expected Open Banking shape ({e}).") from None
+    except (KeyError, TypeError, ValueError, AttributeError):  # no text from the bank (e.g. a bad amount) in the message
+        raise StatementError("The bank's data are not in the expected Open Banking shape.") from None
     if not tx:
         raise StatementError("The bank returned no booked transactions.")
     first, last = tx[0]["date"], tx[-1]["date"]
@@ -814,6 +814,10 @@ def check_t23(base):
         fails(call, bad + "/a b")                        # http.client.InvalidURL
         msg = fails(call, bad + "/secret")
         assert msg == "The bank returned HTTP 403." and "SECRET" not in msg
+        row = {"Status": "Booked", "CreditDebitIndicator": "Debit", "Amount": {"Amount": "SECRET-banner"},
+               "BookingDateTime": "2026-01-01T00:00:00+00:00"}  # T27: a malformed field's text stays out of the message
+        assert "SECRET" not in fails(to_transactions, [row], [{"Type": "InterimBooked", "CreditDebitIndicator": "Credit",
+                                                                 "Amount": {"Amount": "1.00"}}])
         assert fails(call, "http://127.0.0.1:1/x") == "Could not read a response from the bank."
     finally:
         bad_srv.shutdown()
