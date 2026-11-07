@@ -152,37 +152,105 @@ globalThis.ST = globalThis.ST || {};
 
   // The affordability model: will this purchase keep the customer on their net-worth goal this month, judged from
   // their accounts read through Open Banking. Null when it's not configured, not running, or has too little history.
-  async function modelVerdict(total, currency) {
+  // What the customer can pay with right now, read from their banks through Open Banking (here the mock bank):
+  // money in current and savings accounts, unused arranged overdraft, and unused credit on cards.
+  async function cashPosition(m) {
+    const opts = { signal: AbortSignal.timeout(5000) };
+    const res = await fetch(`${m.bankUrl.replace(/\/$/, "")}/mock/consent`, {
+      ...opts, method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ persona: m.persona }),
+    });
+    const { consents = [] } = await res.json();
+    const out = { inAccounts: 0, overdraftLeft: 0, cardCreditLeft: 0 };
+    for (const c of consents) {
+      const base = `${m.bankUrl.replace(/\/$/, "")}/providers/${c.provider}/open-banking/v3.1/aisp`;
+      const get = (path) => fetch(base + path, { ...opts, headers: { authorization: `Bearer ${c.access_token}` } }).then((r) => r.json()).then((j) => j.Data || {});
+      for (const a of (await get("/accounts")).Account || []) {
+        const all = (await get(`/accounts/${a.AccountId}/balances`)).Balance || [];
+        const b = all.find((x) => x.Type === "InterimAvailable") || all.find((x) => x.Type === "InterimBooked");
+        if (!b) continue;
+        const amount = Number(b.Amount.Amount) * (b.CreditDebitIndicator === "Debit" ? -1 : 1);
+        const limit = (b.CreditLine || []).filter((l) => !l.Included).reduce((s, l) => s + Number(l.Amount.Amount), 0);
+        if (a.AccountSubType === "CreditCard") out.cardCreditLeft += Math.max(0, limit + amount);
+        else {
+          out.inAccounts += Math.max(0, amount);
+          out.overdraftLeft += Math.max(0, limit + Math.min(0, amount));
+        }
+      }
+    }
+    return out;
+  }
+
+  // Can they pay at all? "pay" from money they have, "borrow" only with overdraft or card, "cannot" not even then.
+  const payWith = (price, cash) =>
+    price <= cash.inAccounts ? "pay" : price <= cash.inAccounts + cash.overdraftLeft + cash.cardCreditLeft ? "borrow" : "cannot";
+
+  // The panel's words, written by the LLM (short and advisory) from the model's figures; the model's verdict is never
+  // changed. Same facts, same words: kept, since a check asks twice (quick answer, then the full one).
+  const phrased = new Map();
+  async function phraseWith(phrase, facts) {
+    const key = JSON.stringify(facts);
+    if (!phrased.has(key)) phrased.set(key, phrase(facts).catch((e) => (phrased.delete(key), Promise.reject(e))));
+    return Promise.race([phrased.get(key), new Promise((_, no) => setTimeout(() => no(new Error("took over 8 s")), 8000))]);
+  }
+
+  // `phrase` (facts) -> { title, message }: the LLM; without one, short built-in wording.
+  async function modelVerdict(total, currency, phrase = null) {
     const m = ST.config.MODEL || {};
     if (!m.url || !(total > 0) || (currency && currency !== "GBP")) return null;
     try {
-      const res = await fetch(`${m.url.replace(/\/$/, "")}/decide`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ bank: { baseUrl: m.bankUrl, persona: m.persona }, price: Math.round(total * 100) / 100 }),
-        signal: AbortSignal.timeout(10000),
-      });
+      const [res, cash] = await Promise.all([
+        fetch(`${m.url.replace(/\/$/, "")}/decide`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ bank: { baseUrl: m.bankUrl, persona: m.persona }, price: Math.round(total * 100) / 100 }),
+          signal: AbortSignal.timeout(10000),
+        }),
+        cashPosition(m).catch((e) => (ST.log.error("bank: couldn't read balances", e.message), null)),
+      ]);
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
-      ST.log("affordability model: answer", { price: d.price, verdict: d.verdict, headroom: d.netWorth?.headroom, daysToAfford: d.daysToAfford });
       if (!["good", "caution", "reconsider"].includes(d.verdict)) return null;
       const nw = d.netWorth;
       const month = new Date(`${d.month}-01T12:00:00`).toLocaleDateString("en-GB", { month: "long" });
       const payday = d.income?.nextPayday ? Math.max(0, Math.round((new Date(`${d.income.nextPayday}T12:00:00`) - new Date(`${d.today}T12:00:00`)) / 86400000)) : null;
       const spare = Math.max(nw.surplusWithout, 0);
+      const can = cash ? payWith(d.price, cash) : "pay";
+      ST.log("affordability model: answer", { price: d.price, verdict: d.verdict, headroom: nw.headroom, daysToAfford: d.daysToAfford, canPay: can, cash });
+      const borrowOn = cash && cash.overdraftLeft > 0 ? "overdraft" : "credit card";
       const text = {
+        cannot: ["You can't pay for this", `You have ${money(cash?.inAccounts + cash?.overdraftLeft + cash?.cardCreditLeft)} to spend, including your overdraft.`],
+        borrow: ["You'd have to borrow for this", `It would put ${money(d.price - (cash?.inAccounts || 0))} on your ${borrowOn}.`],
         good: ["Fits your savings goal", `You'd still end ${month} ${money(nw.headroom)} ahead of your goal.`],
         caution: ["Tight against your goal", `You'd end ${month} only ${money(nw.headroom)} ahead of your goal.`],
         reconsider: [
-          "You can't afford this right now",
-          `It would leave you ${money(-nw.headroom)} short of your savings goal this ${month}.` +
-            (d.daysToAfford ? ` Wait about ${d.daysToAfford} days and it fits.` : " It won't fit within the next 3 months."),
+          "This would set your savings back",
+          `You'd end ${month} ${money(-nw.headroom)} behind your goal.` + (d.daysToAfford ? ` In about ${d.daysToAfford} days it fits.` : ""),
         ],
-      }[d.verdict];
+      }[can === "pay" ? d.verdict : can];
+      let [title, message] = text;
+      if (phrase) {
+        const facts = {
+          modelVerdict: d.verdict,
+          price: d.price,
+          canPay: { pay: "yes, from money they have", borrow: `only by borrowing (${borrowOn})`, cannot: "no, not even with overdraft or credit card" }[can],
+          moneyToSpendNow: cash && { inAccounts: cash.inAccounts, overdraftLeft: cash.overdraftLeft, cardCreditLeft: cash.cardCreditLeft },
+          monthEndVersusSavingsGoal: nw.headroom,
+          monthEndBalanceAllAccounts: nw.forecastEndWith,
+          daysUntilItWouldFit: d.daysToAfford,
+          daysToPayday: payday,
+          month,
+        };
+        try {
+          ({ title, message } = await phraseWith(phrase, facts));
+          ST.log("affordability: message written by the LLM", { title, message });
+        } catch (e) {
+          ST.log.error("affordability: LLM wording failed, using the built-in wording", e.message);
+        }
+      }
       return {
         verdict: d.verdict,
-        title: text[0],
-        message: text[1],
+        title,
+        message,
         insights: [
           { label: `Spare in ${month}`, value: money(spare) },
           payday != null && { label: "Next payday", value: payday === 0 ? "today" : `in ${payday} days` },
@@ -209,13 +277,16 @@ globalThis.ST = globalThis.ST || {};
     }
   }
 
+  // The LLM that words the model's answer: the live one when there's an API key (background only), else none.
+  const phraser = (settings) => (settings?.apiKey && ST.live?.phraseDecision ? (facts) => ST.live.phraseDecision(facts, settings) : null);
+
   // The budget part of an answer: the model's verdict when it answers, else the saved budget's numbers.
   async function withBudget(result, payload, settings) {
-    const m = await modelVerdict(payload.total, payload.currency);
+    const m = await modelVerdict(payload.total, payload.currency, phraser(settings));
     if (!m) return { ...result, budgetInfo: budgetInfo(settings) };
     const { budgetInfo: info, ...verdict } = m;
     return { ...result, ...verdict, budgetInfo: info };
   }
 
-  ST.precheck = { run, find, forCheckout, budgetVerdict, budgetInfo, withBudget, modelVerdict, addOutlook, baseDomain };
+  ST.precheck = { run, find, forCheckout, budgetVerdict, budgetInfo, withBudget, modelVerdict, phraser, addOutlook, baseDomain };
 })();

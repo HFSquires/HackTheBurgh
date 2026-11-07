@@ -74,6 +74,13 @@ python3 -X utf8 mock_bank.py --serve --source v2   # mock Open Banking bank on 8
 python3 -X utf8 model.py --serve                   # affordability model on 8765
 ```
 
+The model judges one thing: whether the customer stays on their net-worth goal this month. Alongside it, the
+extension reads the customer's balances through the same Open Banking API (money in accounts, unused arranged overdraft,
+unused card credit), so the panel can say whether they can pay at all: "You can't pay for this" (not even with overdraft
+or card), "You'd have to borrow for this" (only with overdraft or card), or the savings-goal wording. The verdict is
+always the model's. The words come from the LLM (your API key; short, advisory, from the model's figures and the cash
+position, never changing the verdict), with short built-in wording when there's no key or it takes over 8 s.
+
 When the model says "can't afford", the panel shows a small chart of the rest of the month from the same answer:
 money across all accounts day by day (everyday spending spread evenly, bills on their due dates, salary on payday), with
 and without the purchase, against the savings goal. Its last day equals the model's month-end forecast.

@@ -269,7 +269,7 @@ const handlers = {
   ST_ANALYZE: analyze,
   ST_PRECHECK: precheck,
   // The affordability model alone: answers in a moment, so "can't afford" can show before the price search ends.
-  ST_AFFORD: (payload) => ST.precheck.modelVerdict(payload.total, payload.currency),
+  ST_AFFORD: async (payload) => ST.precheck.modelVerdict(payload.total, payload.currency, ST.precheck.phraser(await getSettings())),
   ST_OUTLOOK: outlook,
   ST_ACTION: action,
   ST_PREPARE: (p) => ST.prepare.prepareCheckout(p),

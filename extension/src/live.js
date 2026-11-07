@@ -346,5 +346,28 @@ Elements may say where they lead: "goes_to" (a link's destination) and "submits_
     return json;
   }
 
-  ST.live = { analyze, outlook, nextStep, checkPrice };
+  // ---------- Wording the affordability model's answer ----------
+  // The model decides; this only writes what the shopper reads, from the model's figures.
+
+  const PHRASE_SCHEMA = {
+    type: "object",
+    additionalProperties: false,
+    required: ["title", "message"],
+    properties: {
+      title: { type: "string", description: "At most 6 words: the situation" },
+      message: { type: "string", description: "One sentence, at most 20 words" },
+    },
+  };
+  const PHRASE_SYSTEM = `You write the words a checkout assistant shows a shopper. An affordability model has already decided; never change, soften or second-guess its verdict, and use only the facts and numbers given (round pounds to whole numbers).
+Plain British English, second person, calm and kind, no jargon ("net worth", "headroom", "forecast"), no exclamation marks, no lecturing.
+Title: at most 6 words, what the situation is. Message: one short advisory sentence, at most 20 words: the one fact that matters most, and what would make it work if there is something (waiting until payday, the days until it fits).
+If they can't pay at all, or only by borrowing, say that first; savings goals come second.`;
+
+  async function phraseDecision(facts, settings) {
+    const { json } = await respond(settings, { instructions: PHRASE_SYSTEM, input: JSON.stringify(facts), name: "decision_words", schema: PHRASE_SCHEMA });
+    if (!json?.title || !json?.message) throw new Error("no wording returned");
+    return { title: String(json.title).slice(0, 60), message: String(json.message).slice(0, 200) };
+  }
+
+  ST.live = { analyze, outlook, nextStep, checkPrice, phraseDecision };
 })();
