@@ -5,7 +5,7 @@ Files: `safe_to_spend_vs_income.pdf`, `safe_to_spend_vs_income.svg` (this file: 
 
 ## Source data
 
-The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `e01f34f`), read by `affordability.py` at commit `79c06cc` (with uncommitted changes) (with `bayes.py` at commit `79c06cc` for everyday spending), called by `affordability_figures.py` (commit `f4d1a71` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
+The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `e01f34f`), read by `affordability.py` at commit `2c5e080` (with `bayes.py` at commit `22804b4` for everyday spending), called by `affordability_figures.py` (commit `2c5e080` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
 
 ## Filters, transformations and units
 

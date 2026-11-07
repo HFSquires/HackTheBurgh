@@ -8,9 +8,9 @@ Last month and mean Aug-Sep as for discretionary spending; the third row is Sept
 
 | Forecast | n | MAE [GBP] (± SE) | RMSE [GBP] (± SE) | MAPE [%] (± SE) |
 |---|---|---|---|---|
-| Last month (Sep) | 100 | 18.60 ± 1.48 | 23.71 ± 1.77 | 1.32 ± 0.11 |
-| Mean Aug-Sep | 100 | 16.67 ± 1.34 | 21.33 ± 1.65 | 1.19 ± 0.10 |
-| Committed + BNPL schedule + pooled regression | 100 | 16.12 ± 1.42 | 21.45 ± 1.61 | 1.17 ± 0.11 |
+| Last month (Sep) | 100 | 19.70 ± 1.56 | 25.09 ± 1.88 | 1.29 ± 0.11 |
+| Mean Aug-Sep | 100 | 17.59 ± 1.41 | 22.51 ± 1.73 | 1.16 ± 0.10 |
+| Committed + BNPL schedule + pooled regression | 100 | 17.09 ± 1.49 | 22.65 ± 1.69 | 1.15 ± 0.11 |
 
 ## Card spending by merchant group, mean Aug-Sep forecast
 
@@ -18,15 +18,15 @@ Groups come from the merchant names in `mock_statements.MERCH`; TESCO STORES is 
 
 | Group | n | Mean October spending [GBP] | MAE [GBP] (± SE) | MAPE [%] (± SE) |
 |---|---|---|---|---|
-| clothing | 100 | 34.79 | 2.81 ± 0.29 | 8.8 ± 1.0 |
-| food and drink | 100 | 180.35 | 8.86 ± 0.65 | 4.9 ± 0.4 |
-| football tickets | 24 | 12.54 | 0.00 ± 0.00 | 0.0 ± 0.0 |
-| health | 100 | 20.90 | 1.08 ± 0.11 | 5.3 ± 0.4 |
-| household goods | 100 | 80.69 | 4.75 ± 0.34 | 6.1 ± 0.4 |
-| miscellaneous | 100 | 98.61 | 5.33 ± 0.41 | 5.5 ± 0.4 |
-| recreation | 100 | 119.55 | 8.36 ± 0.74 | 6.8 ± 0.5 |
-| restaurants | 100 | 73.69 | 4.44 ± 0.39 | 5.8 ± 0.4 |
-| transport | 100 | 98.86 | 5.40 ± 0.41 | 5.7 ± 0.4 |
+| clothing | 100 | 35.20 | 2.85 ± 0.30 | 8.8 ± 1.0 |
+| food and drink | 100 | 190.53 | 9.35 ± 0.69 | 4.9 ± 0.4 |
+| football tickets | 24 | 13.21 | 0.00 ± 0.00 | 0.0 ± 0.0 |
+| health | 100 | 22.30 | 1.15 ± 0.11 | 5.3 ± 0.4 |
+| household goods | 100 | 81.58 | 4.81 ± 0.34 | 6.1 ± 0.4 |
+| miscellaneous | 100 | 104.75 | 5.67 ± 0.44 | 5.5 ± 0.4 |
+| recreation | 100 | 125.95 | 8.81 ± 0.78 | 6.8 ± 0.5 |
+| restaurants | 100 | 79.57 | 4.79 ± 0.42 | 5.8 ± 0.4 |
+| transport | 100 | 108.38 | 5.92 ± 0.45 | 5.7 ± 0.4 |
 
 ## BNPL schedule
 

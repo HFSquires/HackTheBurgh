@@ -7,8 +7,8 @@ Files: `savings_comparison.pdf`, `savings_comparison.svg` (this file: `savings_c
 [`data/retail_prices_2026-11-07.csv`](../../data/retail_prices_2026-11-07.csv) (retailer prices collected on 07 November 2026; mainstream
 retailers: Amazon UK, Argos, Currys, John Lewis, AO, Very; marketplace and third-party sellers are excluded) and
 [`data/boe_bank_rate_IUDBEDR_2026-11-07.csv`](../../data/boe_bank_rate_IUDBEDR_2026-11-07.csv) (Bank of England Bank Rate, series IUDBEDR), via
-`affordability.py` at commit `79c06cc` and `affordability_figures.py`
-at commit `f4d1a71` or later. Plotted data:
+`affordability.py` at commit `2c5e080` and `affordability_figures.py`
+at commit `2c5e080` or later. Plotted data:
 [`Analysis/value/savings_comparison.csv`](../../Analysis/value/savings_comparison.csv).
 
 ## Filters, transformations and units

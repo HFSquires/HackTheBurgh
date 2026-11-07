@@ -4,7 +4,7 @@ Plot: `calibration.pdf` / `.svg`. Written by `bayes.py`; regenerate with it.
 
 ## Source and transformations
 
-Source: the 100 statements in `Analysis/mock_statements/`, via `bayes.py` (which reuses `forecast.py` and `affordability.py`). Discretionary spending as in `affordability.card_spend` (card payments that are neither BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. Every model is fitted on the rows up to 30 September only (August and September); each person's prior comes from a fit on the other persons, by person-level 10-fold cross-validation with forecast.py's folds (seed 20261107). October is used only to score.
+Source: the 100 statements in `Analysis/mock_statements/`, via `bayes.py` (which reuses `forecast.py` and `affordability.py`). Discretionary spending as in `affordability.card_spend` (card payments that are neither BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. Every model is fitted on the rows up to 30 September only (August and September); each person's prior comes from a fit on the other persons, by person-level 10-fold cross-validation with forecast.py's folds (seed 20261107). October is used only to score. Statements last changed in commit `e01f34f`; `bayes.py` at commit `22804b4`; `forecast.py` at commit `22804b4`; `affordability.py` at commit `2c5e080` (or later, if uncommitted changes were run).
 
 Model (full derivation in the docstring of `bayes.py`): daily discretionary spending, Gaussian on the raw scale; within a calendar month of D days each day has mean beta / D (beta: the person's monthly budget) and variance sigma^2, and two days of the same month have correlation (phi - 1) / (D - 1), so a month's total has variance phi D sigma^2. Normal-Inverse-Gamma prior on (beta, sigma^2) centred on a population regression of ln budget on ln net pay; exact conjugate update after each day; Student-t predictive for the sum over any set of future days. The independent-days model is the same with phi fixed at 1.
 
@@ -14,13 +14,13 @@ For each person, central posterior predictive intervals (50 %, 80 %, 95 %) of cu
 
 | Hyperparameter | Monthly budget, mean ± SD over the 10 folds | Independent days (phi = 1), mean ± SD over folds | Default for live use (all 100 statements, Aug-Oct) |
 |---|---|---|---|
-| c0 (intercept, ln GBP) | 0.4626 ± 0.1646 | 0.4626 ± 0.1646 | 0.4543 |
-| c1 (slope on ln net pay) | 0.7833 ± 0.0206 | 0.7833 ± 0.0206 | 0.7838 |
-| tau^2 (between-person variance of ln budget) | 0.01926 ± 0.0009473 | 0.001906 ± 0.0009026 | 0.01887 |
-| r (daily variance / budget^2) | 0.00116 ± 6.097e-06 | 0.00116 ± 6.097e-06 | 0.001156 |
-| a0 | 24.260 ± 2.699 | 24.260 ± 2.699 | 36.867 |
-| kappa0 = r / tau^2 | 0.06034 ± 0.002815 | 0.7992 ± 0.5096 | 0.06127 |
-| phi | 0.0188 ± 0.0007 | 1.0000 ± 0.0000 | 0.0178 |
+| c0 (intercept, ln GBP) | 0.4881 ± 0.1644 | 0.4881 ± 0.1644 | 0.4788 |
+| c1 (slope on ln net pay) | 0.7872 ± 0.0206 | 0.7872 ± 0.0206 | 0.7878 |
+| tau^2 (between-person variance of ln budget) | 0.01922 ± 0.0009378 | 0.00208 ± 0.0008947 | 0.01884 |
+| r (daily variance / budget^2) | 0.001145 ± 5.834e-06 | 0.001145 ± 5.834e-06 | 0.001142 |
+| a0 | 24.420 ± 2.722 | 24.420 ± 2.722 | 36.995 |
+| kappa0 = r / tau^2 | 0.05973 ± 0.002767 | 0.6794 ± 0.3675 | 0.06058 |
+| phi | 0.0190 ± 0.0007 | 1.0000 ± 0.0000 | 0.0179 |
 | persons used per fit | 90 ± 0 | 90 ± 0 | 100 |
 
 ## Coverage and mean interval width
@@ -29,44 +29,44 @@ Width: mean ± SE across persons [GBP].
 
 | Model | Horizon | Nominal | Empirical coverage (± binomial SE) | n | Mean width [GBP] (± SE) |
 |---|---|---|---|---|---|
-| Monthly budget (phi fitted) | days 1 to 7 | 0.50 | 0.51 ± 0.05 | 100 | 76.7 ± 2.0 |
-| Monthly budget (phi fitted) | days 1 to 7 | 0.80 | 0.81 ± 0.04 | 100 | 146.1 ± 3.8 |
-| Monthly budget (phi fitted) | days 1 to 7 | 0.95 | 0.96 ± 0.02 | 100 | 224.6 ± 5.9 |
-| Monthly budget (phi fitted) | days 1 to 14 | 0.50 | 0.43 ± 0.05 | 100 | 91.9 ± 2.4 |
-| Monthly budget (phi fitted) | days 1 to 14 | 0.80 | 0.73 ± 0.04 | 100 | 175.1 ± 4.6 |
-| Monthly budget (phi fitted) | days 1 to 14 | 0.95 | 0.98 ± 0.01 | 100 | 269.2 ± 7.1 |
-| Monthly budget (phi fitted) | days 1 to 21 | 0.50 | 0.51 ± 0.05 | 100 | 87.8 ± 2.3 |
-| Monthly budget (phi fitted) | days 1 to 21 | 0.80 | 0.81 ± 0.04 | 100 | 167.3 ± 4.4 |
-| Monthly budget (phi fitted) | days 1 to 21 | 0.95 | 0.90 ± 0.03 | 100 | 257.1 ± 6.8 |
-| Monthly budget (phi fitted) | days 1 to 28 | 0.50 | 0.53 ± 0.05 | 100 | 60.4 ± 1.6 |
-| Monthly budget (phi fitted) | days 1 to 28 | 0.80 | 0.86 ± 0.03 | 100 | 115.2 ± 3.0 |
-| Monthly budget (phi fitted) | days 1 to 28 | 0.95 | 0.94 ± 0.02 | 100 | 177.0 ± 4.7 |
-| Monthly budget (phi fitted) | October total | 0.50 | 0.60 ± 0.05 | 100 | 30.0 ± 0.8 |
-| Monthly budget (phi fitted) | October total | 0.80 | 0.84 ± 0.04 | 100 | 57.2 ± 1.5 |
-| Monthly budget (phi fitted) | October total | 0.95 | 0.96 ± 0.02 | 100 | 87.9 ± 2.3 |
-| Independent days (phi = 1) | days 1 to 7 | 0.50 | 0.55 ± 0.05 | 100 | 85.9 ± 2.3 |
-| Independent days (phi = 1) | days 1 to 7 | 0.80 | 0.82 ± 0.04 | 100 | 163.7 ± 4.3 |
-| Independent days (phi = 1) | days 1 to 7 | 0.95 | 0.95 ± 0.02 | 100 | 251.6 ± 6.6 |
-| Independent days (phi = 1) | days 1 to 14 | 0.50 | 0.54 ± 0.05 | 100 | 122.1 ± 3.2 |
-| Independent days (phi = 1) | days 1 to 14 | 0.80 | 0.80 ± 0.04 | 100 | 232.7 ± 6.1 |
-| Independent days (phi = 1) | days 1 to 14 | 0.95 | 0.98 ± 0.01 | 100 | 357.7 ± 9.4 |
-| Independent days (phi = 1) | days 1 to 21 | 0.50 | 0.58 ± 0.05 | 100 | 150.4 ± 4.0 |
-| Independent days (phi = 1) | days 1 to 21 | 0.80 | 0.89 ± 0.03 | 100 | 286.5 ± 7.6 |
-| Independent days (phi = 1) | days 1 to 21 | 0.95 | 0.99 ± 0.01 | 100 | 440.4 ± 11.6 |
-| Independent days (phi = 1) | days 1 to 28 | 0.50 | 0.67 ± 0.05 | 100 | 174.5 ± 4.6 |
-| Independent days (phi = 1) | days 1 to 28 | 0.80 | 0.94 ± 0.02 | 100 | 332.5 ± 8.8 |
-| Independent days (phi = 1) | days 1 to 28 | 0.95 | 1.00 ± 0.00 | 100 | 511.1 ± 13.5 |
-| Independent days (phi = 1) | October total | 0.50 | 0.72 ± 0.04 | 100 | 184.0 ± 4.9 |
-| Independent days (phi = 1) | October total | 0.80 | 0.94 ± 0.02 | 100 | 350.6 ± 9.3 |
-| Independent days (phi = 1) | October total | 0.95 | 0.99 ± 0.01 | 100 | 539.0 ± 14.2 |
+| Monthly budget (phi fitted) | days 1 to 7 | 0.50 | 0.52 ± 0.05 | 100 | 80.6 ± 2.1 |
+| Monthly budget (phi fitted) | days 1 to 7 | 0.80 | 0.80 ± 0.04 | 100 | 153.6 ± 4.1 |
+| Monthly budget (phi fitted) | days 1 to 7 | 0.95 | 0.95 ± 0.02 | 100 | 236.1 ± 6.2 |
+| Monthly budget (phi fitted) | days 1 to 14 | 0.50 | 0.41 ± 0.05 | 100 | 96.6 ± 2.6 |
+| Monthly budget (phi fitted) | days 1 to 14 | 0.80 | 0.74 ± 0.04 | 100 | 184.1 ± 4.9 |
+| Monthly budget (phi fitted) | days 1 to 14 | 0.95 | 0.97 ± 0.02 | 100 | 283.0 ± 7.5 |
+| Monthly budget (phi fitted) | days 1 to 21 | 0.50 | 0.51 ± 0.05 | 100 | 92.3 ± 2.4 |
+| Monthly budget (phi fitted) | days 1 to 21 | 0.80 | 0.82 ± 0.04 | 100 | 175.9 ± 4.6 |
+| Monthly budget (phi fitted) | days 1 to 21 | 0.95 | 0.90 ± 0.03 | 100 | 270.4 ± 7.1 |
+| Monthly budget (phi fitted) | days 1 to 28 | 0.50 | 0.51 ± 0.05 | 100 | 63.6 ± 1.7 |
+| Monthly budget (phi fitted) | days 1 to 28 | 0.80 | 0.86 ± 0.03 | 100 | 121.2 ± 3.2 |
+| Monthly budget (phi fitted) | days 1 to 28 | 0.95 | 0.94 ± 0.02 | 100 | 186.3 ± 4.9 |
+| Monthly budget (phi fitted) | October total | 0.50 | 0.60 ± 0.05 | 100 | 31.7 ± 0.8 |
+| Monthly budget (phi fitted) | October total | 0.80 | 0.85 ± 0.04 | 100 | 60.4 ± 1.6 |
+| Monthly budget (phi fitted) | October total | 0.95 | 0.96 ± 0.02 | 100 | 92.9 ± 2.5 |
+| Independent days (phi = 1) | days 1 to 7 | 0.50 | 0.56 ± 0.05 | 100 | 90.4 ± 2.4 |
+| Independent days (phi = 1) | days 1 to 7 | 0.80 | 0.82 ± 0.04 | 100 | 172.2 ± 4.6 |
+| Independent days (phi = 1) | days 1 to 7 | 0.95 | 0.95 ± 0.02 | 100 | 264.7 ± 7.0 |
+| Independent days (phi = 1) | days 1 to 14 | 0.50 | 0.53 ± 0.05 | 100 | 128.5 ± 3.4 |
+| Independent days (phi = 1) | days 1 to 14 | 0.80 | 0.79 ± 0.04 | 100 | 244.9 ± 6.5 |
+| Independent days (phi = 1) | days 1 to 14 | 0.95 | 0.98 ± 0.01 | 100 | 376.5 ± 10.0 |
+| Independent days (phi = 1) | days 1 to 21 | 0.50 | 0.59 ± 0.05 | 100 | 158.3 ± 4.2 |
+| Independent days (phi = 1) | days 1 to 21 | 0.80 | 0.90 ± 0.03 | 100 | 301.7 ± 8.0 |
+| Independent days (phi = 1) | days 1 to 21 | 0.95 | 0.99 ± 0.01 | 100 | 463.7 ± 12.3 |
+| Independent days (phi = 1) | days 1 to 28 | 0.50 | 0.67 ± 0.05 | 100 | 183.9 ± 4.9 |
+| Independent days (phi = 1) | days 1 to 28 | 0.80 | 0.94 ± 0.02 | 100 | 350.3 ± 9.3 |
+| Independent days (phi = 1) | days 1 to 28 | 0.95 | 1.00 ± 0.00 | 100 | 538.4 ± 14.3 |
+| Independent days (phi = 1) | October total | 0.50 | 0.72 ± 0.04 | 100 | 193.9 ± 5.1 |
+| Independent days (phi = 1) | October total | 0.80 | 0.94 ± 0.02 | 100 | 369.4 ± 9.8 |
+| Independent days (phi = 1) | October total | 0.95 | 0.99 ± 0.01 | 100 | 567.9 ± 15.1 |
 
-Mean actual October total: 710.45 GBP.
+Mean actual October total: 751.43 GBP.
 
 Random seed: not applicable (no sampling; fold assignment seed 20261107).
 
 ## Interpretation
 
-Monthly budget: 13 of 15 coverages lie within two binomial standard errors of nominal; independent days: 6 of 15. The independent-days model treats a month's total as the sum of 31 independent days, which on these statements makes its intervals for the October total about 6.1 times as wide as the budget model's (80 % level), so it covers almost everyone. The budget model's phi, estimated from August and September, carries the generator's fixed monthly totals into the intervals; at 7 days the two models differ little, because a week's spending varies nearly as independent days would.
+Monthly budget: 14 of 15 coverages lie within two binomial standard errors of nominal; independent days: 6 of 15. The independent-days model treats a month's total as the sum of 31 independent days, which on these statements makes its intervals for the October total about 6.1 times as wide as the budget model's (80 % level), so it covers almost everyone. The budget model's phi, estimated from August and September, carries the generator's fixed monthly totals into the intervals; at 7 days the two models differ little, because a week's spending varies nearly as independent days would.
 
 ## What these data can and cannot show
 

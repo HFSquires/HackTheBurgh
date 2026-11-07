@@ -4,7 +4,7 @@ Plot: `cold_start.pdf` / `.svg`. Written by `bayes.py`; regenerate with it.
 
 ## Source and transformations
 
-Source: the 100 statements in `Analysis/mock_statements/`, via `bayes.py` (which reuses `forecast.py` and `affordability.py`). Discretionary spending as in `affordability.card_spend` (card payments that are neither BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. Every model is fitted on the rows up to 30 September only (August and September); each person's prior comes from a fit on the other persons, by person-level 10-fold cross-validation with forecast.py's folds (seed 20261107). October is used only to score.
+Source: the 100 statements in `Analysis/mock_statements/`, via `bayes.py` (which reuses `forecast.py` and `affordability.py`). Discretionary spending as in `affordability.card_spend` (card payments that are neither BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. Every model is fitted on the rows up to 30 September only (August and September); each person's prior comes from a fit on the other persons, by person-level 10-fold cross-validation with forecast.py's folds (seed 20261107). October is used only to score. Statements last changed in commit `e01f34f`; `bayes.py` at commit `22804b4`; `forecast.py` at commit `22804b4`; `affordability.py` at commit `2c5e080` (or later, if uncommitted changes were run).
 
 Model (full derivation in the docstring of `bayes.py`): daily discretionary spending, Gaussian on the raw scale; within a calendar month of D days each day has mean beta / D (beta: the person's monthly budget) and variance sigma^2, and two days of the same month have correlation (phi - 1) / (D - 1), so a month's total has variance phi D sigma^2. Normal-Inverse-Gamma prior on (beta, sigma^2) centred on a population regression of ln budget on ln net pay; exact conjugate update after each day; Student-t predictive for the sum over any set of future days. The independent-days model is the same with phi fixed at 1.
 
@@ -14,27 +14,27 @@ Two example persons, chosen by rule: the persons whose prior mean budget is clos
 
 | Person | Days observed | Prior mean [GBP] | Posterior mean budget [GBP] | 95 % credible [GBP] | Width [GBP] | 95 % predictive, October total [GBP] | Width [GBP] | a (posterior shape) |
 |---|---|---|---|---|---|---|---|---|
-| persona073 | 0 | 695.52 | 695.52 | 508.72 to 882.31 | 373.59 | 505.56 to 885.48 | 379.92 | 23.6 |
-| persona073 | 7 | 695.52 | 711.59 | 540.96 to 882.22 | 341.26 | 537.65 to 885.52 | 347.87 | 27.1 |
-| persona073 | 14 | 695.52 | 693.26 | 543.92 to 842.59 | 298.67 | 540.38 to 846.13 | 305.76 | 30.6 |
-| persona073 | 30 | 695.52 | 616.04 | 563.81 to 668.27 | 104.45 | 554.84 to 677.24 | 122.40 | 38.6 |
-| persona073 | 61 | 695.52 | 693.76 | 670.26 to 717.25 | 46.99 | 652.61 to 734.90 | 82.30 | 54.1 |
-| persona061 | 0 | 434.36 | 434.36 | 320.07 to 548.64 | 228.58 | 317.90 to 550.82 | 232.92 | 24.1 |
-| persona061 | 7 | 434.36 | 412.38 | 309.50 to 515.26 | 205.76 | 307.27 to 517.49 | 210.21 | 27.6 |
-| persona061 | 14 | 434.36 | 380.44 | 289.50 to 471.38 | 181.88 | 287.10 to 473.78 | 186.67 | 31.1 |
-| persona061 | 30 | 434.36 | 296.63 | 264.52 to 328.74 | 64.22 | 258.70 to 334.57 | 75.87 | 39.1 |
-| persona061 | 61 | 434.36 | 290.59 | 277.96 to 303.21 | 25.25 | 268.46 to 312.71 | 44.26 | 54.6 |
+| persona073 | 0 | 735.31 | 735.31 | 537.86 to 932.76 | 394.90 | 534.52 to 936.09 | 401.57 | 23.8 |
+| persona073 | 7 | 735.31 | 753.53 | 573.16 to 933.91 | 360.75 | 569.66 to 937.40 | 367.73 | 27.3 |
+| persona073 | 14 | 735.31 | 733.57 | 575.88 to 891.26 | 315.38 | 572.13 to 895.01 | 322.87 | 30.8 |
+| persona073 | 30 | 735.31 | 652.09 | 597.05 to 707.14 | 110.09 | 587.54 to 716.65 | 129.11 | 38.8 |
+| persona073 | 61 | 735.31 | 733.18 | 708.37 to 757.98 | 49.61 | 689.74 to 776.62 | 86.88 | 54.3 |
+| persona061 | 0 | 458.01 | 458.01 | 337.62 to 578.40 | 240.78 | 335.33 to 580.69 | 245.35 | 24.3 |
+| persona061 | 7 | 458.01 | 434.67 | 326.30 to 543.04 | 216.74 | 323.95 to 545.39 | 221.44 | 27.8 |
+| persona061 | 14 | 458.01 | 401.20 | 305.40 to 497.00 | 191.59 | 302.88 to 499.53 | 196.65 | 31.3 |
+| persona061 | 30 | 458.01 | 313.01 | 279.30 to 346.73 | 67.44 | 273.15 to 352.88 | 79.73 | 39.3 |
+| persona061 | 61 | 458.01 | 306.65 | 293.35 to 319.95 | 26.60 | 283.34 to 329.96 | 46.62 | 54.8 |
 
 | Person | Generator mean, October [GBP] | Actual October [GBP] | Net monthly pay [GBP] |
 |---|---|---|---|
-| persona073 | 679.54 | 690.08 | 2297.93 |
-| persona061 | 292.45 | 289.73 | 1198.45 |
+| persona073 | 718.20 | 729.44 | 2297.93 |
+| persona061 | 308.41 | 305.28 | 1198.45 |
 
 Random seed: not applicable.
 
 ## Interpretation
 
-With no data the interval is the population prior (its width set by tau^2, the between-person spread left after net pay). During the first days the data barely move it, because a few days' spending says little about a month's total. As the first month fills, each day becomes more informative, since under the budget model the days still to come in a month must make up its total; the credible interval collapses near the end of August and narrows again through September. The predictive interval for October cannot shrink below October's own variation, phi D sigma^2. Days on which one day's spending moved the posterior mean outside its previous 95 % credible interval: persona073: after day 31 (2026-08-31, spending 96.91 GBP) the posterior mean moved from 616.04 to 685.67 GBP, outside the previous 95 % credible interval (563.81 to 668.27). Single days are right-skewed (a few large card payments), which the Gaussian likelihood ignores, so near the end of a month one large day can move the estimate further than the interval allowed.
+With no data the interval is the population prior (its width set by tau^2, the between-person spread left after net pay). During the first days the data barely move it, because a few days' spending says little about a month's total. As the first month fills, each day becomes more informative, since under the budget model the days still to come in a month must make up its total; the credible interval collapses near the end of August and narrows again through September. The predictive interval for October cannot shrink below October's own variation, phi D sigma^2. Days on which one day's spending moved the posterior mean outside its previous 95 % credible interval: persona073: after day 31 (2026-08-31, spending 101.05 GBP) the posterior mean moved from 652.09 to 724.44 GBP, outside the previous 95 % credible interval (597.05 to 707.14). Single days are right-skewed (a few large card payments), which the Gaussian likelihood ignores, so near the end of a month one large day can move the estimate further than the interval allowed.
 
 ## What these data can and cannot show
 

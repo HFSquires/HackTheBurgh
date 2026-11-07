@@ -4,11 +4,11 @@ Plot: `forecast_scatter.pdf` / `.svg`. Written by `forecast.py`; regenerate with
 
 ## Source and transformations
 
-Source: the 100 statements in `Analysis/mock_statements/` (persona CSVs and `personas.md`), via `forecast.py`. Target: October 2026 discretionary card spending per persona [GBP], i.e. card (DEB) payments that are neither BNPL instalments nor committed payments, with committed payments detected by `affordability.detect_committed` on the rows up to 30 September (so the fixed football-ticket card payments of 24 personas, which need three months to be detected, count as discretionary in every month). Models are fitted on August and September only; October is used only to score. Per-persona data: `Analysis/forecast/predictions_october.csv`.
+Source: the 100 statements in `Analysis/mock_statements/` (persona CSVs and `personas.md`), via `forecast.py`. Target: October 2026 discretionary card spending per persona [GBP], i.e. card (DEB) payments that are neither BNPL instalments nor committed payments, with committed payments detected by `affordability.detect_committed` on the rows up to 30 September (so the fixed football-ticket card payments of 24 personas, which need three months to be detected, count as discretionary in every month). Models are fitted on August and September only; October is used only to score. Per-persona data: `Analysis/forecast/predictions_october.csv`. Statements last changed in commit `e01f34f`; `forecast.py` at commit `22804b4`; `affordability.py` at commit `2c5e080` (or later, if uncommitted changes were run).
 
 Panel (a): pooled-regression prediction against the actual value, one point per persona (n = 100), with the line y = x; triangles mark the personas with a BNPL plan. Panel (b): prediction error (prediction minus actual) against the actual value for the mean Aug-Sep baseline and the pooled regression. Units GBP. No error bars.
 
-Axis range of (a): 248.19 to 1301.96 GBP. Actual October spending: min 275.77, median 700.30, max 1239.96 GBP.
+Axis range of (a): 261.77 to 1378.52 GBP. Actual October spending: min 290.85, median 740.69, max 1312.88 GBP.
 
 ## Statistics by series
 
@@ -16,18 +16,18 @@ Uncertainties are ± one standard error across persons.
 
 | Model | Personas | n | MAE [GBP] (± SE) | Mean error [GBP] (± SE) |
 |---|---|---|---|---|
-| Mean Aug-Sep | no BNPL plan | 66 | 17.77 ± 1.78 | 1.25 ± 2.83 |
-| Mean Aug-Sep | BNPL plan | 34 | 14.05 ± 2.01 | 1.29 ± 3.16 |
-| Pooled regression | no BNPL plan | 66 | 17.20 ± 1.93 | -2.14 ± 2.86 |
-| Pooled regression | BNPL plan | 34 | 14.02 ± 1.86 | -0.10 ± 3.07 |
+| Mean Aug-Sep | no BNPL plan | 66 | 18.75 ± 1.88 | 1.29 ± 2.98 |
+| Mean Aug-Sep | BNPL plan | 34 | 14.81 ± 2.13 | 1.37 ± 3.34 |
+| Pooled regression | no BNPL plan | 66 | 18.24 ± 2.02 | -2.17 ± 3.02 |
+| Pooled regression | BNPL plan | 34 | 14.86 ± 1.97 | -0.08 ± 3.25 |
 
-All persons: pooled regression MAE 16.12 ± 1.42 GBP, mean Aug-Sep MAE 16.50 ± 1.37 GBP. Paired comparisons, fits and tests: `forecast_errors.md`.
+All persons: pooled regression MAE 17.09 ± 1.49 GBP, mean Aug-Sep MAE 17.41 ± 1.44 GBP. Paired comparisons, fits and tests: `forecast_errors.md`.
 
 Random seed 20261107 (assignment of persons to 10 cross-validation folds).
 
 ## Interpretation
 
-The points in (a) lie close to y = x: the regression's mean absolute percentage error is 2.2 %. In (b), the errors of the two forecasts are strongly correlated across persons (Pearson r = 0.910), as expected when both are dominated by October's own random variation, which no forecast made on 30 September can anticipate. The table above gives the errors separately for personas with and without a BNPL plan.
+The points in (a) lie close to y = x: the regression's mean absolute percentage error is 2.2 %. In (b), the errors of the two forecasts are strongly correlated across persons (Pearson r = 0.911), as expected when both are dominated by October's own random variation, which no forecast made on 30 September can anticipate. The table above gives the errors separately for personas with and without a BNPL plan.
 
 ## What these data can and cannot show
 

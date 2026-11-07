@@ -4,7 +4,7 @@ Plot: `forecast_errors.pdf` / `.svg`. Written by `forecast.py`; regenerate with 
 
 ## Source and transformations
 
-Source: the 100 statements in `Analysis/mock_statements/` (persona CSVs and `personas.md`), via `forecast.py`. Target: October 2026 discretionary card spending per persona [GBP], i.e. card (DEB) payments that are neither BNPL instalments nor committed payments, with committed payments detected by `affordability.detect_committed` on the rows up to 30 September (so the fixed football-ticket card payments of 24 personas, which need three months to be detected, count as discretionary in every month). Models are fitted on August and September only; October is used only to score. Per-persona data: `Analysis/forecast/predictions_october.csv`.
+Source: the 100 statements in `Analysis/mock_statements/` (persona CSVs and `personas.md`), via `forecast.py`. Target: October 2026 discretionary card spending per persona [GBP], i.e. card (DEB) payments that are neither BNPL instalments nor committed payments, with committed payments detected by `affordability.detect_committed` on the rows up to 30 September (so the fixed football-ticket card payments of 24 personas, which need three months to be detected, count as discretionary in every month). Models are fitted on August and September only; October is used only to score. Per-persona data: `Analysis/forecast/predictions_october.csv`. Statements last changed in commit `e01f34f`; `forecast.py` at commit `22804b4`; `affordability.py` at commit `2c5e080` (or later, if uncommitted changes were run).
 
 Panel (a): mean absolute error of each model's October forecast across the 100 personas; error bars are ± one standard error of the mean absolute error across persons; the hatched bar is the generator mean, a reference that uses the generator's internals and is not a forecast. Panel (b): mean absolute error of the predicted cumulative discretionary spending on days 1 to d of October, for d = 1 to 31; bands are ± one standard error across persons. Per-day data: `Analysis/forecast/curves_october.csv`.
 
@@ -18,41 +18,41 @@ Within-month curves: mean of the August and September cumulative curves at the s
 
 | Model | n | MAE [GBP] (± SE) | RMSE [GBP] (± SE) | MAPE [%] (± SE) | Mean error [GBP] (± SE) |
 |---|---|---|---|---|---|
-| Last month (Sep) | 100 | 18.23 ± 1.51 | 23.60 ± 1.78 | 2.58 ± 0.20 | -0.07 ± 2.37 |
-| Mean Aug-Sep | 100 | 16.50 ± 1.37 | 21.38 ± 1.68 | 2.30 ± 0.17 | 1.26 ± 2.15 |
-| Mean + BNPL schedule | 100 | 16.67 ± 1.34 | 21.33 ± 1.65 | 2.33 ± 0.17 | 1.18 ± 2.14 |
-| Pooled regression | 100 | 16.12 ± 1.42 | 21.45 ± 1.61 | 2.22 ± 0.18 | -1.44 ± 2.15 |
-| Shrinkage | 100 | 16.32 ± 1.32 | 20.97 ± 1.58 | 2.28 ± 0.17 | 0.85 ± 2.11 |
-| Generator mean (reference) | 100 | 12.36 ± 1.07 | 16.28 ± 1.34 | 1.74 ± 0.14 | 1.08 ± 1.63 |
+| Last month (Sep) | 100 | 19.34 ± 1.59 | 24.98 ± 1.88 | 2.58 ± 0.20 | -0.04 ± 2.51 |
+| Mean Aug-Sep | 100 | 17.41 ± 1.44 | 22.56 ± 1.76 | 2.29 ± 0.17 | 1.32 ± 2.26 |
+| Mean + BNPL schedule | 100 | 17.59 ± 1.41 | 22.51 ± 1.73 | 2.33 ± 0.17 | 1.23 ± 2.26 |
+| Pooled regression | 100 | 17.09 ± 1.49 | 22.65 ± 1.69 | 2.22 ± 0.18 | -1.46 ± 2.27 |
+| Shrinkage | 100 | 17.25 ± 1.39 | 22.12 ± 1.66 | 2.28 ± 0.17 | 0.87 ± 2.22 |
+| Generator mean (reference) | 100 | 13.10 ± 1.13 | 17.28 ± 1.42 | 1.75 ± 0.14 | 1.11 ± 1.73 |
 
-Ratio of each model's RMSE to the reference's: Last month (Sep) 1.45, Mean Aug-Sep 1.31, Mean + BNPL schedule 1.31, Pooled regression 1.32, Shrinkage 1.29. Under the generator, a two-month mean that accounts for BNPL should give about 1.22 (square root of 1.5) and last month alone about 1.41 (square root of 2), before BNPL effects.
+Ratio of each model's RMSE to the reference's: Last month (Sep) 1.45, Mean Aug-Sep 1.31, Mean + BNPL schedule 1.30, Pooled regression 1.31, Shrinkage 1.28. Under the generator, a two-month mean that accounts for BNPL should give about 1.22 (square root of 1.5) and last month alone about 1.41 (square root of 2), before BNPL effects.
 
 Paired comparisons of absolute error (model minus baseline; negative means the model is better), per person, n = 100. Pre-specified primary comparison: pooled regression versus mean Aug-Sep. Holm correction over the 6 comparisons, separately for each test. The Wilcoxon signed-rank test (scipy default, two-sided) drops pairs with zero difference: Mean + BNPL schedule equals Mean Aug-Sep for every persona whose October BNPL instalments match the August-September average.
 
 | Model | Baseline | Mean difference in absolute error [GBP] (± SE) | Paired t | df | p (t) | p (t, Holm) | Wilcoxon W | Non-zero pairs | p (W) | p (W, Holm) | Wilcoxon, Holm, 0.05 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Mean + BNPL schedule | Last month (Sep) | -1.56 ± 1.18 | -1.33 | 99 | 0.19 | 0.75 | 2204 | 100 | 0.27 | 0.83 | no detectable difference |
-| Mean + BNPL schedule | Mean Aug-Sep | 0.16 ± 0.36 | 0.45 | 99 | 0.66 | 1 | 130 | 24 | 0.56 | 0.83 | no detectable difference |
-| Pooled regression | Last month (Sep) | -2.11 ± 1.43 | -1.47 | 99 | 0.14 | 0.72 | 2067 | 100 | 0.12 | 0.69 | no detectable difference |
-| Pooled regression | Mean Aug-Sep | -0.38 ± 0.86 | -0.45 | 99 | 0.66 | 1 | 2214 | 100 | 0.28 | 0.83 | no detectable difference |
-| Shrinkage | Last month (Sep) | -1.92 ± 1.19 | -1.61 | 99 | 0.11 | 0.66 | 2080 | 100 | 0.13 | 0.69 | no detectable difference |
-| Shrinkage | Mean Aug-Sep | -0.19 ± 0.40 | -0.48 | 99 | 0.63 | 1 | 2159 | 100 | 0.21 | 0.83 | no detectable difference |
+| Mean + BNPL schedule | Last month (Sep) | -1.75 ± 1.24 | -1.42 | 99 | 0.16 | 0.69 | 2186 | 100 | 0.24 | 0.98 | no detectable difference |
+| Mean + BNPL schedule | Mean Aug-Sep | 0.18 ± 0.37 | 0.48 | 99 | 0.64 | 1 | 70 | 18 | 0.5 | 0.98 | no detectable difference |
+| Pooled regression | Last month (Sep) | -2.25 ± 1.50 | -1.50 | 99 | 0.14 | 0.69 | 2049 | 100 | 0.1 | 0.61 | no detectable difference |
+| Pooled regression | Mean Aug-Sep | -0.32 ± 0.90 | -0.36 | 99 | 0.72 | 1 | 2265 | 100 | 0.37 | 0.98 | no detectable difference |
+| Shrinkage | Last month (Sep) | -2.09 ± 1.25 | -1.68 | 99 | 0.097 | 0.58 | 2064 | 100 | 0.11 | 0.61 | no detectable difference |
+| Shrinkage | Mean Aug-Sep | -0.16 ± 0.41 | -0.39 | 99 | 0.69 | 1 | 2200 | 100 | 0.26 | 0.98 | no detectable difference |
 
 Pooled-regression coefficients (mean ± SD over the 10 fold fits):
 
 | Term | Coefficient |
 |---|---|
-| intercept | 13.7 ± 1.9 |
-| couple | -7.986 ± 1.7 |
-| lone parent | -10.75 ± 2.8 |
-| couple with children | -1.269 ± 2.1 |
-| social rented | -0.9225 ± 2.9 |
-| private rented | 0.3823 ± 2.8 |
-| prior card spend incl. BNPL [GBP] | 0.9416 ± 0.0094 |
-| BNPL due in target month [GBP] | -1.228 ± 0.1 |
-| net monthly pay [GBP] | 0.01259 ± 0.0021 |
+| intercept | 14.26 ± 2 |
+| couple | -8.246 ± 1.8 |
+| lone parent | -11.64 ± 3 |
+| couple with children | -1.392 ± 2.2 |
+| social rented | -0.7927 ± 3.1 |
+| private rented | 0.5285 ± 2.9 |
+| prior card spend incl. BNPL [GBP] | 0.9419 ± 0.0094 |
+| BNPL due in target month [GBP] | -1.236 ± 0.1 |
+| net monthly pay [GBP] | 0.0133 ± 0.0022 |
 
-Shrinkage, mean over folds: w = 0.9782, s^2 = 0.000662, tau^2 = 0.0149 (log scale).
+Shrinkage, mean over folds: w = 0.9784, s^2 = 0.000661, tau^2 = 0.015 (log scale).
 
 ## Panel (b): cumulative spending at selected days (all days are in the CSV)
 
@@ -60,22 +60,22 @@ n = 100 at every day; uncertainties ± one standard error across persons; MAPE u
 
 | Curve | Day | MAE [GBP] (± SE) | RMSE [GBP] (± SE) | MAPE [%] (± SE) |
 |---|---|---|---|---|
-| Mean of Aug and Sep curves | 7 | 56.33 ± 4.24 | 70.37 ± 5.13 | 40.4 ± 4.2 |
-| Mean of Aug and Sep curves | 14 | 72.79 ± 5.87 | 93.30 ± 6.61 | 24.7 ± 2.2 |
-| Mean of Aug and Sep curves | 21 | 69.25 ± 6.40 | 94.11 ± 9.33 | 15.3 ± 1.5 |
-| Mean of Aug and Sep curves | 28 | 45.18 ± 4.33 | 62.39 ± 5.74 | 7.1 ± 0.7 |
-| Pooled regression x d/31 | 7 | 44.49 ± 3.59 | 57.03 ± 4.33 | 32.8 ± 3.6 |
-| Pooled regression x d/31 | 14 | 59.98 ± 4.52 | 74.98 ± 5.35 | 20.1 ± 1.5 |
-| Pooled regression x d/31 | 21 | 53.39 ± 5.21 | 74.44 ± 7.07 | 11.6 ± 1.2 |
-| Pooled regression x d/31 | 28 | 37.18 ± 3.16 | 48.67 ± 4.57 | 6.0 ± 0.5 |
-| Generator mean x d/31 (reference) | 7 | 44.26 ± 3.56 | 56.69 ± 4.27 | 32.8 ± 3.6 |
-| Generator mean x d/31 (reference) | 14 | 59.35 ± 4.43 | 73.90 ± 5.25 | 20.0 ± 1.5 |
-| Generator mean x d/31 (reference) | 21 | 52.48 ± 5.06 | 72.76 ± 6.93 | 11.5 ± 1.2 |
-| Generator mean x d/31 (reference) | 28 | 34.61 ± 3.01 | 45.80 ± 4.22 | 5.6 ± 0.5 |
+| Mean of Aug and Sep curves | 7 | 58.99 ± 4.45 | 73.74 ± 5.37 | 40.0 ± 4.2 |
+| Mean of Aug and Sep curves | 14 | 76.25 ± 6.14 | 97.70 ± 6.95 | 24.5 ± 2.2 |
+| Mean of Aug and Sep curves | 21 | 72.82 ± 6.73 | 98.92 ± 9.84 | 15.2 ± 1.5 |
+| Mean of Aug and Sep curves | 28 | 47.54 ± 4.54 | 65.59 ± 6.03 | 7.1 ± 0.7 |
+| Pooled regression x d/31 | 7 | 46.74 ± 3.78 | 59.99 ± 4.56 | 32.6 ± 3.6 |
+| Pooled regression x d/31 | 14 | 62.87 ± 4.75 | 78.68 ± 5.68 | 19.9 ± 1.5 |
+| Pooled regression x d/31 | 21 | 56.29 ± 5.48 | 78.35 ± 7.48 | 11.6 ± 1.2 |
+| Pooled regression x d/31 | 28 | 39.14 ± 3.31 | 51.17 ± 4.78 | 5.9 ± 0.5 |
+| Generator mean x d/31 (reference) | 7 | 46.55 ± 3.75 | 59.64 ± 4.50 | 32.7 ± 3.6 |
+| Generator mean x d/31 (reference) | 14 | 62.12 ± 4.67 | 77.55 ± 5.59 | 19.9 ± 1.5 |
+| Generator mean x d/31 (reference) | 21 | 55.38 ± 5.32 | 76.61 ± 7.33 | 11.5 ± 1.2 |
+| Generator mean x d/31 (reference) | 28 | 36.34 ± 3.18 | 48.16 ± 4.41 | 5.6 ± 0.5 |
 
 ## Interpretation
 
-Mean + BNPL schedule against Last month (Sep): -1.56 ± 1.18 GBP in absolute error (Wilcoxon p = 0.27, Holm 0.83). Mean + BNPL schedule against Mean Aug-Sep: +0.16 ± 0.36 GBP in absolute error (Wilcoxon p = 0.56, Holm 0.83). Pooled regression against Last month (Sep): -2.11 ± 1.43 GBP in absolute error (Wilcoxon p = 0.12, Holm 0.69). Pooled regression against Mean Aug-Sep: -0.38 ± 0.86 GBP in absolute error (Wilcoxon p = 0.28, Holm 0.83). Shrinkage against Last month (Sep): -1.92 ± 1.19 GBP in absolute error (Wilcoxon p = 0.13, Holm 0.69). Shrinkage against Mean Aug-Sep: -0.19 ± 0.40 GBP in absolute error (Wilcoxon p = 0.21, Holm 0.83). No model differs detectably from either baseline after Holm correction. Reading the BNPL schedule changes the Aug-Sep mean for only 24 personas, by 5.07 GBP on average (largest 16.26 GBP), small beside the month-to-month noise, so it cannot help much here. The RMSE ratios to the reference (above) are close to the values the generator implies, so most of the remaining error is October's own random variation. Within the month, the constant daily rate from the pooled regression has a lower MAE than the mean of the August and September curves at days 7, 14, 21, 28, and is close to the generator-mean reference: transaction days are drawn uniformly over the month, so the expected cumulative curve is a straight line, while averaging two realised curves keeps their timing noise.
+Mean + BNPL schedule against Last month (Sep): -1.75 ± 1.24 GBP in absolute error (Wilcoxon p = 0.24, Holm 0.98). Mean + BNPL schedule against Mean Aug-Sep: +0.18 ± 0.37 GBP in absolute error (Wilcoxon p = 0.5, Holm 0.98). Pooled regression against Last month (Sep): -2.25 ± 1.50 GBP in absolute error (Wilcoxon p = 0.1, Holm 0.61). Pooled regression against Mean Aug-Sep: -0.32 ± 0.90 GBP in absolute error (Wilcoxon p = 0.37, Holm 0.98). Shrinkage against Last month (Sep): -2.09 ± 1.25 GBP in absolute error (Wilcoxon p = 0.11, Holm 0.61). Shrinkage against Mean Aug-Sep: -0.16 ± 0.41 GBP in absolute error (Wilcoxon p = 0.26, Holm 0.98). No model differs detectably from either baseline after Holm correction. Reading the BNPL schedule changes the Aug-Sep mean for only 18 personas, by 6.92 GBP on average (largest 17.13 GBP), small beside the month-to-month noise, so it cannot help much here. The RMSE ratios to the reference (above) are close to the values the generator implies, so most of the remaining error is October's own random variation. Within the month, the constant daily rate from the pooled regression has a lower MAE than the mean of the August and September curves at days 7, 14, 21, 28, and is close to the generator-mean reference: transaction days are drawn uniformly over the month, so the expected cumulative curve is a straight line, while averaging two realised curves keeps their timing noise.
 
 ## What these data can and cannot show
 

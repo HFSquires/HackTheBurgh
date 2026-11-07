@@ -5,3 +5,4 @@ Figures from `forecast.py` (task T12), each as PDF and SVG with a companion stat
 ## Log
 
 - 2026-11-07 (Claude, T12 sub-agent): first version; rendered with real LaTeX (Computer Modern embedded) through the shared TeXFormat style.
+- 2026-11-07 (Claude, T15 sub-agent): rerun on the regenerated statements; companion files now name the statement and code commits. `forecast_errors` panel (b) legend moved to the lower centre, off the curves.
