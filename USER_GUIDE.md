@@ -15,7 +15,7 @@ uv venv --python 3.12
 uv pip install --no-cache -r requirements.txt
 ```
 
-Dependencies (`requirements.txt`): `openpyxl`, `pandas` and `odfpy` (the last two read the English Housing Survey `.ods` table used for tenure); `matplotlib` draws the figures (with the `texformat.pth` link and MiKTeX, see Plots in `CLAUDE.md`); `ob_figures.py` also uses numpy, installed with pandas. `statements.py` and `mock_bank.py` use the standard library only. The raw inputs are already committed in `data/`, except the 9.6 MB ASHE zip, which is not needed (the extracted workbook is committed); `data/README.md` gives its download command.
+Dependencies (`requirements.txt`): `openpyxl`, `pandas` and `odfpy` (the last two read the English Housing Survey `.ods` table used for tenure); `matplotlib` draws the figures in the front-end style of `figstyle.py` (no LaTeX needed; Segoe UI on Windows, falling back to Arial or DejaVu Sans); `ob_figures.py` also uses numpy, installed with pandas. `statements.py` and `mock_bank.py` use the standard library only. The raw inputs are already committed in `data/`, except the 9.6 MB ASHE zip, which is not needed (the extracted workbook is committed); `data/README.md` gives its download command.
 
 ## Inputs
 
@@ -71,7 +71,7 @@ Input validation: each transaction needs exactly one non-negative debit or credi
 
 ## Andrew's model (model.py)
 
-`model.py` (task T30) implements Andrew's model (`model outline/`): from a customer picture read through an Open Banking aggregator (`mock_bank.fetch_customer`; here the v2 mock bank), it forecasts this calendar month's everyday spending and decides whether a purchase keeps the customer on their net-worth goal. It uses `statements.py`, `mock_bank.py` and `market_data.py`; the decision and the endpoint use the standard library only, the backtest figure needs matplotlib, TeXFormat and MiKTeX. Every default is a proposal from `model outline/IMPLEMENTATION.md` section 2, set as a constant at the top of the file (`K`, `ONE_OFF_GBP`, `ONE_OFF_MCC`, `JOINT_SHARE`, `GOOD_MARGIN`, `MAX_DAYS`).
+`model.py` (task T30) implements Andrew's model (`model outline/`): from a customer picture read through an Open Banking aggregator (`mock_bank.fetch_customer`; here the v2 mock bank), it forecasts this calendar month's everyday spending and decides whether a purchase keeps the customer on their net-worth goal. It uses `statements.py`, `mock_bank.py` and `market_data.py`; the decision and the endpoint use the standard library only, the backtest figure needs matplotlib. Every default is a proposal from `model outline/IMPLEMENTATION.md` section 2, set as a constant at the top of the file (`K`, `ONE_OFF_GBP`, `ONE_OFF_MCC`, `JOINT_SHARE`, `GOOD_MARGIN`, `MAX_DAYS`).
 
 ```
 .venv\Scripts\python -X utf8 model.py                          # backtest: Analysis/model/ and Figures/model/ (about 40 s)
@@ -158,14 +158,14 @@ Limitations: synthetic, not real bank data; every assumption is listed in the SY
 
 ## Open Banking figures (T25)
 
-`ob_figures.py` reads the 100 persona JSON files, `ground_truth.csv` and `summary.md` in `Analysis/open_banking/` and draws four figures describing the synthetic data set the model is tested on: spending through the year (the seasonality of everyday spending), accounts held against FCA Financial Lives 2024 (the accounts in net worth), the payday effect (why the within-month remainder matters) and main-account balances with overdraft use. Three earlier figures (where the money goes, monthly spending by category and tenure, top merchants) were archived in T31; `ob_figures.py` at commit `dd145f1` draws them. Everyday spending means booked card purchases (`DEB` and `PUR`) across all accounts, excluding own-account transfers and one-off purchases (the package holiday and the lumpy purchases in `ground_truth.csv`). The figures describe the generator, not real customers.
+`ob_figures.py` reads the 100 persona JSON files, `ground_truth.csv` and `summary.md` in `Analysis/open_banking/` and draws four figures, for a general audience (plain headlines, pound axes, standard errors in the companion files rather than on the figures), describing the synthetic data set the model is tested on: spending through the year (the seasonality of everyday spending), accounts held against FCA Financial Lives 2024 (the accounts in net worth), the payday effect (why the within-month remainder matters) and main-account balances with overdraft use. Three earlier figures (where the money goes, monthly spending by category and tenure, top merchants) were archived in T31; `ob_figures.py` at commit `dd145f1` draws them. Everyday spending means booked card purchases (`DEB` and `PUR`) across all accounts, excluding own-account transfers and one-off purchases (the package holiday and the lumpy purchases in `ground_truth.csv`). The figures describe the generator, not real customers.
 
 ```
 .venv\Scripts\python -X utf8 ob_figures.py          # about 1 minute
 .venv\Scripts\python -X utf8 ob_figures.py --check  # about 1 minute
 ```
 
-Requirements: the setup above and the TeXFormat link (`texformat.pth`); LaTeX must be on the PATH. Run `ob_generator.py` first, because the persona JSONs are gitignored apart from five samples and the script stops if fewer than 100 are present. Outputs: `Figures/open_banking/<name>.{pdf,svg,md}` (each `.md` is the companion statistics file) and the derived tables in `Analysis/open_banking_figures/` (listed in its README). The `--check` mode recomputes one month (March 2026) from the raw JSON with a separate code path, confirms the account-count bars sum to 100 and the `.md` tables match the CSVs, and compares the count of persons overdrawn with `summary.md`. Limitations: three lumpy purchases the generator forgoes (the person was overdrawn) are skipped, an overdraft is counted from the end-of-day balance (not intraday dips), and error bars are standard errors across 100 people.
+Requirements: the setup above. Run `ob_generator.py` first, because the persona JSONs are gitignored apart from five samples and the script stops if fewer than 100 are present. Outputs: `Figures/open_banking/<name>.{pdf,svg,md}` (each `.md` is the companion statistics file) and the derived tables in `Analysis/open_banking_figures/` (listed in its README). The `--check` mode recomputes one month (March 2026) from the raw JSON with a separate code path, confirms the account-count bars sum to 100 and the `.md` tables match the CSVs, and compares the count of persons overdrawn with `summary.md`. Limitations: three lumpy purchases the generator forgoes (the person was overdrawn) are skipped, an overdraft is counted from the end-of-day balance (not intraday dips), and error bars are standard errors across 100 people.
 
 ## Browser extension and account site (Auro)
 

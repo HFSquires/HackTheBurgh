@@ -36,7 +36,7 @@ Harrison's skills apply in this repository. Claude invokes them with the Skill t
 | Skill | Use whenever | File |
 | --- | --- | --- |
 | `ponytail` | Writing, modifying, refactoring, reviewing or debugging any code | `C:\Users\s2191671\.agents\skills\ponytail\SKILL.md` |
-| `plot-companion-stats` | Creating or materially changing runnable code, plots or statistical figures | `C:\Users\s2191671\.agents\skills\plot-companion-stats\SKILL.md` |
+| `plot-companion-stats` | Creating or materially changing runnable code, plots or statistical figures (its companion-file rule applies; its TeXFormat style does not, see Plots) | `C:\Users\s2191671\.agents\skills\plot-companion-stats\SKILL.md` |
 | `latex-house-style` | Writing any LaTeX document | `C:\Users\s2191671\.agents\skills\latex-house-style\SKILL.md` |
 | `texformat-powerpoint` | Making or editing slides | `C:\Users\s2191671\.claude\skills\texformat-powerpoint\SKILL.md` |
 | `phd-onedrive` | Resolving any PhD path | `C:\Users\s2191671\.agents\skills\phd-onedrive\SKILL.md` |
@@ -78,7 +78,7 @@ Records are updated in the same task as the work. Dated entries state what was d
 
 ## Environment
 
-Windows 11, PowerShell, VS Code. This folder is inside OneDrive. Use `py -3`, not `python3`. Install without admin rights only, and use `uv --no-cache`. A project virtual environment, when needed, is `.venv` (Python 3.12, gitignored) and needs a `texformat.pth` (see Plots). Never write to `/Volumes/HFSPhD2026/PhD` unless the user names that exact location.
+Windows 11, PowerShell, VS Code. This folder is inside OneDrive. Use `py -3`, not `python3`. Install without admin rights only, and use `uv --no-cache`. A project virtual environment, when needed, is `.venv` (Python 3.12, gitignored). Never write to `/Volumes/HFSPhD2026/PhD` unless the user names that exact location.
 
 ## Writing
 
@@ -90,38 +90,32 @@ Everything that is shown (plots, slides, documents and any interface) uses Harri
 
 ### Plots
 
-Every plot uses Matplotlib with the shared house module `TeXFormat.py` and its style `TeXFormat.mplstyle`, both in `C:\Users\s2191671\OneDrive - University of Edinburgh\PhD\03_code\TeXFormat` (the parent `03_code` folder; guide: `USER_GUIDE.md` there). Import the module from there, and load the master style file beside it by path:
+Figures are for a general audience (Harrison, 7 November 2026: "make more aesthetic to lay person. not a math paper. we're trying to market the product to a general population"), in the style of Auro's front end ("make figures look like front end"). This replaces, for this repository only, the TeXFormat LaTeX style used earlier. Every figure uses Matplotlib with the repository's `figstyle.py`, whose colours and font are copied from `web/public/styles.css`:
 
 ```python
-from pathlib import Path
 import matplotlib.pyplot as plt
-import TeXFormat as tf
+import figstyle as fs
 
-plt.style.use(Path(tf.__file__).with_name("TeXFormat.mplstyle"))
-fig, ax = plt.subplots()
-tf.bar(ax, [0, 1], [3.0, 2.1], tf.UniBlue, width=0.4, yerr=[0.2, 0.1], capsize=3, label="Example")
-ax.set_ylabel(r"Intensity [a.u.]")
-ax.legend(frameon=True, fancybox=False, fontsize=tf.fontsizeSmall)
-fig.savefig("Figures/example.pdf")
-fig.savefig("Figures/example.svg")
+fs.use()
+fig, ax = plt.subplots(figsize=(12, 6.75))
+fs.bar(ax, [0, 1], [310, 250], [fs.C1, fs.tint(fs.C1, 0.45)])
+fs.gbp(ax)
+fs.clean(ax)
+fs.headline(fig, "One plain sentence stating the takeaway", "What is shown, in everyday words")
+fs.save(fig, "Figures/example/name")   # name.pdf and name.svg
 ```
-
-`import TeXFormat` works through a `texformat.pth` file in the environment's `site-packages` that contains that folder's path. `py -3` already has one. For a new virtual environment, add one (PowerShell, with the environment active: `$site = python -c "import site; print(site.getsitepackages()[-1])"; Set-Content -Encoding utf8 (Join-Path $site 'texformat.pth') 'C:\Users\s2191671\OneDrive - University of Edinburgh\PhD\03_code\TeXFormat'`). Check with `python -c "import TeXFormat; print(TeXFormat.__file__)"`, which must print that folder's path. Never copy `TeXFormat.py` or `TeXFormat.mplstyle` into this repository, and do not edit them from here: style changes are made in the TeXFormat repository. The style renders text with real LaTeX, so a LaTeX installation must be on the PATH (MiKTeX on Harrison's PC).
-
-The plot conventions are as follows:
 
 | Convention | Rule |
 | --- | --- |
-| Text | Real LaTeX rendering (`text.usetex: True`) in Computer Modern, set by the style. Never fall back silently to another font: if LaTeX fails, stop and report it |
-| Colours | Series take colours in the order of `tf.CYCLE`: UniBlue `#041E42`, UniRed `#D50032`, DeepTeal `#005F73`, OldRose `#B8858D`, Cerulean `#0091B5`, Burgundy `#A50034`, LightBlue `#8FAED0`, SoftPink `#FF9DB5`, UniYellow `#E0B400`, Jade `#487A7B`. Use `tf.CYCLE` in code and do not retype the order. Beyond six series, add markers or line styles (colours 7 to 9 are pale) |
-| Bars | `tf.bar()`: a translucent fill with a solid outline in the same colour, and a gap between neighbouring bars. Never use `ax.bar(..., alpha=...)` |
-| Legends | Square frames: `frameon=True, fancybox=False` |
-| Axes | No grid lines. Units in square brackets, for example `Time [s]` |
-| Font sizes | `tf.fontsize`, `tf.fontsizeSmall`, `tf.fontsizeTiny` |
-| Export | PDF and SVG (the style outlines SVG text for Illustrator), saved to `Figures/[<group>/]` |
-| Statistics | Uncertainties as `(estimate ± SE)`; percentage changes as a rounded `(estimate ± SE)%` |
+| Headline | A bold sentence stating the takeaway, computed from the data (never typed in), and a muted subtitle saying what is shown |
+| Words | Everyday language and pound amounts (`£1,250`); no jargon, symbols, "n =" or LaTeX on the figure |
+| Colours | Violet `#7c5cff` (`fs.C1`) for the highlighted data, lighter tints (`fs.tint`) for the rest; cyan `#3ec9ff` and pink `#ff6ad5` for further series; green, amber and red only for good, caution and over-budget states |
+| Shapes | Solid bars with slightly rounded corners (`fs.bar`), faint horizontal guide lines, no left axis line, frameless legends or direct labels |
+| Statistics | No error bars on the figure; standard errors, tests and full tables go in the companion file |
+| Honesty | Show the fair comparison even when it is unflattering; every synthetic-data figure carries the source line saying the customers are synthetic |
+| Export | PDF and SVG (SVG text as outlines for Illustrator), saved to `Figures/[<group>/]` |
 
-Every plot has a companion Markdown file with the same base name in the same folder (`Figures/example.md`), written by the same script that makes the plot and regenerated with it. A plot shown without an image file gets a stable descriptive name and its `.md` in `Analysis/`. The companion file contains: the plot title and filename; the source data; filters, transformations and units; the plotted data (a table, or summaries plus a link to the exact data file); `n` for every series; the descriptive statistics, with error bars defined; any fits or tests, with parameters, uncertainties, test statistics and p-values; random seeds; and a short factual interpretation. Write `not applicable` for categories that do not apply, and never include a statistic the code did not calculate. A plot is not finished until its companion file exists and has been checked against the data.
+Every plot has a companion Markdown file with the same base name in the same folder (`Figures/example.md`), written by the same script that makes the plot and regenerated with it. The companion file contains: the plot title and filename; the source data; filters, transformations and units; the plotted data (a table, or summaries plus a link to the exact data file); `n` for every series; the descriptive statistics, with error bars defined (or stated as not drawn); any fits or tests, with parameters, uncertainties, test statistics and p-values; random seeds; and a short factual interpretation. Write `not applicable` for categories that do not apply, and never include a statistic the code did not calculate. A plot is not finished until its companion file exists and has been checked against the data.
 
 ### Slides
 
@@ -129,7 +123,7 @@ The style is 16:9, CMU Serif, a cream background `#F7F1E6`, headings in red `#D5
 
 ### Interfaces and web pages
 
-Every interface, web page and dashboard uses the style of Auro's front end ("Second Thought": `extension/src/overlay.js` and `web/public/styles.css` are the reference; Harrison, 7 November 2026: "use auros front end style for all work here"). In short: a system sans-serif face (`ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`) with bold headings and slightly tight letter-spacing; background `#f7f7f5`, white cards with a `#e5e4e0` border and 14 to 16 px corners, ink `#17171c`, muted text `#6a6a75`; violet accent `#6d4aff` (`#8b6cff` in dark mode); the ring gradient `#7c5cff`, `#3ec9ff`, `#ff6ad5` for the brand mark and the first data series; green `#16a34a`, amber `#d97706` and red `#dc2626` only for good, caution and over-budget states; solid, rounded bars. Copy the values from Auro's files rather than retyping them where possible, and never edit Auro's files to restyle them. This replaces the earlier house palette for interfaces; plots made with Matplotlib keep the TeXFormat conventions above (Harrison, 7 November 2026: "plots are fine for now").
+Every interface, web page and dashboard uses the style of Auro's front end ("Second Thought": `extension/src/overlay.js` and `web/public/styles.css` are the reference; Harrison, 7 November 2026: "use auros front end style for all work here"). In short: a system sans-serif face (`ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`) with bold headings and slightly tight letter-spacing; background `#f7f7f5`, white cards with a `#e5e4e0` border and 14 to 16 px corners, ink `#17171c`, muted text `#6a6a75`; violet accent `#6d4aff` (`#8b6cff` in dark mode); the ring gradient `#7c5cff`, `#3ec9ff`, `#ff6ad5` for the brand mark and the first data series; green `#16a34a`, amber `#d97706` and red `#dc2626` only for good, caution and over-budget states; solid, rounded bars. Copy the values from Auro's files rather than retyping them where possible, and never edit Auro's files to restyle them. This replaces the earlier house palette for interfaces; since T32 the figures use it too (see Plots).
 
 ### Documents
 
@@ -158,3 +152,4 @@ The challenge is Bank of Scotland's "Smart Cost of Living"; the idea is an affor
 - 2026-11-07 (Claude): New session after the usage limit. On Harrison's request wrote the model outline (`model outline/MODEL_OUTLINE.md`, building on Andrew's `HackTheBurgh.md`); Harrison: "dont implement yet". Restarted the interrupted T22 engine, T26 and T27 work.
 - 2026-11-07 (Claude): On Harrison's instruction ("scrap old model implementations and clean / archive old files ... we intend to simplify the back-end ... we will then merge this with the front-end afterwards (do not do this for us)"), T29 archived the old model and engine and kept the parser and detectors as `statements.py`; T26 parked unmerged, T22 stopped, T27 merged. Added `model outline/` and `archive/` to File organisation.
 - 2026-11-07 (Claude): On Harrison's instruction ("Yes, build it") built Andrew's model as `model.py` (T30) with the proposed defaults; merged; not joined to the front end.
+- 2026-11-07 (Claude): On Harrison's instruction ("make figures look like front end"; "make more aesthetic to lay person ... market the product to a general population"), T32 restyled the six current figures with `figstyle.py` (Auro's colours and font, plain headlines, no error bars on the image) and rewrote the Plots section; TeXFormat is no longer used here.
