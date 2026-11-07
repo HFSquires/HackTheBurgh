@@ -12,8 +12,10 @@ ST.config = {
   // Steps shown while the backend is working. They advance on a timer (the analysis is one AI call), and the last one
   // stays on screen until the answer arrives, so it must name the slow part: the web search. Only list real work.
   // The budget step is left out when no budget is saved (content.js).
+  // "Checking your accounts" is for the demo: no bank connection yet, it's shown but nothing is fetched.
   ANALYSIS_STEPS: [
     "Reading your basket",
+    "Checking your accounts",
     "Checking this month's budget",
     "Searching other stores and price history",
   ],
@@ -32,8 +34,9 @@ ST.config = {
     auth0ClientId: "",
   },
 
-  // Demo page only: a sample budget, so the staged journey (and the over-budget pause) can be shown without settings.
-  MOCK_BUDGET: { budget: 400, spent: 240 },
+  // Demo page only: overrides the demo shopper's budget from persona.js (e.g. { budget: 400, spent: 240 }).
+  // Null = use the persona's budget, balance and bills as they are.
+  MOCK_BUDGET: null,
 };
 
 // OpenAI-compatible API to call for a given key. University of Edinburgh ELM keys ("elm-…") go through the
