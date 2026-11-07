@@ -269,27 +269,34 @@
       }
     }
 
+    // "Could get cheaper" is its own search and often finishes after the price search: add it to whatever is showing
+    // (the panel, or the quiet note, which becomes a panel), without moving the shopper off their step.
+    const mine = (search = { stopped: false });
+    let shown = null;
+    let quiet = false;
+    const addOutlook = async (o) => {
+      if (!o || mine.stopped || !shown || lastResult !== shown || shown.priceOutlook) return;
+      shown.priceOutlook = o;
+      ST.log(`${where}: could get cheaper (${o.likelihood}), added to the panel`);
+      if (overlay.current) overlay.updateResult(shown);
+      else if (quiet && !isQuiet()) quiet = await present(shown, where);
+    };
+
     if (afford || outlookNow) {
       ST.log(`${where}: showing "${afford ? "can't afford" : "could get cheaper"}" while the price search runs`);
       await sleep(1500 - (Date.now() - started));
       const partial = { ...normalize(afford || {}, payload), priceOutlook: outlookNow, searching: true };
       if (!afford) partial.verdict = "neutral"; // affordability comes with the full answer
-      const mine = (search = { stopped: false });
       const current = () => !mine.stopped && lastResult === partial;
-      lastResult = partial;
+      shown = lastResult = partial;
       await overlay.showResult(partial, handleAction);
-      if (!outlookNow) {
-        outlook.then((o) => {
-          if (!o || !current()) return;
-          partial.priceOutlook = o;
-          overlay.updateResult(partial);
-        });
-      }
+      outlook?.then(addOutlook);
       full.then(
         (result) => {
           logResult(where, result, started);
           if (!current()) return;
-          lastResult = result;
+          result.priceOutlook ||= partial.priceOutlook;
+          shown = lastResult = result;
           overlay.updateResult(result);
         },
         (e) => {
@@ -312,8 +319,9 @@
     }
     // Answer already known from the basket: a short glow, not the full "analysing" wait.
     await sleep((result.fromEarlierCheck ? 1200 : ST.config.MIN_ANALYSING_MS) - (Date.now() - started));
-    lastResult = result;
-    await present(result, where);
+    shown = lastResult = result;
+    quiet = await present(result, where);
+    if (!result.priceOutlook) outlook?.then(addOutlook);
     return null;
   }
 
@@ -327,14 +335,19 @@
   }
 
   // One decision, or a small note that fades when there's nothing to decide (affordable, nothing cheaper, no drop).
+  // Returns true when it was the note.
   async function present(result, where) {
-    if (overlay.decisions(result).length) return overlay.showResult(result, handleAction);
+    if (overlay.decisions(result).length) {
+      await overlay.showResult(result, handleAction);
+      return false;
+    }
     ST.log(`${where}: nothing to decide, showing a quiet note`, { verdict: result.verdict });
     overlay.showQuiet({
       title: { good: "Fits your budget", caution: "Worth a pause" }[result.verdict] || "No cheaper price found",
       sub: result.verdict === "good" || result.verdict === "caution" ? result.message : "We didn't find it cheaper at other stores.",
       tone: result.verdict === "caution" ? "caution" : result.verdict === "good" ? "good" : "neutral",
     });
+    return true;
   }
 
   // ---------- Earlier stages (stages.js) ----------

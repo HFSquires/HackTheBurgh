@@ -79,8 +79,9 @@ money across all accounts day by day (everyday spending spread evenly, bills on 
 and without the purchase, against the savings goal. Its last day equals the model's month-end forecast.
 
 `MODEL` in `src/config.js` sets the model URL, the bank URL and which synthetic customer to read (default
-`persona001`: 62, North East, £2,414 a month after tax, rent £692; up to about £283 fits, £283 to £525 is tight, above
-£525 it says "You can't afford this right now"). `url: ""` turns it off.
+`persona029`: 34, West Midlands, single parent, £1,227 a month after tax, rent £792, already £62 overdrawn, so every
+purchase gets "You can't afford this right now"; `persona001` (62, £2,414 a month) is the alternative where up to about
+£283 fits and above £525 doesn't). `url: ""` turns it off.
 
 ## Demo shopper (`src/persona.js`)
 
@@ -262,8 +263,10 @@ Response:
 ```
 
 - Live mode gets it from a **separate call** (`ST.live.outlook`), run alongside the price comparison (at Add to basket
-  and at checkout). The panel waits for both, up to 40 s for the outlook, so it shows one settled decision. The model looks for evidence with web search: price history sites, upcoming sales (Black Friday, Cyber Monday,
-  Boxing Day…), a successor launching, pre-order undercutting. `likely` needs concrete evidence.
+  and at checkout). It doesn't hold the cheaper price back: whichever finishes first shows first, and "could get
+  cheaper" joins the panel when it arrives (without moving the shopper off their step). The model looks for evidence
+  with web search: price history sites, upcoming sales (Black Friday, Cyber Monday, Boxing Day…), a successor
+  launching, pre-order undercutting. `likely` needs concrete evidence.
 - A team backend sends `priceOutlook` inside the `/analyze` response instead; the extension then makes no extra call.
 - Shown as the "Could get cheaper" decision only for `likely`/`possible`, and only when `expectedPrice` (if given) is
   below the total. Like alternatives, it never changes `verdict`. `signals` sit under a collapsed "Why?".

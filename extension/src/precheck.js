@@ -74,6 +74,18 @@ globalThis.ST = globalThis.ST || {};
     }
   }
 
+  // "Could it get cheaper?" finished after the price check was saved: add it, so the checkout can reuse both.
+  async function addOutlook(payload, priceOutlook) {
+    if (!priceOutlook) return;
+    const domain = baseDomain(payload.url);
+    const names = namesOf(payload).join("|");
+    const list = await store.get();
+    const entry = list.find((e) => e.domain === domain && e.names.join("|") === names);
+    if (!entry || entry.result.priceOutlook) return;
+    entry.result = { ...entry.result, priceOutlook };
+    await store.set(list);
+  }
+
   const money = (n, currency = "GBP") => {
     try { return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(n); } catch { return n.toFixed(2); }
   };
@@ -205,5 +217,5 @@ globalThis.ST = globalThis.ST || {};
     return { ...result, ...verdict, budgetInfo: info };
   }
 
-  ST.precheck = { run, find, forCheckout, budgetVerdict, budgetInfo, withBudget, modelVerdict, baseDomain };
+  ST.precheck = { run, find, forCheckout, budgetVerdict, budgetInfo, withBudget, modelVerdict, addOutlook, baseDomain };
 })();

@@ -19,8 +19,8 @@ globalThis.ST = globalThis.ST || {};
   const demoSettings = () => ({ ...(ST.persona ? ST.persona.settings() : {}), ...(ST.config.MOCK_BUDGET || {}) });
   // Price comparison and "could get cheaper" together, as the background does.
   async function demoBoth(payload) {
-    const [result, outlook] = await Promise.all([ST.mock.analyze(payload), ST.mock.outlook(payload)]);
-    return { ...result, priceOutlook: result.priceOutlook || outlook };
+    ST.mock.outlook(payload).then((o) => ST.precheck.addOutlook(payload, o));
+    return ST.mock.analyze(payload);
   }
   async function demoAnalyze(payload) {
     const earlier = !ST.config.MOCK_SCENARIO && (await ST.precheck.find(payload));

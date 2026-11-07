@@ -76,19 +76,17 @@ async function precheck(payload, sender) {
 }
 const outlook = (payload) => cached("outlook", payload, outlookFresh);
 
-// The price comparison and "could it get cheaper if you wait?" together, so the page shows one settled decision
-// instead of changing under the shopper. The slower outlook search is capped so it can't hold the checkout up.
-const OUTLOOK_WAIT_MS = 40000;
+// The price comparison, plus "could it get cheaper if you wait?" if that's already known. The outlook is its own,
+// often slower, search: it runs alongside, the page adds it to the panel when it arrives (ST_OUTLOOK shares this same
+// search), and it's saved with the Add-to-basket check so the checkout can reuse both. Waiting for it here held the
+// cheaper price back by up to 40 s.
 async function checkBoth(payload) {
-  const giveUp = new Promise((resolve) => setTimeout(() => resolve(null), OUTLOOK_WAIT_MS));
-  const [result, o] = await Promise.all([
-    cached("analyse", payload, analyzeFresh),
-    Promise.race([
-      outlook(payload).catch((e) => (ST.log.error("outlook: failed", e.message), null)),
-      giveUp.then(() => (ST.log("outlook: too slow, showing the result without it"), null)),
-    ]),
-  ]);
-  return result.priceOutlook ? result : { ...result, priceOutlook: o };
+  const later = outlook(payload).catch((e) => (ST.log.error("outlook: failed", e.message), null));
+  const result = await cached("analyse", payload, analyzeFresh);
+  if (result.priceOutlook) return result;
+  const o = await Promise.race([later, Promise.resolve(undefined)]); // undefined = still searching
+  if (o === undefined) later.then((v) => v && ST.precheck.addOutlook(payload, v));
+  return { ...result, priceOutlook: o ?? null };
 }
 
 // Priority: the team backend if configured, else live analysis with the user's OpenAI key, else the mock.

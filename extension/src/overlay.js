@@ -359,10 +359,11 @@ globalThis.ST = globalThis.ST || {};
     return el;
   }
 
-  const gbp = (n) => `£${Math.round(n).toLocaleString("en-GB")}`;
+  const gbp = (n) => `${n < 0 ? "−" : ""}£${Math.abs(Math.round(n)).toLocaleString("en-GB")}`;
 
   // This month day by day from the model's figures (money across all accounts today, then everyday spending spread
-  // evenly, bills on their due dates and salary on payday), with and without the purchase, against the savings goal.
+  // evenly, bills on their due dates and salary on payday), with and without the purchase from the same starting
+  // point, against the savings goal.
   // The last day equals the model's own month-end forecast.
   function financeChart(c) {
     const day = (iso) => new Date(`${iso}T12:00:00`);
@@ -370,15 +371,18 @@ globalThis.ST = globalThis.ST || {};
     const n = Math.round((day(c.end) - t0) / 864e5);
     if (!(n > 0)) return null;
     const dateAt = (i) => new Date(t0.getTime() + i * 864e5);
+    // Day of the month each money movement lands; a bill already due but not yet paid leaves tomorrow, so the first
+    // point is the money in the accounts today.
+    const dayOf = (iso) => Math.max(1, Math.round((day(iso) - t0) / 864e5));
     const without = [];
     for (let i = 0; i <= n; i++) {
-      const d = dateAt(i);
       let v = c.start - (c.everyday * i) / n;
-      if (c.payday && d >= day(c.payday)) v += c.salary;
-      for (const [due, amount] of c.due) if (d >= day(due)) v -= amount;
+      if (c.payday && i >= dayOf(c.payday)) v += c.salary;
+      for (const [due, amount] of c.due) if (i >= dayOf(due)) v -= amount;
       without.push(v);
     }
-    const withIt = without.map((v) => v - c.price);
+    // Both start from today's money; the purchase line splits off straight after, so the change in direction shows.
+    const withIt = without.map((v, i) => (i === 0 ? v : v - c.price));
     let lo = Math.min(...without, ...withIt, c.goal);
     let hi = Math.max(...without, ...withIt, c.goal);
     const pad = (hi - lo) * 0.15 || 50;
@@ -694,7 +698,7 @@ globalThis.ST = globalThis.ST || {};
           view.extra,
           h("div", { class: "actions" }, mainBtn, way))
       );
-      this.current = { result, onAction, index };
+      this.current = { result, onAction, index, step };
       if (!phone.matches) mainBtn.focus({ preventScroll: true });
       // The way out sits where the last one was: ignore a double click carrying on into "Buy here anyway".
       if (index > 0) {
@@ -731,10 +735,13 @@ globalThis.ST = globalThis.ST || {};
     updateResult(result) {
       const c = this.current;
       if (!c) return;
-      if (c.index >= this.decisions(result).length) {
+      const steps = this.decisions(result);
+      // Stay on the step the shopper is looking at, even if a new one ("could get cheaper") slots in before it.
+      const index = c.step && steps.includes(c.step) ? steps.indexOf(c.step) : c.index;
+      if (index >= steps.length && !result.searching) {
         return this.showQuiet({ title: "No cheaper price found", sub: "Go ahead when you're ready.", tone: "neutral" });
       }
-      this.showResult(result, c.onAction, c.index);
+      this.showResult(result, c.onAction, index);
     }
 
     async showError(message, onAction) {

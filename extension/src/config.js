@@ -41,7 +41,7 @@ ST.config = {
   // The team's affordability model (model.py on main, `--serve`, POST /decide), reading the customer's accounts
   // through the mock Open Banking bank (`mock_bank.py --serve --source v2`). When it answers, its verdict replaces the
   // saved-budget one; when it's off or unreachable, the saved budget is used. url "" = never ask it.
-  MODEL: { url: "http://127.0.0.1:8765", bankUrl: "http://127.0.0.1:8766", persona: "persona001" },
+  MODEL: { url: "http://127.0.0.1:8765", bankUrl: "http://127.0.0.1:8766", persona: "persona029" },
 
   // Demo page only: overrides the demo shopper's budget from persona.js (e.g. { budget: 400, spent: 240 }).
   // Null = use the persona's budget, balance and bills as they are.
