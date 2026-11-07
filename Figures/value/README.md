@@ -4,3 +4,4 @@ Pitch figure written by `affordability_figures.py` (task T15) with its companion
 
 ## Log
 - 2026-11-07 (Claude, T15 sub-agent): created. The 1% cashback rate is an assumption, not taken from any card; float interest uses Bank Rate (4.00% from 5 November 2026) as a proxy for an easy-access savings rate and an assumed 40-day interest-free period for the card.
+- 2026-11-07 (Claude, T23 sub-agent): regenerated `savings_comparison` (T23): the companion table now shows product names (it printed a pandas method dump), and the interpretation separates P04 (only one mainstream price obtained) from P01 (equal mainstream prices). Numbers and SVG unchanged.
