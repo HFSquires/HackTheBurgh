@@ -6,13 +6,13 @@ Files: `account_holdings.pdf`, `account_holdings.svg` (this file: `account_holdi
 
 ## Source data
 
-Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `0aff08f`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
+Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `0aff08f`; read by `ob_figures.py` (commit `fcf62e6` or later). Plot style: `figstyle.py` (Auro's front-end style) sha256 `91e3bd61f98a`. No random numbers are drawn here (seed: not applicable).
 
 ## Filters, transformations and units
 
 All 100 personas. Left: number of accounts per person, `n_accounts` in `ground_truth.csv` (current accounts, joint
 account, savings, cash ISA and credit cards each count once). Right: share of persons holding each account type, from
-`account_keys` in `ground_truth.csv`; "Model probability" is the mean over persons of the holding probability the generator
+`account_keys` in `ground_truth.csv`, beside the FCA share (the figure shows these two; the model probabilities are in the table only). "Model probability" is the mean over persons of the holding probability the generator
 used (`p_savings`, `p_cash_isa`, `p_credit_card`, `p_second_current`, `p_joint`); the FCA column is read from the table in
 [`Analysis/open_banking/summary.md`](../../Analysis/open_banking/summary.md) (FCA Financial Lives 2024, weighted data tables, base all UK adults).
 The FCA second-current-account figure is a derived lower bound (sum of provider-group shares minus 1); the FCA main-current

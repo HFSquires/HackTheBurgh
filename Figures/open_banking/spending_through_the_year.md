@@ -6,15 +6,14 @@ Files: `spending_through_the_year.pdf`, `spending_through_the_year.svg` (this fi
 
 ## Source data
 
-Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `0aff08f`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
+Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `0aff08f`; read by `ob_figures.py` (commit `fcf62e6` or later). Plot style: `figstyle.py` (Auro's front-end style) sha256 `91e3bd61f98a`. No random numbers are drawn here (seed: not applicable).
 
 ## Filters, transformations and units
 
 **Everyday spending** = booked card purchases (proprietary codes `DEB` debit card and `PUR` credit card, which carry `MerchantDetails`) from every account of a person, excluding own-account transfers (any transaction whose `TransactionReference` also appears on another transaction of the same person) and excluding one-off purchases. **One-off purchases** = the annual package holiday (`JET2HOLIDAYS`) and the synthetic lumpy purchases (`CURRYS`, `KWIK FIT`, `DFS`) listed in `ground_truth.csv` (`lumpy_purchases`, matched on booking date and merchant, taking the largest amount; lumpy purchases the generator foregoes, three in all, never appear in the transactions). Pending transactions are excluded. Rent, bills, direct debits, standing orders and card repayments are committed payments and are not counted.
 
 Per person and calendar month (London time, booking date): everyday spending and one-off purchases in GBP. The bars show the
-mean across the n = 100 persons (everyday below, one-off stacked above); the black error bars are the standard
-error of the mean of the **total** (everyday plus one-off), SE = s / sqrt(n), ddof = 1. The seasonal shape comes from the ONS
+mean across the n = 100 persons (everyday below, one-off stacked above, in a lighter shade). Drawn for a general audience: headline and subtitle state the takeaway; standard errors are not drawn on the figure and are given in the table below. SE = s / sqrt(n), ddof = 1. The seasonal shape comes from the ONS
 retail-sales profile in the generator. Plotted data: [`Analysis/open_banking_figures/spending_through_the_year.csv`](../../Analysis/open_banking_figures/spending_through_the_year.csv).
 
 ## Plotted data
@@ -45,5 +44,5 @@ uncertainty calculated). No tests were run (not applicable).
 
 Everyday spending rises in November and December, as set by the generator's seasonal profile. The one-off purchases (holidays
 and lumpy purchases) are spread unevenly across months and make the monthly total much more variable than everyday spending,
-which is visible in the larger error bars on the totals.
+as the larger standard errors of the totals in the table show.
 
