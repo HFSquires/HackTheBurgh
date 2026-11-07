@@ -1,6 +1,6 @@
 # UK retail sales seasonality (non-seasonally adjusted)
 
-Files: `retail_sales_seasonality.pdf`, `retail_sales_seasonality.svg` (this file: `retail_sales_seasonality.md`), written by `market_data.py` (commit `unknown` or later).
+Files: `retail_sales_seasonality.pdf`, `retail_sales_seasonality.svg` (this file: `retail_sales_seasonality.md`), written by `market_data.py` (commit `36311b5` or later).
 
 ## Source data
 
