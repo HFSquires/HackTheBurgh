@@ -18,4 +18,4 @@ Note: ONS also lists ASHE 2025 provisional and a 2026 provisional edition on the
 
 - 2026-11-07 (Claude, T05): downloaded the files above.
 - 2026-11-07 (Claude, T05c sub-agent): no new downloads; the 500 persona rows are now used for all regions (245 usable for 100 personas after skipping 255 rows) and workbook 3 for every region column.
-- 2026-11-07 (Claude, T09 sub-agent): added the two retail price files above (5 products, 43 rows). No raw page snapshots stored.
+- 2026-11-07 (Claude, T09 sub-agent): added the two retail price files above (5 products, 40 rows). No raw page snapshots stored.
