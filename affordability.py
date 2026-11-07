@@ -1,6 +1,7 @@
 """Affordability engine and local HTTP API for the checkout extension (task T07).
 
-Reads a bank-statement CSV (Lloyds Banking Group export layout, as written by mock_statements.py) and answers, for a
+Reads a bank-statement CSV (Lloyds Banking Group export layout, as written by mock_statements.py), or the same data
+from an Open Banking account-information API through mock_bank.fetch (task T18), and answers, for a
 purchase at price P: what is safe to spend before the next payday, and the facts of each way to pay (pay now, BNPL with a
 set-aside pot, plain BNPL, a 0% card, a credit card cleared in full). Guidance, not advice: options are described and marked cheapest / most left until
 payday, never recommended. When a product is named, the price catalogue in data/ gives the cheapest mainstream
@@ -593,9 +594,16 @@ class Handler(BaseHTTPRequestHandler):
                 req = json.loads(self.rfile.read(size))
             except (json.JSONDecodeError, UnicodeDecodeError):
                 raise StatementError("The body is not valid JSON.") from None
-            if not isinstance(req, dict) or ("persona" in req) == ("csv" in req):
-                raise StatementError('Send an object with exactly one of "persona" or "csv", plus "price".')
-            text = load_persona(req["persona"]) if "persona" in req else req["csv"]
+            if not isinstance(req, dict) or sum(k in req for k in ("persona", "csv", "bank")) != 1:
+                raise StatementError('Send an object with exactly one of "persona", "csv" or "bank", plus "price".')
+            if "bank" in req:  # Open Banking AISP endpoint (T18); mock_bank imports this module, hence the late import
+                import mock_bank
+                bank = req["bank"]
+                if not isinstance(bank, dict) or not set(bank) <= {"baseUrl", "token", "persona"}:
+                    raise StatementError('bank must be {"baseUrl": ..., "token": ...} or {"baseUrl": ..., "persona": ...}.')
+                tx = mock_bank.fetch(bank.get("baseUrl"), bank.get("token"), bank.get("persona"))
+            else:
+                tx = parse(load_persona(req["persona"]) if "persona" in req else req["csv"])
             try:
                 today = dt.date.fromisoformat(req["today"]) if req.get("today") else None
             except (TypeError, ValueError):
@@ -603,7 +611,7 @@ class Handler(BaseHTTPRequestHandler):
             merchant = req.get("merchant")
             if merchant is not None and not isinstance(merchant, str):
                 raise StatementError("merchant must be a string.")
-            out = assess(parse(text), req.get("price"), today, merchant, req.get("product"))
+            out = assess(tx, req.get("price"), today, merchant, req.get("product"))
             out["persona"] = req.get("persona")
             self.send(200, out)
         except StatementError as e:
@@ -787,8 +795,11 @@ def check():
     assert pot_interest(300, d0, sch, 4.0) == 0.99 and pot_interest(300, d0, sch, 0.0) == 0.0
     assert bank_rate()[-1][0] >= dt.date(2026, 10, 1) and all(0 <= r < 20 for _, r in bank_rate())
 
-    srv = serve(0, quiet=True)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    import mock_bank
+    srv, bank = serve(0, quiet=True), mock_bank.serve(0, quiet=True)
+    for s in (srv, bank):
+        threading.Thread(target=s.serve_forever, daemon=True).start()
+    burl = f"http://127.0.0.1:{bank.server_port}"
     url = f"http://127.0.0.1:{srv.server_port}"
     post = lambda body: urllib.request.urlopen(urllib.request.Request(url + "/assess", data=body,
                                                                       headers={"Content-Type": "application/json"}))
@@ -800,6 +811,15 @@ def check():
             out = json.load(r)
             assert out["persona"] == pid and out["price"] == 300 and len(out["options"]) == 5
             assert out["betterPrice"] is None
+        # T18: the same persona read through the mock Open Banking API gives the same assessment
+        token = mock_bank.call(burl + "/mock/consent", body=json.dumps(dict(persona=pid)).encode())["access_token"]
+        for src in (dict(baseUrl=burl, persona=pid), dict(baseUrl=burl, token=token)):
+            with post(json.dumps(dict(bank=src, price=300, merchant="Test")).encode()) as r:
+                assert json.load(r) | dict(persona=pid) == out
+        bad_bank = [dict(bank=b, price=50) for b in (dict(baseUrl="http://example.com", persona=pid),
+                    dict(baseUrl="file:///etc/passwd", persona=pid), dict(baseUrl=burl), dict(baseUrl=burl, token="x" * 40),
+                    dict(baseUrl=burl, persona="persona999"), dict(baseUrl=burl, persona=pid, path="/"), "x")]
+        bad_bank.append(dict(persona=pid, bank=dict(baseUrl=burl, persona=pid), price=50))
         with post(json.dumps(dict(persona=pid, price=229.99, merchant="John Lewis", product="P02",
                                   today="2026-11-07")).encode()) as r:
             out = json.load(r)
@@ -825,7 +845,8 @@ def check():
         for body in (b"not json", b'{"persona": "persona079"}', b'{"persona": "x", "price": 3}',
                      json.dumps(dict(csv="garbage", price=3)).encode(), b'{"persona": "persona001", "price": -1}',
                      b'{"persona": "persona001", "price": 3, "product": 2}',
-                     *(json.dumps(dict(csv=text, price=50)).encode() for text in malformed)):
+                     *(json.dumps(dict(csv=text, price=50)).encode() for text in malformed),
+                     *(json.dumps(b).encode() for b in bad_bank)):
             try:
                 post(body)
             except urllib.error.HTTPError as e:
@@ -834,6 +855,7 @@ def check():
                 raise AssertionError(f"accepted {body!r}")
     finally:
         srv.shutdown()
+        bank.shutdown()
     print(f"Self-check passed on {len(files)} statements.")
     print("Price [GBP] | can pay now (and with the BNPL pot) | only with plain BNPL | neither")
     for p in prices:
