@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Second Thought account</title>
+  <meta name="description" content="Save your delivery details, payment preferences and budget for the Second Thought checkout assistant." />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="/"><span class="ring" aria-hidden="true"></span>Second Thought</a>
+      <div class="who" id="who" hidden>
+        <span id="who-email"></span>
+        <button class="link" id="sign-out">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="banner" id="demo-banner" hidden>
+    <div class="wrap">Demo mode: not connected to Auth0 or Firebase yet. Details are saved only in this browser.</div>
+  </div>
+
+  <!-- Signed out -->
+  <main class="wrap landing" id="landing" hidden>
+    <section class="hero">
+      <p class="eyebrow">Your account</p>
+      <h1>Shop with a second thought.</h1>
+      <p class="lead">
+        Save your delivery details, how you like to pay and your monthly budget once.
+        The Second Thought extension uses them at checkout to warn you before you overspend
+        and to move you to a cheaper store with your details already filled in.
+      </p>
+      <div class="cta-row">
+        <button class="btn primary" id="sign-in">Sign in or create an account</button>
+        <button class="btn ghost" id="try-demo" hidden>Try it without signing in</button>
+      </div>
+      <p class="fine">Sign-in is handled by Auth0. We never store card numbers or security codes.</p>
+    </section>
+    <section class="points">
+      <div class="point"><h3>Budget-aware checkout</h3><p>"This puts you £18 over budget": one pause at Place order, only when it matters.</p></div>
+      <div class="point"><h3>Cheaper elsewhere</h3><p>Same item for less at another store, with your basket and details carried over.</p></div>
+      <div class="point"><h3>Your details stay yours</h3><p>Only what you save here. Delete it all with one click, any time.</p></div>
+    </section>
+  </main>
+
+  <!-- Signed in -->
+  <main class="wrap app" id="app" hidden>
+    <div class="intro">
+      <h1>Your details</h1>
+      <p class="muted">Used by the extension at checkout. <span id="updated"></span></p>
+    </div>
+
+    <form id="form" novalidate>
+      <section class="card">
+        <h2>Delivery details</h2>
+        <p class="hint">Filled in for you when you switch to a cheaper store.</p>
+        <div class="grid">
+          <label>First name<input name="profile.givenName" autocomplete="given-name" /></label>
+          <label>Last name<input name="profile.familyName" autocomplete="family-name" /></label>
+          <label>Email<input name="profile.email" type="email" autocomplete="email" /></label>
+          <label>Phone<input name="profile.phone" type="tel" autocomplete="tel" /></label>
+          <label class="full">Address line 1<input name="profile.address1" autocomplete="address-line1" /></label>
+          <label class="full">Address line 2<input name="profile.address2" autocomplete="address-line2" /></label>
+          <label>Town / city<input name="profile.city" autocomplete="address-level2" /></label>
+          <label>Postcode<input name="profile.postcode" autocomplete="postal-code" /></label>
+          <label class="full">Country<input name="profile.country" autocomplete="country-name" placeholder="United Kingdom" /></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>How you like to pay</h2>
+        <p class="hint">At a new store the extension picks this option for you. You still pay yourself.</p>
+        <div class="methods" id="methods" role="radiogroup" aria-label="Preferred payment method"></div>
+
+        <h3 class="sub">Saved cards</h3>
+        <p class="hint lock">Just a nickname, the brand and the last 4 digits, so you can tell them apart. Never the card number, expiry or security code.</p>
+        <div id="cards"></div>
+        <button type="button" class="btn ghost small" id="add-card">+ Add a card</button>
+      </section>
+
+      <section class="card">
+        <h2>Monthly budget</h2>
+        <p class="hint">Lets the extension tell you whether a purchase fits your plan.</p>
+        <div class="grid three">
+          <label>Monthly budget<input name="budget.monthly" type="number" min="0" step="1" inputmode="decimal" placeholder="400" /></label>
+          <label>Spent so far this month<input name="budget.spent" type="number" min="0" step="1" inputmode="decimal" placeholder="0" /></label>
+          <label>Currency
+            <select name="budget.currency"><option>GBP</option><option>EUR</option><option>USD</option></select>
+          </label>
+        </div>
+        <div class="meter" aria-hidden="true"><div class="meter-fill" id="meter-fill"></div></div>
+        <p class="hint" id="meter-text"></p>
+      </section>
+
+      <section class="card">
+        <h2>Connect the extension</h2>
+        <ol class="steps">
+          <li>Install the Second Thought extension in Chrome.</li>
+          <li>Open its settings (right-click the toolbar icon → <b>Options</b>).</li>
+          <li>Click <b>Sign in</b> and use this same account. Your details sync automatically.</li>
+        </ol>
+      </section>
+
+      <section class="card danger">
+        <h2>Delete your data</h2>
+        <p class="hint">Removes everything saved here. The extension keeps working, just without your saved details.</p>
+        <button type="button" class="btn danger-btn small" id="delete">Delete my data</button>
+      </section>
+
+      <div class="savebar">
+        <div class="wrap savebar-row">
+          <span id="status" role="status" aria-live="polite"></span>
+          <button type="submit" class="btn primary" id="save">Save</button>
+        </div>
+      </div>
+    </form>
+  </main>
+
+  <main class="wrap" id="loading"><p class="muted">Loading…</p></main>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

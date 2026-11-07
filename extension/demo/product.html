@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta property="og:site_name" content="Northwind Outfitters" />
+  <title>Trailhead Waterproof Jacket · Northwind Outfitters</title>
+  <link rel="stylesheet" href="_shared.css" />
+  <script type="application/ld+json">
+    { "@context": "https://schema.org", "@type": "Product", "name": "Trailhead Waterproof Jacket",
+      "offers": { "@type": "Offer", "price": "149.00", "priceCurrency": "GBP" } }
+  </script>
+  <style>
+    .product { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    @media (max-width: 760px) { .product { grid-template-columns: 1fr; } }
+    .photo { aspect-ratio: 1; border-radius: 16px; background: linear-gradient(135deg, #3b5b4a, #8fb39c); }
+    h1 { font-size: 28px; letter-spacing: -.02em; margin: 0 0 6px; }
+    .price { font-size: 22px; font-weight: 700; margin: 0 0 18px; }
+    .sizes { display: flex; gap: 8px; margin: 14px 0 22px; }
+    .sizes span { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: #fff; }
+    .sizes .on { border-color: var(--brand); outline: 1px solid var(--brand); }
+  </style>
+</head>
+<body>
+  <header><div class="bar"><a class="logo" href="product.html">Northwind Outfitters</a><a class="bag" href="basket.html">Bag (1)</a></div></header>
+  <main>
+    <div class="product">
+      <div class="photo" aria-hidden="true"></div>
+      <div>
+        <h1>Trailhead Waterproof Jacket</h1>
+        <p class="price">£149.00</p>
+        <p class="muted">Colour: Forest</p>
+        <div class="sizes"><span>S</span><span class="on">M</span><span>L</span></div>
+        <button class="btn" id="add">Add to basket</button>
+        <p class="muted" id="added" hidden>Added. Going to your basket…</p>
+      </div>
+    </div>
+  </main>
+  <div class="journey"><b>Demo · step 1 of 3</b><br />Browsing shows nothing. "Add to basket" starts a silent price check.</div>
+
+  <script src="../src/config.js"></script>
+  <script src="../src/log.js"></script>
+  <script>ST.config.MOCK_ALT_URL = new URL("checkout.html", location.href).href;</script>
+  <script src="../src/mock.js"></script>
+  <script src="../src/detect.js"></script>
+  <script src="../src/api.js"></script>
+  <script src="../src/overlay.js"></script>
+  <script src="../src/precheck.js"></script>
+  <script src="../src/stages.js"></script>
+  <script src="../src/handoff.js"></script>
+  <script src="../src/content.js"></script>
+  <script>
+    document.getElementById("add").addEventListener("click", () => {
+      document.getElementById("added").hidden = false;
+      setTimeout(() => location.assign("basket.html"), 1200);
+    });
+  </script>
+</body>
+</html>

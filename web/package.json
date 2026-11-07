@@ -1,0 +1,13 @@
+{
+  "name": "second-thought-account",
+  "private": true,
+  "type": "module",
+  "description": "Account page for the Second Thought extension: Auth0 sign-in, details saved in Firestore via a Vercel function.",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "jose": "^5.9.6"
+  }
+}

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta property="og:site_name" content="Northwind Outfitters" />
+  <title>Checkout · Northwind Outfitters</title>
+  <style>
+    :root {
+      --bg: #f6f5f2; --card: #fff; --ink: #1b1b1f; --muted: #6b6b75; --line: #e6e4df; --brand: #1f3a2e;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    header { background: var(--card); border-bottom: 1px solid var(--line); }
+    .bar { max-width: 1040px; margin: 0 auto; padding: 18px 16px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-weight: 700; letter-spacing: -.02em; font-size: 18px; color: var(--brand); }
+    .secure { font-size: 13px; color: var(--muted); }
+    main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 120px; display: grid; grid-template-columns: 1fr 380px; gap: 32px; }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+    h1 { font-size: 26px; margin: 0 0 20px; letter-spacing: -.02em; }
+    h2 { font-size: 16px; margin: 0 0 14px; }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid .full { grid-column: 1 / -1; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    input { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; font: inherit; background: #fbfbfa; }
+    .paywith { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 14px; font-size: 14px; }
+    .paywith label { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--ink); font-size: 14px; }
+    .paywith input { width: auto; }
+    .summary { position: sticky; top: 24px; align-self: start; }
+    .item { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .thumb { width: 54px; height: 54px; border-radius: 10px; flex: none; }
+    .item .name { font-weight: 600; font-size: 14px; }
+    .item .meta { font-size: 12px; color: var(--muted); }
+    .item .price { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .row { display: flex; justify-content: space-between; padding: 6px 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .row.total { color: var(--ink); font-weight: 700; font-size: 18px; border-top: 1px solid var(--line); margin-top: 8px; padding-top: 14px; }
+    .pay { width: 100%; margin-top: 16px; padding: 14px; border: 0; border-radius: 11px; background: var(--brand); color: #fff; font: 600 15px/1 inherit; cursor: pointer; }
+
+    .handoff { max-width: 1040px; margin: 16px auto 0; padding: 12px 16px; border-radius: 12px; background: #e3f6ec; color: #11603d; font-weight: 600; font-size: 14px; }
+    @media (max-width: 1072px) { .handoff { margin: 16px 16px 0; } }
+
+    /* Demo controls (not part of the product) */
+    .demo {
+      position: fixed; left: 16px; top: 76px; z-index: 10;
+      background: #111; color: #fff; border-radius: 12px; padding: 10px; width: 200px;
+      font-size: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.2);
+    }
+    .demo b { display: block; margin: 0 4px 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #aaa; }
+    .demo button { display: block; width: 100%; text-align: left; margin: 2px 0; padding: 7px 9px; border: 0; border-radius: 7px; background: transparent; color: #ddd; font: inherit; cursor: pointer; }
+    .demo button:hover { background: #222; }
+    .demo button.on { background: #2a2a2a; color: #fff; }
+    @media (max-width: 860px) { .demo { top: auto; bottom: 16px; left: 16px; width: 160px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div class="logo" id="store-name">Northwind Outfitters</div>
+      <div class="secure">🔒 Secure checkout</div>
+    </div>
+  </header>
+
+  <div class="handoff" id="handoff" hidden>✓ Second Thought added your basket here. Same items, lower price.</div>
+
+  <main>
+    <div>
+      <h1>Checkout</h1>
+      <section>
+        <h2>Contact</h2>
+        <div class="grid">
+          <div class="full"><label for="email">Email</label><input id="email" name="email" autocomplete="email" placeholder="you@example.com" /></div>
+        </div>
+      </section>
+      <section>
+        <h2>Delivery</h2>
+        <div class="grid">
+          <div><label for="fname">First name</label><input id="fname" name="firstName" autocomplete="given-name" placeholder="Alex" /></div>
+          <div><label for="lname">Last name</label><input id="lname" name="lastName" autocomplete="family-name" placeholder="Morgan" /></div>
+          <div class="full"><label for="addr">Address</label><input id="addr" name="address1" autocomplete="address-line1" placeholder="12 Example Street" /></div>
+          <div><label for="city">City</label><input id="city" name="city" autocomplete="address-level2" placeholder="Edinburgh" /></div>
+          <div><label for="pc">Postcode</label><input id="pc" name="postcode" autocomplete="postal-code" placeholder="EH1 1AA" /></div>
+        </div>
+      </section>
+      <section>
+        <h2>Payment</h2>
+        <div class="paywith">
+          <label><input type="radio" name="payment" value="card" checked /> Credit or debit card</label>
+          <label><input type="radio" name="payment" value="paypal" /> PayPal</label>
+          <label><input type="radio" name="payment" value="klarna" /> Klarna: pay in 3</label>
+        </div>
+        <div class="grid">
+          <div class="full"><label for="cc">Card number</label><input id="cc" name="cardnumber" autocomplete="cc-number" placeholder="•••• •••• •••• ••••" /></div>
+          <div><label>Expiry</label><input placeholder="MM / YY" /></div>
+          <div><label>CVC</label><input placeholder="•••" /></div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="summary">
+      <section>
+        <h2>Order summary</h2>
+        <div class="item" data-st-item>
+          <div class="thumb" style="background:linear-gradient(135deg,#3b5b4a,#8fb39c)"></div>
+          <div><div class="name">Trailhead Waterproof Jacket</div><div class="meta">Forest · M · Qty 1</div></div>
+          <div class="price" id="p-jacket">£149.00</div>
+        </div>
+        <div class="item" data-st-item>
+          <div class="thumb" style="background:linear-gradient(135deg,#c9a46a,#efe0bf)"></div>
+          <div><div class="name">Merino Hiking Socks (2 pack)</div><div class="meta">Sand · Qty 1</div></div>
+          <div class="price" id="p-socks">£24.00</div>
+        </div>
+        <div class="row"><span>Subtotal</span><span id="p-sub">£173.00</span></div>
+        <div class="row"><span>Shipping</span><span>£4.99</span></div>
+        <div class="row total"><span>Order total</span><span id="p-total">£177.99</span></div>
+        <button class="pay">Place order</button>
+      </section>
+    </aside>
+  </main>
+
+  <div class="demo" aria-label="Demo controls">
+    <b>Demo · mock verdict</b>
+    <button data-s="">Auto (by total)</button>
+    <button data-s="good">Good (fits, but cheaper elsewhere)</button>
+    <button data-s="caution">Caution</button>
+    <button data-s="reconsider">Reconsider</button>
+    <button data-s="neutral">No budget set</button>
+    <button data-s="error">Backend error</button>
+  </div>
+
+  <script src="../src/config.js"></script>
+  <script src="../src/log.js"></script>
+  <script>
+    // ?store=…&total=… turns this page into the cheaper store's checkout, as if the basket was handed over.
+    const params = new URLSearchParams(location.search);
+    ST.config.MOCK_ALT_URL = location.origin + location.pathname;
+    if (params.get("store")) {
+      const store = params.get("store");
+      const total = parseFloat(params.get("total")) || 177.99;
+      const gbp = (n) => "£" + n.toFixed(2);
+      const sub = total - 4.99;
+      const jacket = Math.round(sub * (149 / 173) * 100) / 100;
+      document.getElementById("store-name").textContent = store;
+      document.title = `Checkout · ${store}`;
+      document.querySelector('meta[property="og:site_name"]').content = store;
+      document.getElementById("p-jacket").textContent = gbp(jacket);
+      document.getElementById("p-socks").textContent = gbp(sub - jacket);
+      document.getElementById("p-sub").textContent = gbp(sub);
+      document.getElementById("p-total").textContent = gbp(total);
+      document.getElementById("handoff").hidden = false;
+      ST.config.MOCK_SCENARIO = "good";
+    }
+  </script>
+  <script src="../src/mock.js"></script>
+  <script src="../src/detect.js"></script>
+  <script src="../src/api.js"></script>
+  <script src="../src/overlay.js"></script>
+  <script src="../src/precheck.js"></script>
+  <script src="../src/stages.js"></script>
+  <script src="../src/handoff.js"></script>
+  <script src="../src/content.js"></script>
+  <script>
+    const buttons = document.querySelectorAll(".demo button");
+    const mark = (s) => buttons.forEach((b) => b.classList.toggle("on", b.dataset.s === (s || "")));
+    mark(null);
+    buttons.forEach((b) =>
+      b.addEventListener("click", () => {
+        ST.config.MOCK_SCENARIO = b.dataset.s || null;
+        mark(b.dataset.s);
+        ST.run({ force: true });
+      })
+    );
+  </script>
+</body>
+</html>
