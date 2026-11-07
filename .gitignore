@@ -1,5 +1,6 @@
-# Agent and editor state
-.claude/
+# Agent and editor state (Claude agent definitions are tracked)
+.claude/*
+!.claude/agents/
 .worktrees/
 .vscode/
 .idea/
