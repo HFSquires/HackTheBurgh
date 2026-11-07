@@ -11,7 +11,7 @@ brings numpy and scipy, so the API needs the project .venv.
     python affordability.py --serve [--port 8765]   # JSON API on 127.0.0.1
     python affordability.py --check                 # self-check over every persona CSV
 """
-import argparse, calendar, csv, datetime as dt, functools, io, json, re, statistics, sys, threading, urllib.request
+import argparse, calendar, csv, datetime as dt, functools, io, json, math, re, statistics, sys, threading, urllib.request
 from collections import defaultdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -52,7 +52,8 @@ AFFORD_DEF = ("An option is affordable when safeToSpend minus what it takes from
               "least 0 (payNow, bnplPot, cardPaidInFull: the full price; bnplPlain: the instalments due before payday), "
               "and, for bnplPlain, a month's income less committed payments, existing BNPL and typical everyday spending "
               "(monthly.leftOver) is at least one later instalment. leftAfter = safeToSpend minus what the option takes "
-              "before nextPayday.")
+              "before nextPayday. These quantities and affordability are null when assessmentStatus is incomplete; "
+              "assessmentWarnings explains the missing information.")
 SHORTFALL_DEF = ("shortfallProbability = the Bayesian model's probability that the balance falls below zero before "
                  "nextPayday after this option: P(everyday spending until payday > safeToSpendBeforeEverydaySpending "
                  "minus what the option takes before payday). bnplPot and cardPaidInFull take the full price, as payNow; "
@@ -80,7 +81,12 @@ def parse(text):
     """CSV text -> list of dicts (date, type, desc, debit, credit, balance), oldest first. Raises StatementError."""
     if not isinstance(text, str) or not text.strip():
         raise StatementError("The statement is empty.")
-    rows = list(csv.reader(io.StringIO(text.lstrip("﻿"))))
+    try:
+        rows = list(csv.reader(io.StringIO(text.lstrip("﻿")), strict=True))
+    except csv.Error as e:
+        raise StatementError(f"Invalid CSV: {e}.") from None
+    if not rows:
+        raise StatementError("The statement is empty.")
     head = [h.strip() for h in rows[0]]
     if head != COLUMNS:
         raise StatementError(f"Header must be exactly: {', '.join(COLUMNS)}; got: {', '.join(head)}.")
@@ -98,7 +104,9 @@ def parse(text):
             db, cr, bal = (float(x.replace(",", "")) if x.strip() else None for x in (r[5], r[6], r[7]))
         except ValueError:
             raise StatementError(f"Line {n}: an amount is not a number ({r[5]!r}, {r[6]!r}, {r[7]!r}).") from None
-        if (db is None) == (cr is None) or (db or cr) < 0 or bal is None:
+        if any(x is not None and not math.isfinite(x) for x in (db, cr, bal)):
+            raise StatementError(f"Line {n}: amounts and balance must be finite numbers.")
+        if (db is None) == (cr is None) or (db if db is not None else cr) < 0 or bal is None:
             raise StatementError(f"Line {n}: needs exactly one non-negative debit or credit amount, and a balance.")
         tx.append(dict(date=d, type=r[1].strip().upper(), desc=r[4].strip(), debit=db or 0.0, credit=cr or 0.0,
                        balance=bal))
@@ -143,7 +151,8 @@ def detect_bnpl(tx):
     """BNPL plans: card rows whose description matches BNPL, grouped by description. Instalment count and spacing come
     from the provider (BNPL_PLAN); the spacing is the median observed gap when two or more instalments are visible.
     remaining = count - instalments seen (an instalment taken before the statement started is missed, which overstates
-    remaining)."""
+    remaining). Inconsistent amounts/cadence or more than one plan's worth of payments make the description ambiguous:
+    remaining is None and schedule is empty (unknown, not debt-free)."""
     groups = defaultdict(list)
     for t in tx:
         if t["debit"] > 0 and BNPL.search(t["desc"]):
@@ -152,12 +161,23 @@ def detect_bnpl(tx):
     for desc, g in groups.items():
         count, gap = next((v for k, v in BNPL_PLAN.items() if k in desc.upper()), BNPL_DEFAULT)
         dates = [t["date"] for t in g]
+        gaps = [(b - a).days for a, b in zip(dates, dates[1:])]
+        # ponytail: a CSV has no provider plan IDs. Accept only one consistent plan per description; otherwise require
+        # confirmation instead of guessing how to partition debts. Upgrade to provider-confirmed plan schedules.
+        ambiguous = (len(g) > count or any(abs(t["debit"] - g[-1]["debit"]) > 0.011 for t in g)
+                     or any(abs(d - gap) > 3 for d in gaps))
+        if ambiguous:
+            plans.append(dict(name=desc, provider=BNPL.search(desc).group(0).upper(), instalment=None,
+                              paid=len(g), remaining=None, schedule=[], uncertain=True,
+                              note="Payments cannot be assigned to one BNPL plan; confirm outstanding instalments."))
+            continue
         if len(dates) > 1:
-            gap = statistics.median((b - a).days for a, b in zip(dates, dates[1:]))
+            gap = statistics.median(gaps)
         left = max(0, count - len(g))
         due = [dates[-1] + dt.timedelta(days=gap * i) for i in range(1, left + 1)]
         plans.append(dict(name=desc, provider=BNPL.search(desc).group(0).upper(), instalment=money(g[-1]["debit"]),
-                          paid=len(g), remaining=left, schedule=[dict(due=d.isoformat(), amount=money(g[-1]["debit"]))
+                          paid=len(g), remaining=left, uncertain=False,
+                          schedule=[dict(due=d.isoformat(), amount=money(g[-1]["debit"]))
                                                                  for d in due]))
     return plans
 
@@ -348,30 +368,36 @@ def assess(tx, price, today=None, merchant=None, product=None):
     horizon = payday or add_months(as_of, 1)  # no salary detected: look one month ahead
     committed = detect_committed(tx, as_of)
     plans = detect_bnpl(tx)
+    warnings = []
+    if not income:
+        warnings.append("No regular income or payday was detected; supply a statement with identifiable regular income.")
+    if any(p["uncertain"] for p in plans):
+        warnings.append("BNPL payments cannot be separated into plans; confirm outstanding repayment schedules.")
     before = lambda d: as_of < dt.date.fromisoformat(d) < horizon
     committed_due = money(sum(c["amount"] for c in committed if before(c["due"])))
     bnpl_due = money(sum(s["amount"] for p in plans for s in p["schedule"] if before(s["due"])))
     safe_before = money(balance - committed_due - bnpl_due)
     # Everyday spending until payday: Bayesian predictive (bayes.py, which imports this module, hence the late import).
-    # No salary: no prior and no payday, so nothing is deducted (the definition says so).
+    # No salary: no prior or payday; calculated placeholders below are withheld in the incomplete result.
     F = None
     if payday:
         import bayes
         F = bayes.spending_until(tx, payday)
-    spend_mean = money(F.mean()) if F else 0.0
-    predicted = (dict(mean=spend_mean, interval80=[money(max(0.0, x)) for x in F.interval(0.8)] if F else [0.0, 0.0],
+    spend_summary = bayes.spending_summary(F) if payday else dict(mean=0.0, interval80=[0.0, 0.0])
+    spend_mean = money(spend_summary["mean"])
+    predicted = (dict(mean=spend_mean, interval80=[money(x) for x in spend_summary["interval80"]],
                       firstDay=(as_of + dt.timedelta(days=1)).isoformat(), lastDay=(payday - dt.timedelta(days=1)).isoformat(),
                       definition="Everyday (discretionary) card spending predicted from the day after asOf to the day "
                                  "before nextPayday by bayes.py (population prior from net pay, updated with this "
                                  "statement's daily card spending): posterior predictive mean and central 80% interval, "
-                                 "lower end floored at 0.") if payday else None)
+                                 "for non-negative spending max(0, F), where F is the Student-t predictive.") if payday else None)
     safe = money(safe_before - spend_mean)
 
     def shortfall(out):
         """P(balance < 0 before payday) when the option takes `out` before payday; as bayes.shortfall_probability."""
-        if not payday:
+        if warnings:
             return None
-        return round(float(F.sf(safe_before - out)) if F else float(safe_before - out < 0), 4)
+        return round(bayes.spending_risk(F, safe_before - out), 4)
 
     # Monthly view: one month after asOf.
     month_end = add_months(as_of, 1)
@@ -398,7 +424,7 @@ def assess(tx, price, today=None, merchant=None, product=None):
     left_plain = money(safe - due_now)
     spend_note = (f"Predicted everyday card spending until payday, about £{spend_mean:,.0f} (80% interval "
                   f"£{predicted['interval80'][0]:,.0f} to £{predicted['interval80'][1]:,.0f}), is already deducted."
-                  if payday else "No salary was detected, so everyday spending is not deducted.")
+                  if not warnings else "Affordability is unknown. " + " ".join(warnings))
     rate_day, rate = rate_on(today)
     card_float = card_interest(price, rate)
     in_s75 = S75[0] <= price <= S75[1]
@@ -455,6 +481,18 @@ def assess(tx, price, today=None, merchant=None, product=None):
                     "payday, so the money leaves within this pay period. We have no data on your cards or their limits.",
                     spend_note]),
     ]
+    if warnings:
+        for option in options:
+            option.update(affordable=None, leftAfter=None, shortfallProbability=None)
+        options[2]["notes"] = ["The pay-in-3 schedule is illustrative; affordability cannot be established.", *warnings]
+        safe = safe_before = None
+        if not income:
+            committed_due = None
+            monthly["income"] = None
+        if any(p["uncertain"] for p in plans):
+            monthly["bnpl"] = None
+        bnpl_due = None
+        monthly.update(afterCommitted=None, leftOver=None)
     ok = [o for o in options if o["affordable"]]
     cheapest = [o["kind"] for o in ok if o["cost"] == min(x["cost"] for x in ok)] if ok else []
     most = [o["kind"] for o in ok if o["leftAfter"] == max(x["leftAfter"] for x in ok)] if ok else []
@@ -473,12 +511,12 @@ def assess(tx, price, today=None, merchant=None, product=None):
         income=dict(name=income["name"], monthly=income["monthly"], nextPayday=payday.isoformat(),
                     lastPaid=income["lastPaid"].isoformat()) if income else None,
         committed=committed, committedDueBeforePayday=committed_due,
-        bnplPlans=plans, bnplActive=[p for p in plans if p["remaining"]], bnplDueBeforePayday=bnpl_due,
+        bnplPlans=plans, bnplActive=[p for p in plans if p["remaining"] != 0], bnplDueBeforePayday=bnpl_due,
         balance=balance, safeToSpend=safe, safeToSpendBeforeEverydaySpending=safe_before,
+        assessmentStatus="incomplete" if warnings else "estimated", assessmentWarnings=warnings,
         predictedSpendingUntilPayday=predicted,
-        safeToSpendDefinition=SAFE_DEF + ("" if payday else " No salary was detected, so the window is one month "
-                                          "after asOf and no everyday spending is deducted (safeToSpend equals "
-                                          "safeToSpendBeforeEverydaySpending)."),
+        safeToSpendDefinition=SAFE_DEF + (" Values are null because affordability cannot be established. "
+                                         + " ".join(warnings) if warnings else ""),
         affordableDefinition=AFFORD_DEF, shortfallDefinition=SHORTFALL_DEF,
         monthly=monthly, options=options, cheapest=cheapest, mostLeftUntilPayday=most,
         floatVerdict=fv[:1].upper() + fv[1:] + "." if fv else None,
@@ -518,7 +556,7 @@ def load_persona(pid):
 # ---------------------------------------------------------------- HTTP API
 class Handler(BaseHTTPRequestHandler):
     def send(self, code, obj):
-        body = json.dumps(obj, indent=1).encode()
+        body = json.dumps(obj, indent=1, allow_nan=False).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -585,9 +623,80 @@ def serve(port, quiet=False):
 
 
 # ---------------------------------------------------------------- self-check
+def check_regressions(text):
+    """T18/T19: adverse spending, incomplete statements, ambiguous debts and malformed numeric input."""
+    import bayes
+
+    tx = parse(text)
+    stressed = [dict(t) for t in tx if t["date"] <= dt.date(2026, 10, 26)]
+    i = max(i for i, t in enumerate(stressed) if t["type"] == "DEB" and not BNPL.search(t["desc"]))
+    stressed[i]["debit"] += 500
+    for t in stressed[i:]:
+        t["balance"] -= 500
+    offset = 2.94 - stressed[-1]["balance"]
+    for t in stressed:
+        t["balance"] += offset  # shift the opening balance, preserving every transaction's reconciliation
+    a = assess(stressed, 50)
+    assert bayes.spending_until(stressed, dt.date.fromisoformat(a["income"]["nextPayday"])).mean() < 0
+    assert a["predictedSpendingUntilPayday"]["mean"] >= 0
+    assert a["safeToSpend"] <= a["safeToSpendBeforeEverydaySpending"] <= a["balance"]
+    assert a["options"][0]["affordable"] is False and a["options"][0]["shortfallProbability"] == 1.0
+    assert bayes.shortfall_probability(stressed, 50)["probability"] == 1.0
+
+    missing = [dict(t, desc=f"UNKNOWN CREDIT {i}") if t["credit"] else dict(t) for i, t in enumerate(tx)]
+    a = assess(missing, 50)
+    assert a["assessmentStatus"] == "incomplete" and a["assessmentWarnings"]
+    assert a["safeToSpend"] is None and a["safeToSpendBeforeEverydaySpending"] is None
+    assert a["monthly"]["income"] is None and a["monthly"]["leftOver"] is None
+    assert not a["cheapest"] and not a["mostLeftUntilPayday"]
+    assert all(o["affordable"] is None and o["leftAfter"] is None and o["shortfallProbability"] is None for o in a["options"])
+
+    rows = [dict(date=dt.date(2026, m, d), type="DEB", desc="KLARNA", debit=50.0, credit=0.0, balance=1000.0)
+            for m, d in ((8, 10), (9, 10), (10, 10), (10, 20))]
+    assert detect_bnpl(rows[:3])[0]["remaining"] == 0  # a consistent completed plan is still recognised
+    for group in (rows, rows[-2:], [rows[0], dict(rows[1], debit=100.0)]):
+        plan = detect_bnpl(group)[0]
+        assert plan["uncertain"] and plan["remaining"] is None and plan["instalment"] is None
+        mixed = sorted([t for t in tx if not BNPL.search(t["desc"])] + group, key=lambda t: t["date"])
+        a = assess(mixed, 50)
+        assert a["assessmentStatus"] == "incomplete" and a["bnplActive"]
+        assert a["bnplDueBeforePayday"] is None and a["monthly"]["bnpl"] is None
+        assert a["safeToSpend"] is None and all(o["affordable"] is None for o in a["options"])
+        try:
+            bayes.shortfall_probability(mixed, 50)
+        except StatementError:
+            pass
+        else:
+            raise AssertionError("Bayesian risk silently accepted ambiguous debts")
+    separate = detect_bnpl(rows[:3] + [dict(rows[-1], desc="KLARNA NEW ORDER")])
+    assert [p["remaining"] for p in separate] == [0, 2]
+
+    header = ",".join(COLUMNS) + "\n"
+    for db, cr in (("0", ""), ("", "0")):
+        zero = parse(header + f"01/11/2026,DEB,0,0,SHOP,{db},{cr},-10\n")
+        assert zero[0]["debit"] == zero[0]["credit"] == 0 and zero[0]["balance"] == -10
+    malformed = ["\ufeff", header + '"unfinished', header + "01/11/2026,DEB,0,0,SHOP,-1,,5\n"]
+    for value in ("NaN", "Infinity", "-Infinity", "1e309"):
+        for column in (5, 6, 7):
+            row = ["01/11/2026", "DEB", "0", "0", "SHOP", "1", "", "5"]
+            if column == 6:
+                row[5] = ""
+            row[column] = value
+            malformed.append(header + ",".join(row) + "\n")
+    for bad in malformed:
+        try:
+            parse(bad)
+        except StatementError:
+            pass
+        else:
+            raise AssertionError("Accepted malformed CSV")
+    return malformed
+
+
 def check():
     files = sorted(STATEMENTS.glob("persona[0-9][0-9][0-9]_*.csv"))
     assert files, f"no persona CSVs in {STATEMENTS}"
+    malformed = check_regressions(files[0].read_text(encoding="utf-8"))
     prices, tally = (50, 300, 1200), {p: [0, 0, 0] for p in (50, 300, 1200)}
     for f in files:
         text = f.read_text(encoding="utf-8")
@@ -704,12 +813,19 @@ def check():
             json.dumps(out, allow_nan=False)  # no NaN or infinity reaches the extension
         with post(json.dumps(dict(csv=files[0].read_text(encoding="utf-8"), price=50)).encode()) as r:
             assert json.load(r)["income"]
+        zero = ",".join(COLUMNS) + "\n01/11/2026,DEB,0,0,SHOP,0,,100\n"
+        with post(json.dumps(dict(csv=zero, price=50)).encode()) as r:
+            out = json.load(r)
+            assert r.status == 200 and out["assessmentStatus"] == "incomplete"
+            assert out["options"][0]["affordable"] is None
+            json.dumps(out, allow_nan=False)
         with urllib.request.urlopen(url + "/personas") as r:
             ps = json.load(r)
             assert len(ps) == len(files) and all(x["region"] != "unknown" for x in ps)
         for body in (b"not json", b'{"persona": "persona079"}', b'{"persona": "x", "price": 3}',
                      json.dumps(dict(csv="garbage", price=3)).encode(), b'{"persona": "persona001", "price": -1}',
-                     b'{"persona": "persona001", "price": 3, "product": 2}'):
+                     b'{"persona": "persona001", "price": 3, "product": 2}',
+                     *(json.dumps(dict(csv=text, price=50)).encode() for text in malformed)):
             try:
                 post(body)
             except urllib.error.HTTPError as e:
@@ -725,6 +841,8 @@ def check():
 
 
 if __name__ == "__main__":
+    # bayes imports affordability; keep the same StatementError class when this file is the CLI entry point.
+    sys.modules["affordability"] = sys.modules[__name__]
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--serve", action="store_true", help="run the JSON API on 127.0.0.1")
     ap.add_argument("--port", type=int, default=8765, help="port for --serve (default 8765)")

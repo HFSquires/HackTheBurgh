@@ -34,6 +34,8 @@ SAVINGS = {"cheapest_saving": "Buying at the cheapest mainstream price", "cashba
 
 
 def outcome(a):
+    if a["assessmentStatus"] == "incomplete":
+        raise af.StatementError("Cannot classify an incomplete assessment as an affordability outcome.")
     o = {x["kind"]: x for x in a["options"]}
     return "payNow" if o["payNow"]["affordable"] else "bnplPlainOnly" if o["bnplPlain"]["affordable"] else "neither"
 
