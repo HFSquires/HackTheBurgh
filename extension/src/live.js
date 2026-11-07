@@ -222,14 +222,14 @@ Keep the tone friendly and short. Format money for display in the shopper's curr
       likelihood: { type: "string", enum: ["likely", "possible", "unlikely", "unknown"] },
       expected_price: { type: "number", description: "Price you expect if they wait, in the shopper's currency. 0 if unknown" },
       by_date: { type: "string", description: "YYYY-MM-DD by which you expect it, '' if unknown" },
-      reason: { type: "string", description: "One plain sentence for the shopper, e.g. 'It dropped to £54.99 last Black Friday, which is on 27 Nov.'" },
-      signals: { type: "array", description: "0-3 short evidence points you actually found", items: { type: "string" } },
+      reason: { type: "string", description: "At most 12 words, no links, e.g. 'Black Friday (27 Nov) may bring it to about £65.'" },
+      signals: { type: "array", description: "0-3 evidence points you actually found, each under 10 words, no links", items: { type: "string" } },
     },
   };
 
   const OUTLOOK_SYSTEM = `A shopper is about to buy something online. Judge whether it's likely to be cheaper soon if they wait.
 First work out exactly what they chose (product, variant, quantity) from the items and page text. Then search the web for evidence (never answer from memory): its price history (PriceSpy, PriceRunner, camelcamelcamel, Keepa or similar), how this kind of product usually moves (games and electronics often drop at launch, in the first weeks after, and in big sales), upcoming sales in the shopper's country within the next ~6 weeks (Black Friday, Cyber Monday, Boxing Day, Prime Day, store-specific sales), a newer model announced or due, or a pre-order price that retailers have been undercutting.
-"likely" only with concrete evidence (it dropped in the same sale last year, a dated sale is close and this item is typically discounted, a successor launches soon); "possible" for a reasonable pattern without item-specific evidence; "unlikely" for essentials, already-discounted or price-stable items, or anything they need now; "unknown" if you couldn't tell. Give a realistic expected_price (in the shopper's currency, for the same basket) and by_date only when likely or possible. Never invent price history. Keep the reason friendly and short.`;
+"likely" only with concrete evidence (it dropped in the same sale last year, a dated sale is close and this item is typically discounted, a successor launches soon); "possible" for a reasonable pattern without item-specific evidence; "unlikely" for essentials, already-discounted or price-stable items, or anything they need now; "unknown" if you couldn't tell. Give a realistic expected_price (in the shopper's currency, for the same basket) and by_date only when likely or possible. Never invent price history. The reason is one short line of at most 12 words; no links or citations anywhere.`;
 
   async function outlook(payload, settings) {
     const { json: o } = await respond(settings, {

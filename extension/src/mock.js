@@ -45,7 +45,7 @@ globalThis.ST = globalThis.ST || {};
     likelihood: "likely",
     expectedPrice: round(p.total * 0.78),
     byDate: blackFriday(),
-    reason: "Jackets like this were about 20% off last Black Friday, and it's coming up.",
+    reason: "About 20% off last Black Friday, which is coming up.",
     signals: ["£139 at Outdoor Depot on Black Friday 2025", "Price unchanged for 8 weeks"],
   });
 

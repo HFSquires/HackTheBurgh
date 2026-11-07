@@ -226,6 +226,7 @@ globalThis.ST = globalThis.ST || {};
 .outlook-reason { font-size: 13px; color: rgba(255, 255, 255, .8); }
 .outlook-price { flex: none; text-align: right; font-weight: 700; font-size: 15px; color: #fff; font-variant-numeric: tabular-nums; }
 .outlook-when { font-size: 12px; font-weight: 600; color: var(--wait); }
+.outlook-why summary { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, .55); cursor: pointer; }
 .outlook-signals { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: rgba(255, 255, 255, .55); }
 .outlook-pending { margin-top: 12px; font-size: 12.5px; color: rgba(255, 255, 255, .5); }
 .outlook-pending::before {
@@ -619,7 +620,7 @@ globalThis.ST = globalThis.ST || {};
     outlookCard(o) {
       const watchAction = {
         id: "watch",
-        label: "Wait, notify me if it drops",
+        label: "Notify me if it drops",
         confirmation: o.expectedText ? `We'll watch the price and tell you when it's near ${o.expectedText}.` : "We'll watch the price and tell you when it drops.",
       };
       return h("div", { class: "outlook" },
@@ -629,7 +630,9 @@ globalThis.ST = globalThis.ST || {};
           o.expectedText && h("div", { class: "outlook-price" },
             h("div", { text: `~${o.expectedText}` }),
             o.byText && h("div", { class: "outlook-when", text: `by ${o.byText}` }))),
-        o.signals.length > 0 && h("ul", { class: "outlook-signals" }, o.signals.map((t) => h("li", { text: t }))),
+        o.signals.length > 0 && h("details", { class: "outlook-why" },
+          h("summary", { text: "Why?" }),
+          h("ul", { class: "outlook-signals" }, o.signals.map((t) => h("li", { text: t })))),
         this.makeButton(watchAction, "outlook-cta"));
     }
 

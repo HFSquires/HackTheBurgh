@@ -63,6 +63,15 @@
       .slice(0, 3);
   }
 
+  // Model text can arrive with markdown citations and tracking links: keep just the words.
+  const plain = (t) =>
+    String(t || "")
+      .replace(/\(?\[([^\]]*)\]\([^)]*\)\)?/g, "")
+      .replace(/https?:\/\/\S+/g, "")
+      .replace(/\s+([.,;])/g, "$1")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
   // "Likely cheaper soon": only shown when there's a drop worth waiting for (likely/possible, and below the total).
   function normalizeOutlook(o, payload) {
     if (!o || !["likely", "possible"].includes(o.likelihood) || !o.reason) return null;
@@ -76,8 +85,8 @@
       expectedText: expected != null ? money(expected, currency) : "",
       byDate: date ? o.byDate : "",
       byText: date ? date.toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "",
-      reason: String(o.reason),
-      signals: (Array.isArray(o.signals) ? o.signals : []).slice(0, 3).map(String),
+      reason: plain(o.reason),
+      signals: (Array.isArray(o.signals) ? o.signals : []).slice(0, 3).map(plain).filter(Boolean),
     };
   }
 
