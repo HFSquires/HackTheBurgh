@@ -19,6 +19,7 @@ import csv
 import datetime as dt
 import json
 import random
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -45,6 +46,7 @@ SORT_CODE = "00-00-00"  # obviously fake
 F_ASHE = DATA / "ashe_table14_7a_annual_gross_2025revised.xlsx"   # sheet "All": col 1 SOC code, col 3 median
 F_INC = DATA / "fs_workbook2_by_income_fye2025.xlsx"              # A4 (all households), A23 (composition), A32 (tenure)
 F_EHS = DATA / "ehs_fa1201_age_by_tenure_2024-25.ods"             # sheet "2024-25": percentages within age group
+F_AWE = DATA / "ons_lms_awe_whole_economy_regular_pay_sa_KAI7.csv"  # ONS AWE KAI7, GBP a week, rows "YYYY MON"
 F_REG = DATA / "fs_workbook3_by_region_fye2025.xlsx"              # A33 (categories), A35 (detail), 3-year average
 # A33 / A35 columns by region (header rows 6 to 8 are asserted); key = Nemotron `region`, value = (column, ONS header text)
 REGION_COL = {"North East": (6, "north east"), "North West": (7, "north west"),
@@ -113,6 +115,17 @@ def label(row):
     return " ".join(str(c) for c in row[:4] if c)
 
 
+def awe_factor():
+    """Pay uprating: AWE whole-economy regular pay (seasonally adjusted, nominal; KAI7), August 2026 (latest in the file;
+    the file's last month is asserted) over April 2025 (ASHE's reference month). Labels asserted. Returns the factor."""
+    rows = list(csv.reader(open(F_AWE, encoding="utf-8-sig")))
+    head = {r[0]: r[1] for r in rows if len(r) == 2 and r[0] in ("Title", "CDID")}
+    assert head["CDID"] == "KAI7" and "Whole Economy Level" in head["Title"] and "Seasonally Adjusted Regular Pay" in head["Title"], head
+    mon = {r[0]: float(r[1]) for r in rows if re.fullmatch(r"\d{4} [A-Z]{3}", r[0])}
+    assert list(mon)[-1] == "2026 AUG", "AWE file is not to August 2026; update the docs"
+    return mon["2026 AUG"] / mon["2025 APR"]  # ponytail: ONS publishes the levels rounded to whole GBP (707 / 674); ceiling about 0.1%
+
+
 def load_ons():
     ashe = {str(r[1]).lstrip("'"): (n, r) for n, r in enumerate(sheet(F_ASHE, "All"), 1) if r[1]}
     ehs = pd.read_excel(F_EHS, sheet_name="2024-25", header=None, engine="odf")
@@ -142,6 +155,7 @@ def load_ons():
     for c, r in CAT_A4.items():
         assert str(c) == str(a4[r - 1][0]), (c, r)
     ons["cpi"] = cpi_factors(ons)
+    ons["awe"] = awe_factor()
     return ons
 
 
@@ -348,9 +362,11 @@ def pence_split(total, weights):
 def build(idx, key, p, ons, tenure):
     region = p["region"]
     rng = random.Random(f"{SEED}-{idx}")
-    gross = num(ons["ashe"][p["occupation"][:3]][1][3])
+    ashe_gross = num(ons["ashe"][p["occupation"][:3]][1][3])  # April 2025 median
+    gross = ashe_gross * ons["awe"]  # uprated to August 2026 earnings; tax is computed on this
     net = net_monthly(gross, region)
-    pool, reg = spend_model(key, tenure, region, ons, decile(gross, ons))
+    # the income decile stays on the April 2025 pay: A4's boundaries are 2024/25 incomes, like the spending being scaled
+    pool, reg = spend_model(key, tenure, region, ons, decile(ashe_gross, ons))
     merch = {c: ([m.replace("@RAIL@", RAIL[region]) for m in ms], n) for c, (ms, n) in MERCH.items()}
     town = p["municipality"].upper().replace("CITY OF ", "")[:14]
     skind, sname = sports_item(p)
@@ -419,15 +435,18 @@ def generate(out, n=100):
                  + ", ".join(f"{v} ({k})" for k, v in skipped.items()) + ". Salary: ONS ASHE Table 14.7a, 2025 revised, "
                  "sheet `All`, median annual gross pay (UK, all employee jobs) for the persona's 3-digit SOC 2020 code; the net monthly "
                  "credit follows a simple 2026/27 income-tax (Scottish bands for Scotland) and NI rule (see the `ponytail` comment in "
-                 "the code); pay is not uprated (ASHE is April 2025). "
+                 "the code); the ASHE April 2025 median is uprated to August 2026 earnings by the factor "
+                 f"{ons['awe']:.4f} = 707 / 674, ONS Average Weekly Earnings, whole economy, regular pay, seasonally adjusted, nominal "
+                 "(KAI7), August 2026 over April 2025 (`data/ons_lms_awe_whole_economy_regular_pay_sa_KAI7.csv`; August 2026 is the latest "
+                 "month published), and tax and NI are computed on the uprated gross salary shown in the table. "
                  "Spending: ONS Family Spending, April 2024 to March 2025, workbook 3 column of the persona's own region, scaled by the "
-                 "household-type ratio (A23) and the gross-income-decile ratio (A4; decile from the persona's salary alone), then "
+                 "household-type ratio (A23) and the gross-income-decile ratio (A4; decile from the persona's un-uprated April 2025 salary alone, to match the 2024/25 boundaries), then "
                  "uprated to September 2026 prices by the CPI factor of each category's COICOP division "
                  "(`Analysis/market/cpi_uprating_factors.csv`; rent, energy and water, and council tax use division 04): "
                  + ", ".join(f"{c} {ons['cpi'][c]:.4f}" for c in sorted(ons["cpi"])) + ". Tenure is "
                  "sampled from English Housing Survey 2024-25 table FA1201 by age band (mortgagors excluded, shares renormalised) and "
                  f"is not in the persona data. Merchant names and BNPL plans are synthetic.{NL}{NL}"
-                 "| No. | uuid8 | Age | Region | Household type | Occupation | Tenure (sampled) | Gross salary [GBP/yr] | "
+                 "| No. | uuid8 | Age | Region | Household type | Occupation | Tenure (sampled) | Gross salary, uprated [GBP/yr] | "
                  f"Net monthly pay [GBP] | Modelled monthly spend [GBP] | BNPL | End balance [GBP] |{NL}"
                  f"|---|---|---|---|---|---|---|---|---|---|---|---|{NL}")
         for k, (nm, p, t, g, nt, s, b, rows) in enumerate(summ, 1):
@@ -455,6 +474,7 @@ def check(n=100):
     # rest of UK: 0.20 x 17,430 = 3,486.00; NI 0.08 x 17,430 = 1,394.40 in both.
     assert net_monthly(30000, "Scotland") == 2096.21 and net_monthly(30000) == 2093.30
     assert net_monthly(200000) == round((200000 - 0.2 * 37700 - 0.4 * 74870 - 0.45 * 74860 - 3016 - 0.02 * 149730) / 12, 2)
+    assert abs(awe_factor() - 707 / 674) < 1e-12
     # CPI uprating: each amount equals the un-uprated amount times its division's factor.
     ons = load_ons()
     flat = ons | {"cpi": {c: 1.0 for c in ons["cpi"]}}
