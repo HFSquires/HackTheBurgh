@@ -21,19 +21,19 @@ Written by `ob_generator.py` (seed 20261107, N = 100); 1 November 2025 to 31 Oct
 
 | Quantity | Value |
 |---|---|
-| Main current account below zero at any time | 18 |
-| Main current account overdrawn at the end of at least one day, after any top-up from savings | 12 |
-| Topped up from savings or ISA at least once | 9 |
-| In unarranged overdraft at least one day (flagged) | 5 |
-| Persons with foregone payments (count) | 17 (2819) |
-| Persons with declined payments (count) | 0 (0) |
-| Persons with returned payments (count) | 1 (11) |
-| Savings or ISA standing order | 31 |
+| Main current account below zero at any time | 10 |
+| Main current account overdrawn at the end of at least one day, after any top-up from savings | 6 |
+| Topped up from savings or ISA at least once | 6 |
+| In unarranged overdraft at least one day (flagged) | 4 |
+| Persons with foregone payments (count) | 10 (1967) |
+| Persons with declined payments (count) | 1 (1) |
+| Persons with returned payments (count) | 1 (8) |
+| Savings or ISA standing order | 30 |
 | BNPL plans (persons) | 34 |
 | Synthetic lumpy purchases | 100 |
-| Booked transactions | 67252 |
-| Pending transactions | 351 |
-| Main current-account end balance [GBP], min / lower quartile / median / upper quartile / max | -5631.51 / 5451.12 / 11274.32 / 17059.74 / 51240.69 |
+| Booked transactions | 67886 |
+| Pending transactions | 349 |
+| Main current-account end balance [GBP], min / lower quartile / median / upper quartile / max | -1743.76 / 6143.81 / 12120.44 / 18720.90 / 51968.01 |
 
 Seasonal factors (ONS retail sales J5AH, mean of 2021 to 2025 with each year scaled to mean 1):
 
