@@ -4,7 +4,7 @@ Files: `affordability_by_price.pdf`, `affordability_by_price.svg` (this file: `a
 
 ## Source data
 
-The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `d7ad54d`), read by `affordability.py` at commit `3e4d094`, called by `affordability_figures.py` (commit `unknown` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
+The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `d7ad54d`), read by `affordability.py` at commit `3e4d094`, called by `affordability_figures.py` (commit `5848aa0` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
 
 ## Filters, transformations and units
 

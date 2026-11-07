@@ -289,7 +289,8 @@ def save(fig, name):
     import matplotlib.pyplot as plt
     FIGURES.mkdir(parents=True, exist_ok=True)
     for ext in ("pdf", "svg"):
-        fig.savefig(FIGURES / f"{name}.{ext}", bbox_inches="tight")
+        fig.savefig(FIGURES / f"{name}.{ext}", bbox_inches="tight",  # no dates: SVG reruns identical
+                    metadata={"pdf": {"CreationDate": None}, "svg": {"Date": None}}[ext])
     plt.close(fig)
 
 
@@ -325,6 +326,7 @@ def main():
     import matplotlib.pyplot as plt
     import TeXFormat as tf
     plt.style.use(Path(tf.__file__).with_name("TeXFormat.mplstyle"))
+    plt.rcParams["svg.hashsalt"] = "t07b"  # stable SVG ids
     df, sample = build()
     write_csv(df)
     fig_price(df, sample)
