@@ -248,26 +248,25 @@
 
     lastResult = result;
     if (error) await overlay.showError(`Something went wrong: ${error.message}`, handleAction);
-    else {
-      // No decision to make (affordable, nothing cheaper, no drop coming): a small note that fades, not a panel.
-      if (!overlay.decisions(result).length) {
-        ST.log("checkout: nothing to decide, showing a quiet note", { verdict: result.verdict });
-        overlay.showQuiet({
-          title: { good: "Fits your budget", caution: "Worth a pause" }[result.verdict] || "No cheaper price found",
-          sub: result.verdict === "good" || result.verdict === "caution" ? result.message : "We didn't find it cheaper at other stores.",
-          tone: result.verdict === "caution" ? "caution" : result.verdict === "good" ? "good" : "neutral",
-        });
-      } else {
-        await overlay.showResult(result, handleAction);
-      }
-    }
+    else await present(result, "checkout");
     running = false;
+  }
+
+  // One decision, or a small note that fades when there's nothing to decide (affordable, nothing cheaper, no drop).
+  async function present(result, where) {
+    if (overlay.decisions(result).length) return overlay.showResult(result, handleAction);
+    ST.log(`${where}: nothing to decide, showing a quiet note`, { verdict: result.verdict });
+    overlay.showQuiet({
+      title: { good: "Fits your budget", caution: "Worth a pause" }[result.verdict] || "No cheaper price found",
+      sub: result.verdict === "good" || result.verdict === "caution" ? result.message : "We didn't find it cheaper at other stores.",
+      tone: result.verdict === "caution" ? "caution" : result.verdict === "good" ? "good" : "neutral",
+    });
   }
 
   // ---------- Earlier stages (stages.js) ----------
 
-  // Product page: nothing visible. Adding to basket starts a silent price check that the checkout reuses.
-  ST.stages.onAddToBasket((el, label) => {
+  // Product page: adding to basket checks it there and then (glow, then one decision), and the checkout reuses it.
+  ST.stages.onAddToBasket(async (el, label) => {
     if (ST.detect.isCheckoutUrl()) return ST.log("add to basket: clicked, but this is a checkout page, so skipped", { button: label });
     const payload = ST.stages.productPayload();
     const item = payload.items[0];
@@ -275,8 +274,34 @@
       ST.log("add to basket: couldn't read the product, skipped the early check", { name: item.name, price: payload.total });
       return;
     }
-    ST.log("add to basket: checking prices quietly", { item: item.name, price: payload.total });
-    ST.api.precheck(payload).catch((e) => ST.log.error("precheck failed", e.message));
+    // Closed on this store already, or a check is showing: just remember the price check for the checkout.
+    if (isQuiet() || running) {
+      ST.log("add to basket: checking prices quietly", { item: item.name, price: payload.total });
+      return ST.api.precheck(payload).catch((e) => ST.log.error("precheck failed", e.message));
+    }
+    running = true;
+    handledHref = location.href;
+    ST.log("add to basket: checking now", { item: item.name, price: payload.total });
+    overlay.showAnalysing(await analysisSteps());
+    const started = Date.now();
+    try {
+      const result = normalize(await ST.api.precheck(payload), payload);
+      ST.log("add to basket: result", {
+        seconds: ((Date.now() - started) / 1000).toFixed(1),
+        verdict: result.verdict,
+        couldGetCheaper: result.priceOutlook?.likelihood ?? null,
+        alternatives: result.alternatives.map((a) => `${a.merchant} ${a.priceText} (${a.match})`),
+      });
+      await sleep(ST.config.MIN_ANALYSING_MS - (Date.now() - started));
+      lastPayload = payload;
+      lastResult = result;
+      await present(result, "add to basket");
+    } catch (e) {
+      // No error panel here: the item is in the basket and the checkout will try again.
+      ST.log.error("add to basket: check failed", e.message);
+      overlay.dismiss(false);
+    }
+    running = false;
   });
 
   // Basket page: the moment to mention a cheaper price, before any forms. A small pill, no glow.

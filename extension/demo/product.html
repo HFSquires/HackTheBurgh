@@ -22,7 +22,7 @@
   </style>
 </head>
 <body>
-  <header><div class="bar"><a class="logo" href="product.html">Northwind Outfitters</a><a class="bag" href="basket.html">Bag (1)</a></div></header>
+  <header><div class="bar"><a class="logo" href="product.html">Northwind Outfitters</a><a class="bag" id="bag" href="basket.html">Bag (1)</a></div></header>
   <main>
     <div class="product">
       <div class="photo" aria-hidden="true"></div>
@@ -32,11 +32,11 @@
         <p class="muted">Colour: Forest</p>
         <div class="sizes"><span>S</span><span class="on">M</span><span>L</span></div>
         <button class="btn" id="add">Add to basket</button>
-        <p class="muted" id="added" hidden>Added. Going to your basket…</p>
+        <p class="muted" id="added" hidden>Added to your basket. <a href="basket.html">View basket →</a></p>
       </div>
     </div>
   </main>
-  <div class="journey"><b>Demo · step 1 of 3</b><br />Browsing shows nothing. "Add to basket" starts a silent price check.</div>
+  <div class="journey"><b>Demo · step 1 of 3</b><br />Browsing shows nothing. "Add to basket" checks it straight away.</div>
 
   <script src="../src/config.js"></script>
   <script src="../src/log.js"></script>
@@ -52,8 +52,9 @@
   <script src="../src/content.js"></script>
   <script>
     document.getElementById("add").addEventListener("click", () => {
+      // Stays on the page, like most big stores.
       document.getElementById("added").hidden = false;
-      setTimeout(() => location.assign("basket.html"), 1200);
+      document.getElementById("bag").textContent = "Bag (2)";
     });
   </script>
 </body>

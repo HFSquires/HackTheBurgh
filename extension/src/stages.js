@@ -1,7 +1,7 @@
 // The buying journey, so the extension speaks up at the right moment:
-//   product page   -> nothing visible; adding to basket starts a silent price check
+//   product page   -> nothing until Add to basket; then glow + one decision (or a small note if all's fine)
 //   basket page    -> a small "cheaper elsewhere" pill, if there is one
-//   checkout page  -> glow + budget verdict (instant, reusing the silent check)
+//   checkout page  -> glow + one decision (instant, reusing the add-to-basket check)
 //   "Place order"  -> one pause, only when it would go over budget
 globalThis.ST = globalThis.ST || {};
 

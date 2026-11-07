@@ -32,7 +32,7 @@ cheaper store when the original checkout didn't show which method was chosen. Se
 
 | Moment | What the shopper sees |
 | --- | --- |
-| Product page | Nothing. Clicking **Add to basket / Pre-order** starts a silent price check (and a "-£3" badge on the toolbar icon if it's cheaper elsewhere). |
+| Product page | Nothing while browsing. Clicking **Add to basket / Pre-order** checks it there and then: glow, then **one decision** (below), or a small note that fades if there's nothing to decide. Also a "-£3" badge on the toolbar icon if it's cheaper elsewhere. Closed on that store already: the check runs silently. |
 | Basket page | A small "£3.00 cheaper at X · See" pill with no glow, only if there's a cheaper price. Before any forms. |
 | Checkout | Glow, then **one decision** (below). Instant when the basket was already checked (the earlier result is reused, with the budget part redone against the real total). If there's nothing to decide, just a small "Fits your budget" note that fades. |
 | "Place order" | Paused once, only when it would go over budget and the shopper hasn't already said "I want to buy now": "This puts you £X over budget" with Not now / Buy at X instead / Buy anyway. "Buy anyway" lets the next click through. |
