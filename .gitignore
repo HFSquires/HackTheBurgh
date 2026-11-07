@@ -44,3 +44,10 @@ npm-debug.log*
 
 # Large raw downloads (see data/README.md for the download command)
 data/ashe_table14_2025revised.zip
+
+# Open Banking synthetic data (T20): 47 MB of generated JSON; regenerate with ob_generator.py. A sample is committed.
+Analysis/open_banking/persona*.json
+!Analysis/open_banking/persona001_*.json
+!Analysis/open_banking/persona002_*.json
+!Analysis/open_banking/persona004_*.json
+!Analysis/open_banking/persona100_*.json
