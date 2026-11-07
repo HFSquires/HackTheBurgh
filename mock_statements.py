@@ -1,8 +1,10 @@
-"""Mock bank-statement generator for the HackTheBurgh demo (tasks T05, T05c).
+"""Mock bank-statement generator for the HackTheBurgh demo (tasks T05, T05b, T05c).
 
 Personas: Nemotron-Personas-UK rows (data/personas_rows_offset*.json), N of them (default 100) from any UK region.
 Salary:   ONS ASHE Table 14.7a (annual gross pay, 2025 revised), 3-digit SOC 2020 median.
-Spending: ONS Family Spending FYE 2025, workbooks 2 and 3 (each persona's own region, workbook 3).
+Spending: ONS Family Spending FYE 2025, workbooks 2 and 3 (each persona's own region, workbook 3), scaled by the gross
+          income decile of the persona's salary (workbook 2, Table A4).
+Tenure:   English Housing Survey 2024-25 live table FA1201 (England), by age of household reference person.
 Output:   Analysis/mock_statements/<persona>.csv and personas.md.
 
 Run:   .venv\\Scripts\\python mock_statements.py [--n 100]
@@ -20,6 +22,7 @@ import tempfile
 from pathlib import Path
 
 import openpyxl
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -39,6 +42,7 @@ SORT_CODE = "00-00-00"  # obviously fake
 # ---- Spreadsheet locations. Rows are 1-based, columns 0-based; labels are asserted before use ----
 F_ASHE = DATA / "ashe_table14_7a_annual_gross_2025revised.xlsx"   # sheet "All": col 1 SOC code, col 3 median
 F_INC = DATA / "fs_workbook2_by_income_fye2025.xlsx"              # A4 (all households), A23 (composition), A32 (tenure)
+F_EHS = DATA / "ehs_fa1201_age_by_tenure_2024-25.ods"             # sheet "2024-25": percentages within age group
 F_REG = DATA / "fs_workbook3_by_region_fye2025.xlsx"              # A33 (categories), A35 (detail), 3-year average
 # A33 / A35 columns by region (header rows 6 to 8 are asserted); key = Nemotron `region`, value = (column, ONS header text)
 REGION_COL = {"North East": (6, "north east"), "North West": (7, "north west"),
@@ -59,9 +63,17 @@ A35 = {"maint": (142, "Maintenance"), "water": (144, "relating to the dwelling")
        "veh_purchase": (210, "Purchase of vehicles"), "tel": (232, "Telephone and telefax services"),
        "internet": (233, "Internet"), "combined_tel": (234, "Combined telecom"),
        "sports": (283, "and equipment hire"), "tv": (286, "and TV licences"), "council_tax": (382, "council tax etc.")}
-# A32 (tenure): housing row 30; households row 13; columns for owned outright, all social, all private rented
-A32_ROW, A32_HH_ROW = 30, 13
-A32_TENURE = {"Owned outright": 4, "Social rented": 9, "Private rented": 13}
+# A32 (tenure): housing row 30; columns for owned outright, all social rented (col 10, header "All"), all private rented (col 15, "All")
+A32_ROW = 30
+A32_TENURE = {"Owned outright": 4, "Social rented": 10, "Private rented": 15}
+# A4 (income decile): lower boundary row 11 (deciles 2 to 10 in columns 5 to 13), total expenditure row 58; columns 4 to 13 are deciles 1 to 10
+A4_BOUND_ROW, A4_TOTAL_ROW, A4_DEC0 = 11, 58, 4
+# EHS FA1201, 0-based rows of "percentages within age group" and age columns (header row asserted)
+EHS_ROWS = {"Owned outright": 29, "Mortgage": 30, "Social rented": 35, "Private rented": 37}
+EHS_BANDS = [(16, 24), (25, 34), (35, 44), (45, 54), (55, 64)]  # columns 1 to 5; personas are aged 21 to 64
+# 2025/26 Scottish income tax bands (https://www.gov.uk/scottish-rate-income-tax/2025-to-2026-tax-year, read 7 November 2026):
+# (upper limit of gross income, rate). Personal allowance 12,570 at 0%. Rest-of-UK bands are in net_monthly.
+SCOT_BANDS = [(12570, 0.0), (15397, 0.19), (27491, 0.20), (43662, 0.21), (75000, 0.42), (125140, 0.45), (float("inf"), 0.48)]
 
 
 def num(x):
@@ -84,7 +96,12 @@ def label(row):
 
 def load_ons():
     ashe = {str(r[1]).lstrip("'"): (n, r) for n, r in enumerate(sheet(F_ASHE, "All"), 1) if r[1]}
-    ons = dict(ashe=ashe, a33=sheet(F_REG, "A33"), a35=sheet(F_REG, "A35"), a4=sheet(F_INC, "A4"),
+    ehs = pd.read_excel(F_EHS, sheet_name="2024-25", header=None, engine="odf")
+    assert "percentages within age group" in str(ehs.iloc[28, 8]) and list(ehs.iloc[3, 1:6]) == ["16-24", "25-34", "35-44", "45-54", "55-64"]
+    for t, r in EHS_ROWS.items():
+        assert ehs.iloc[r, 0] == {"Owned outright": "own outright", "Mortgage": "buying with mortgage",
+                                  "Social rented": "all social renters", "Private rented": "all private renters"}[t], (t, r)
+    ons = dict(ehs=ehs, ashe=ashe, a33=sheet(F_REG, "A33"), a35=sheet(F_REG, "A35"), a4=sheet(F_INC, "A4"),
                a23=sheet(F_INC, "A23"), a32=sheet(F_INC, "A32"))
     for t in ("a33", "a35"):
         for reg, (c, hdr) in REGION_COL.items():
@@ -97,6 +114,14 @@ def load_ons():
         assert frag in label(ons["a35"][r - 1]), (name, r, label(ons["a35"][r - 1]))
     assert "Food" in label(ons["a35"][23])
     assert "Housing" in label(ons["a32"][A32_ROW - 1])
+    a32 = ons["a32"]
+    assert a32[5][4] == "Owners" and a32[5][8].startswith("Social rented") and a32[5][12].startswith("Private rented")
+    assert a32[6][4] == "Owned" and a32[6][10] == "All" and a32[6][15] == "All", "A32 tenure columns moved"
+    a4 = ons["a4"]
+    assert a4[5][A4_DEC0] == "Lowest" and a4[5][A4_DEC0 + 9] == "Highest" and a4[5][A4_ALL] == "All"
+    assert a4[A4_BOUND_ROW - 1][0].startswith("Lower boundary") and a4[A4_TOTAL_ROW - 1][0] == "Total expenditure"
+    for c, r in CAT_A4.items():
+        assert str(c) == str(a4[r - 1][0]), (c, r)
     return ons
 
 
@@ -157,13 +182,47 @@ def choose_personas(ons, n):
     return chosen, skipped, usable
 
 
-def net_monthly(gross):
-    # ponytail: 2025/26 rest-of-UK income tax and employee NI bands; no pension, student loan or tax code, and Scottish
-    # bands differ slightly. Ceiling: a payslip. Upgrade: per-persona tax code and Scottish bands.
+def net_monthly(gross, region="England"):
+    # ponytail: 2025/26 income tax (Scottish bands for region Scotland, else rest-of-UK) and UK-wide employee NI; no pension,
+    # student loan, tax code or personal-allowance taper. The statements fall in 2026/27, whose Scottish starter and basic
+    # thresholds are higher. Ceiling: a payslip. Upgrade: per-persona tax code and the 2026/27 table.
     pa, basic = 12570, 50270
-    tax = 0.2 * max(0, min(gross, basic) - pa) + 0.4 * max(0, min(gross, 125140) - basic)
+    if region == "Scotland":
+        lo, tax = 0, 0.0
+        for hi, rate in SCOT_BANDS:
+            tax += rate * max(0, min(gross, hi) - lo)
+            lo = hi
+    else:
+        tax = 0.2 * max(0, min(gross, basic) - pa) + 0.4 * max(0, min(gross, 125140) - basic)
     ni = 0.08 * max(0, min(gross, basic) - pa) + 0.02 * max(0, gross - basic)
     return round((gross - tax - ni) / 12, 2)
+
+
+def decile(gross, ons):
+    """Gross income decile (1 to 10) of a weekly gross income of gross/52, from the A4 lower boundaries."""
+    bounds = [num(ons["a4"][A4_BOUND_ROW - 1][A4_DEC0 + k]) for k in range(1, 10)]
+    assert all(b is not None for b in bounds)
+    return 1 + sum(gross / 52 >= b for b in bounds)
+
+
+def decile_ratio(dec, ons):
+    """Category -> (this decile's weekly spending) / (all households), from A4. A suppressed category ('..': health,
+    education) uses the ratio of total expenditure instead."""
+    a4 = ons["a4"]
+    tot = num(a4[A4_TOTAL_ROW - 1][A4_DEC0 + dec - 1]) / num(a4[A4_TOTAL_ROW - 1][A4_ALL])
+    out = {}
+    for c, r in CAT_A4.items():
+        x, allh = num(a4[r - 1][A4_DEC0 + dec - 1]), num(a4[r - 1][A4_ALL])
+        out[c] = x / allh if x is not None and allh else tot
+    return out
+
+
+def sample_tenure(age, ons, rng):
+    """Tenure from EHS FA1201 (England, 2024-25) shares within the persona's age band, mortgagors removed and the other
+    three shares renormalised (the mortgage payment is not in the ONS data without pooling; see spend_model)."""
+    col = 1 + next(i for i, (lo, hi) in enumerate(EHS_BANDS) if lo <= age <= hi)
+    w = {t: float(ons["ehs"].iloc[EHS_ROWS[t], col]) for t in EHS_ROWS if t != "Mortgage"}
+    return rng.choices(list(w), weights=list(w.values()))[0]
 
 
 def payday(y, m):
@@ -171,7 +230,7 @@ def payday(y, m):
     return d - dt.timedelta(days=max(0, d.weekday() - 4))  # Saturday or Sunday -> Friday
 
 
-def spend_model(key, tenure, region, ons):
+def spend_model(key, tenure, region, ons, dec):
     """Weekly GBP per category pool (everyday card spending) and per regular debit, for the persona's share of the household."""
     col, persons, adults = A23_COLS[key]
     assert ons["a23"][18][col] == persons, "A23 column does not match the household composition"
@@ -183,10 +242,13 @@ def spend_model(key, tenure, region, ons):
         assert sco is not None, (region, c)  # a suppressed regional category would need a fallback; none is used
         h, allh = num(ons["a23"][CAT_A23[c] - 1][col]), num(ons["a4"][CAT_A4[c] - 1][A4_ALL])
         cat[c] = (sco, h / allh if h is not None and allh else 1.0)  # suppressed cell ('..'): regional average, unscaled
-    # ponytail: regional level x (household type / all households, UK FYE 2025); the persona's account pays an equal share
-    # of the household's spending and the partner's income is not modelled. Ceiling: averages, not this person.
+    # ponytail: regional level x (household type / all households, A23) x (income decile / all households, A4); the decile
+    # comes from the persona's own salary alone (a partner's income is not modelled), the account pays an equal share of the
+    # household's spending, and the two ratios overlap (couples are richer), so some spending is double-counted.
+    # Ceiling: averages, not this person. Rent, energy and water, and council tax are not decile-scaled.
     share = 1 / adults
-    f = lambda c: cat[c][1]
+    dr = decile_ratio(dec, ons)
+    f = lambda c: cat[c][1] * dr[c]
     reg = {"energy": (d("energy") + d("water")) * share,
            # ponytail: ONS 13.1 pools council tax with mortgage interest, averaged over all households in the region
            "council_tax": d("council_tax") * share,
@@ -194,7 +256,8 @@ def spend_model(key, tenure, region, ons):
            "tv": d("tv") * f(9) * share, "sports": d("sports") * f(9) * share}
     if tenure != "Owned outright":
         # ponytail: rent = UK net housing cost (A32, category 4) for the tenure less regional maintenance, water and energy;
-        # mixes UK and regional figures. Mortgagors are not modelled (ONS puts mortgage interest in the pooled 13.1).
+        # mixes UK and regional figures. Mortgagors are not modelled: ONS excludes mortgage interest from category 4 and pools
+        # it with council tax in 13.1, so a payment cannot be separated from the regional council-tax figure without inventing one.
         reg["rent"] = max(0.0, num(ons["a32"][A32_ROW - 1][A32_TENURE[tenure]]) - d("maint") - d("water") - d("energy")) * share
     pool = {c: cat[c][0] * f(c) * share for c in range(1, 13)}
     pool[8] = max(0.0, pool[8] - reg["phone"])
@@ -249,8 +312,8 @@ def build(idx, key, p, ons, tenure):
     region = p["region"]
     rng = random.Random(f"{SEED}-{idx}")
     gross = num(ons["ashe"][p["occupation"][:3]][1][3])
-    net = net_monthly(gross)
-    pool, reg = spend_model(key, tenure, region, ons)
+    net = net_monthly(gross, region)
+    pool, reg = spend_model(key, tenure, region, ons, decile(gross, ons))
     merch = {c: ([m.replace("@RAIL@", RAIL[region]) for m in ms], n) for c, (ms, n) in MERCH.items()}
     town = p["municipality"].upper().replace("CITY OF ", "")[:14]
     skind, sname = sports_item(p)
@@ -300,12 +363,10 @@ def generate(out, n=100):
         old.unlink(missing_ok=True)  # generated outputs only; stale files from an earlier N are removed
     ons = load_ons()
     rng = random.Random(SEED + 1)
-    a32 = ons["a32"]
-    hh = {t: num(a32[A32_HH_ROW - 1][c]) for t, c in A32_TENURE.items()}  # households (thousands), the sampling weights
     chosen, skipped, usable = choose_personas(ons, n)
     summ = []
     for i, (key, p) in enumerate(chosen):
-        tenure = rng.choices(list(hh), weights=list(hh.values()))[0]
+        tenure = sample_tenure(int(p["age"]), ons, rng)
         rows, gross, net, spend = build(i, key, p, ons, tenure)
         name = f"persona{i + 1:03d}_{p['uuid'][:8]}.csv"
         with open(out / name, "w", newline="", encoding="utf-8") as fh:
@@ -320,9 +381,11 @@ def generate(out, n=100):
                  f"{usable} usable rows of the 500 downloaded, stratified over the 12 regions and four household types; rows skipped: "
                  + ", ".join(f"{v} ({k})" for k, v in skipped.items()) + ". Salary: ONS ASHE Table 14.7a, 2025 revised, "
                  "sheet `All`, median annual gross pay (UK, all employee jobs) for the persona's 3-digit SOC 2020 code; the net monthly "
-                 "credit follows a simple income-tax and NI rule (see the `ponytail` comment in the code). Spending: ONS Family Spending, "
-                 "April 2024 to March 2025, workbook 3 column of the persona's own region. Tenure is sampled using the A32 household "
-                 f"counts and is not in the persona data. Merchant names and BNPL plans are synthetic.{NL}{NL}"
+                 "credit follows a simple income-tax (Scottish bands for Scotland) and NI rule (see the `ponytail` comment in the code). "
+                 "Spending: ONS Family Spending, April 2024 to March 2025, workbook 3 column of the persona's own region, scaled by the "
+                 "household-type ratio (A23) and the gross-income-decile ratio (A4; decile from the persona's salary alone). Tenure is "
+                 "sampled from English Housing Survey 2024-25 table FA1201 by age band (mortgagors excluded, shares renormalised) and "
+                 f"is not in the persona data. Merchant names and BNPL plans are synthetic.{NL}{NL}"
                  "| No. | uuid8 | Age | Region | Household type | Occupation | Tenure (sampled) | Gross salary [GBP/yr] | "
                  f"Net monthly pay [GBP] | Modelled monthly spend [GBP] | BNPL | End balance [GBP] |{NL}"
                  f"|---|---|---|---|---|---|---|---|---|---|---|---|{NL}")
@@ -342,6 +405,10 @@ def generate(out, n=100):
     return [s[0] for s in summ], summ
 
 
+def end_balance(path):
+    return list(csv.reader(open(path, encoding="utf-8")))[-1][7]
+
+
 def check(n=100):
     with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
         names, summ = generate(Path(a), n)
@@ -350,6 +417,13 @@ def check(n=100):
         assert len({s[1]["region"] for s in summ}) == min(n, 12)
         for nm in names + ["personas.md"]:
             assert (Path(a) / nm).read_bytes() == (Path(b) / nm).read_bytes(), f"{nm} differs between runs"
+        assert sum(s[2] != "Owned outright" for s in summ) >= n / 3, "fewer than a third rent"
+        sc = [s for s in summ if s[1]["region"] == "Scotland"]
+        assert sc and all(s[4] != net_monthly(s[3]) for s in sc if s[3] > 12570), "Scottish net pay equals rest-of-UK net pay"
+        assert all(net_monthly(s[3], s[1]["region"]) == s[4] for s in summ)
+        ends = sorted(float(end_balance(Path(a) / nm)) for nm in names)
+        print(f"end balances: {sum(e < 0 for e in ends)} overdrawn, min {ends[0]:.2f}, median {ends[len(ends) // 2]:.2f}, max {ends[-1]:.2f}")
+        print("tenure:", {t: sum(s[2] == t for s in summ) for t in A32_TENURE})
         bn = 0
         for nm in names:
             rows = list(csv.reader(open(Path(a) / nm, encoding="utf-8")))
