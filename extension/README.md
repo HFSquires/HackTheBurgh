@@ -35,7 +35,7 @@ cheaper store when the original checkout didn't show which method was chosen. Se
 | Product page | Nothing while browsing. Clicking **Add to basket / Pre-order** checks it there and then: glow, then **one decision** (below), or a small note that fades if there's nothing to decide. Also a "-£3" badge on the toolbar icon if it's cheaper elsewhere. Closed on that store already: the check runs silently. |
 | Basket page | A small "£3.00 cheaper at X · See" pill with no glow, only if there's a cheaper price. Before any forms. |
 | Checkout | Glow, then **one decision** (below). Instant when the basket was already checked (the earlier result is reused, with the budget part redone against the real total). If there's nothing to decide, just a small "Fits your budget" note that fades. |
-| "Place order" | Paused once, only when it would go over budget and the shopper hasn't already said "I want to buy now": "This puts you £X over budget" with Not now / Buy at X instead / Buy anyway. "Buy anyway" lets the next click through. |
+| "Place order" | Paused once, only when it would go over budget and the shopper hasn't already said "I still want to buy it": "This puts you £X over budget" with Not now / Buy at X instead / Buy anyway. "Buy anyway" lets the next click through. |
 
 **One decision at a time** (`overlay.decisions`): one message and one main button, never a menu. The first that applies:
 
@@ -43,9 +43,14 @@ cheaper store when the original checkout didn't show which method was chosen. Se
 2. **Could get cheaper if you wait** (`priceOutlook` likely/possible): **Notify me if it drops**.
 3. **Cheaper elsewhere** (`alternatives[0]`): **Go to checkout at X**.
 
-Under the main button, **I want to buy now** moves on to the next one that applies; the last one offers **Buy here
-anyway**. The panel waits for both the price comparison and the price outlook (outlook capped at 40 s) so the decision
-doesn't change under the shopper.
+Under the main button, **I still want to buy it** moves on to the next one that applies. Once a cheaper price is found,
+that button becomes **Found it £24 cheaper at X →**, which opens the cheaper-elsewhere step (with **Buy here anyway**).
+
+The cheaper-price search can take a minute, so "can't afford" (from the affordability model, in a moment) and "could get
+cheaper" (usually quicker than the search) show as soon as they're known, with **Still searching for a better price…
+Stop** underneath; the button changes when the search finishes. Saying "I still want to buy it" before then shows
+"Looking for a cheaper price…" with **Stop and buy here**. When the answer is already known (reused from Add to
+basket), it's shown at once.
 
 Closing the panel keeps it quiet on that store for the rest of the session (the over-budget pause still applies).
 Earlier checks are kept for 30 minutes in `chrome.storage.session`.
@@ -68,6 +73,10 @@ On a checkout of `main` (standard library only):
 python3 -X utf8 mock_bank.py --serve --source v2   # mock Open Banking bank on 8766
 python3 -X utf8 model.py --serve                   # affordability model on 8765
 ```
+
+When the model says "can't afford", the panel shows a small chart of the rest of the month from the same answer:
+money across all accounts day by day (everyday spending spread evenly, bills on their due dates, salary on payday), with
+and without the purchase, against the savings goal. Its last day equals the model's month-end forecast.
 
 `MODEL` in `src/config.js` sets the model URL, the bank URL and which synthetic customer to read (default
 `persona001`: 62, North East, £2,414 a month after tax, rent £692; up to about £283 fits, £283 to £525 is tight, above

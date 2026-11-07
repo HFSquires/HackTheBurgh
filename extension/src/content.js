@@ -116,6 +116,7 @@
       priceOutlook: normalizeOutlook(r?.priceOutlook, payload),
       fromEarlierCheck: !!r?.fromEarlierCheck,
       budgetInfo: r?.budgetInfo && Number.isFinite(Number(r.budgetInfo.left)) ? { ...r.budgetInfo, left: Number(r.budgetInfo.left) } : null,
+      chart: r?.chart && Number.isFinite(r.chart.start) && Number.isFinite(r.chart.goal) ? r.chart : null,
       sessionId: r?.sessionId ?? null,
     };
   }
@@ -123,7 +124,14 @@
   async function handleAction(action) {
     if (action.id === "retry") return run({ force: true });
     if (action.id === "alternative") return switchStore(action);
-    // Said "I want to buy now" / "Buy here anyway" past the over-budget decision: no second pause at Place order.
+    // Stop the cheaper-price search (its answer is ignored; it may still finish and be reused at checkout).
+    if (action.id === "stop_search") {
+      if (search) search.stopped = true;
+      ST.log("price search: stopped by the shopper");
+      lastResult = { ...lastResult, searching: false };
+      return overlay.showResult(lastResult, handleAction, overlay.stepIndex);
+    }
+    // Said "I still want to buy it" / "Buy here anyway" past the over-budget decision: no second pause at Place order.
     if ((action.id === "buy_now" || action.id === "proceed") && lastResult?.verdict === "reconsider") pausedOnce = true;
     // On to the next decision; the panel moves itself.
     if (action.id === "buy_now") return reportAction(action);
@@ -220,37 +228,102 @@
     handledHref = location.href;
 
     overlay.showAnalysing(await analysisSteps());
-    const started = Date.now();
-    lastPayload = ST.detect.scrape();
+    const payload = ST.detect.scrape();
     ST.log("analyse: start", {
       url: location.href,
-      total: lastPayload.total,
-      currency: lastPayload.currency,
-      items: lastPayload.items,
-      paymentMethod: lastPayload.paymentMethod,
+      total: payload.total,
+      currency: payload.currency,
+      items: payload.items,
+      paymentMethod: payload.paymentMethod,
     });
+    const error = await analyse(payload, ST.api.analyze, "analyse");
+    if (error) await overlay.showError(`Something went wrong: ${error.message}`, handleAction);
+    running = false;
+  }
 
-    let result = null;
-    let error = null;
+  // Run the full check (price search + affordability + "could it get cheaper?") and show it. The cheaper-price search
+  // can take a minute, but the affordability model answers in a moment and the outlook usually sooner than the search,
+  // so a "can't afford" or "could get cheaper" decision shows as soon as it's known, with "Still searching for a better
+  // price" underneath (Stop ends it). Returns the error if the full check failed with nothing shown.
+  let search = null;
+  async function analyse(payload, fullCheck, where) {
+    const started = Date.now();
+    lastPayload = payload;
+    const full = fullCheck(payload).then((r) => normalize(r, payload));
+    full.catch(() => {});
+    const FULL = {};
+    const fullDone = full.then(() => FULL, () => FULL);
+
+    // Answered at once (e.g. reused from Add to basket): no partial answers needed, and no extra searches started.
+    let afford = null;
+    let outlookNow = null;
+    let outlook = null;
+    if ((await Promise.race([fullDone, sleep(400)])) !== FULL) {
+      // The outlook request shares its search with the full check (same request, cached in the background).
+      outlook = ST.api.outlook(payload).then((o) => normalizeOutlook(o, payload), () => null);
+      const a = await Promise.race([fullDone, ST.api.afford(payload).catch(() => null)]);
+      if (a !== FULL && a?.verdict === "reconsider") afford = a;
+      else {
+        const o = await Promise.race([fullDone, outlook]);
+        if (o !== FULL && o) outlookNow = o;
+      }
+    }
+
+    if (afford || outlookNow) {
+      ST.log(`${where}: showing "${afford ? "can't afford" : "could get cheaper"}" while the price search runs`);
+      await sleep(1500 - (Date.now() - started));
+      const partial = { ...normalize(afford || {}, payload), priceOutlook: outlookNow, searching: true };
+      if (!afford) partial.verdict = "neutral"; // affordability comes with the full answer
+      const mine = (search = { stopped: false });
+      const current = () => !mine.stopped && lastResult === partial;
+      lastResult = partial;
+      await overlay.showResult(partial, handleAction);
+      if (!outlookNow) {
+        outlook.then((o) => {
+          if (!o || !current()) return;
+          partial.priceOutlook = o;
+          overlay.updateResult(partial);
+        });
+      }
+      full.then(
+        (result) => {
+          logResult(where, result, started);
+          if (!current()) return;
+          lastResult = result;
+          overlay.updateResult(result);
+        },
+        (e) => {
+          ST.log.error(`${where}: price search failed`, e.message);
+          if (!current()) return;
+          partial.searching = false;
+          overlay.updateResult(partial);
+        }
+      );
+      return null;
+    }
+
+    let result;
     try {
-      result = normalize(await ST.api.analyze(lastPayload), lastPayload);
-      ST.log("analyse: result", {
-        seconds: ((Date.now() - started) / 1000).toFixed(1),
-        verdict: result.verdict,
-        couldGetCheaper: result.priceOutlook?.likelihood ?? null,
-        alternatives: result.alternatives.map((a) => `${a.merchant} ${a.priceText} (${a.match}) ${a.url}`),
-      });
+      result = await full;
+      logResult(where, result, started);
     } catch (e) {
-      error = e;
-      ST.log.error("analyse: failed", e.message);
+      ST.log.error(`${where}: failed`, e.message);
+      return e;
     }
     // Answer already known from the basket: a short glow, not the full "analysing" wait.
-    await sleep((result?.fromEarlierCheck ? 1200 : ST.config.MIN_ANALYSING_MS) - (Date.now() - started));
-
+    await sleep((result.fromEarlierCheck ? 1200 : ST.config.MIN_ANALYSING_MS) - (Date.now() - started));
     lastResult = result;
-    if (error) await overlay.showError(`Something went wrong: ${error.message}`, handleAction);
-    else await present(result, "checkout");
-    running = false;
+    await present(result, where);
+    return null;
+  }
+
+  function logResult(where, result, started) {
+    ST.log(`${where}: result`, {
+      seconds: ((Date.now() - started) / 1000).toFixed(1),
+      verdict: result.verdict,
+      couldGetCheaper: result.priceOutlook?.likelihood ?? null,
+      alternatives: result.alternatives.map((a) => `${a.merchant} ${a.priceText} (${a.match}) ${a.url}`),
+    });
   }
 
   // One decision, or a small note that fades when there's nothing to decide (affordable, nothing cheaper, no drop).
@@ -284,24 +357,8 @@
     handledHref = location.href;
     ST.log("add to basket: checking now", { item: item.name, price: payload.total });
     overlay.showAnalysing(await analysisSteps());
-    const started = Date.now();
-    try {
-      const result = normalize(await ST.api.precheck(payload), payload);
-      ST.log("add to basket: result", {
-        seconds: ((Date.now() - started) / 1000).toFixed(1),
-        verdict: result.verdict,
-        couldGetCheaper: result.priceOutlook?.likelihood ?? null,
-        alternatives: result.alternatives.map((a) => `${a.merchant} ${a.priceText} (${a.match})`),
-      });
-      await sleep(ST.config.MIN_ANALYSING_MS - (Date.now() - started));
-      lastPayload = payload;
-      lastResult = result;
-      await present(result, "add to basket");
-    } catch (e) {
-      // No error panel here: the item is in the basket and the checkout will try again.
-      ST.log.error("add to basket: check failed", e.message);
-      overlay.dismiss(false);
-    }
+    // No error panel here: the item is in the basket and the checkout will try again.
+    if (await analyse(payload, ST.api.precheck, "add to basket")) overlay.dismiss(false);
     running = false;
   });
 

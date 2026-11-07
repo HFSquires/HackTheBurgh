@@ -229,6 +229,21 @@ globalThis.ST = globalThis.ST || {};
 .outlook-why summary { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, .55); cursor: pointer; }
 .outlook-signals { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: rgba(255, 255, 255, .55); }
 .outlook-pending { margin-top: 12px; font-size: 12.5px; color: rgba(255, 255, 255, .5); }
+.chart { margin-top: 12px; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart-title { margin-bottom: 4px; font-size: 11.5px; color: rgba(255, 255, 255, .55); }
+.c-label { font-size: 10px; fill: rgba(255, 255, 255, .5); }
+.c-goal { stroke: rgba(255, 255, 255, .35); stroke-width: 1; stroke-dasharray: 4 4; }
+.c-without { fill: none; stroke: rgba(255, 255, 255, .4); stroke-width: 2; }
+.c-with { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.c-with-dot { fill: var(--accent); }
+.chart-legend { display: flex; gap: 14px; margin-top: 4px; font-size: 11.5px; color: rgba(255, 255, 255, .65); }
+.chart-legend .sw { display: inline-block; width: 12px; height: 3px; margin-right: 6px; border-radius: 2px; vertical-align: middle; }
+.chart-legend .sw.with { background: var(--accent); }
+.chart-legend .sw.without { background: rgba(255, 255, 255, .4); }
+.btn.found { color: #34d399; }
+.btn.found:hover { color: #6ee7b7; }
+.searching .stop { margin-left: 8px; padding: 0; border: 0; background: none; color: #fff; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .outlook-pending::before {
   content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%;
   background: #60a5fa; animation: breathe 1.4s ease-in-out infinite;
@@ -336,6 +351,65 @@ globalThis.ST = globalThis.ST || {};
     return el;
   }
 
+  // The same for SVG (charts), which needs its own namespace.
+  function svg(tag, attrs = {}, ...children) {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
+    for (const c of children.flat()) if (c != null && c !== false) el.append(c);
+    return el;
+  }
+
+  const gbp = (n) => `£${Math.round(n).toLocaleString("en-GB")}`;
+
+  // This month day by day from the model's figures (money across all accounts today, then everyday spending spread
+  // evenly, bills on their due dates and salary on payday), with and without the purchase, against the savings goal.
+  // The last day equals the model's own month-end forecast.
+  function financeChart(c) {
+    const day = (iso) => new Date(`${iso}T12:00:00`);
+    const t0 = day(c.today);
+    const n = Math.round((day(c.end) - t0) / 864e5);
+    if (!(n > 0)) return null;
+    const dateAt = (i) => new Date(t0.getTime() + i * 864e5);
+    const without = [];
+    for (let i = 0; i <= n; i++) {
+      const d = dateAt(i);
+      let v = c.start - (c.everyday * i) / n;
+      if (c.payday && d >= day(c.payday)) v += c.salary;
+      for (const [due, amount] of c.due) if (d >= day(due)) v -= amount;
+      without.push(v);
+    }
+    const withIt = without.map((v) => v - c.price);
+    let lo = Math.min(...without, ...withIt, c.goal);
+    let hi = Math.max(...without, ...withIt, c.goal);
+    const pad = (hi - lo) * 0.15 || 50;
+    lo -= pad;
+    hi += pad;
+    const W = 320, H = 120, L = 2, R = 2, T = 6, B = 18;
+    const x = (i) => L + ((W - L - R) * i) / n;
+    const y = (v) => T + ((H - T - B) * (hi - v)) / (hi - lo);
+    const line = (vs) => vs.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+    const fmt = (d) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const label = (text, attrs) => svg("text", { class: "c-label", ...attrs }, text);
+    const payI = c.payday ? Math.round((day(c.payday) - t0) / 864e5) : null;
+    const short = c.goal - withIt[n];
+
+    return h("div", { class: "chart" },
+      h("div", { class: "chart-title", text: `Your money across all your accounts, to ${fmt(dateAt(n))}` }),
+      svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `With this purchase you'd end the month at ${gbp(withIt[n])}, ${short > 0 ? `${gbp(short)} below` : `${gbp(-short)} above`} your savings goal of ${gbp(c.goal)}. Without it, ${gbp(without[n])}.` },
+        svg("line", { x1: L, x2: W - R, y1: y(c.goal), y2: y(c.goal), class: "c-goal" }),
+        label(`Savings goal ${gbp(c.goal)}`, { x: L + 2, y: y(c.goal) - 4 }),
+        svg("path", { d: line(without), class: "c-without" }),
+        svg("path", { d: line(withIt), class: "c-with" }),
+        svg("circle", { cx: x(n), cy: y(withIt[n]), r: 3, class: "c-with-dot" }),
+        label("Today", { x: L, y: H - 4 }),
+        // Beside the jump salary makes, so it never collides with the date labels underneath.
+        payI != null && payI > 0 && payI <= n && label("Payday", { x: x(payI) - 4, y: y(without[payI]) + 4, "text-anchor": "end" }),
+        label(fmt(dateAt(n)), { x: W - R, y: H - 4, "text-anchor": "end" })),
+      h("div", { class: "chart-legend" },
+        h("span", {}, h("i", { class: "sw with" }), `With this: ${gbp(withIt[n])}`),
+        h("span", {}, h("i", { class: "sw without" }), `Without: ${gbp(without[n])}`)));
+  }
+
   class Overlay {
     constructor() {
       this.onClose = null;
@@ -383,6 +457,7 @@ globalThis.ST = globalThis.ST || {};
       this.root.classList.remove("no-glow");
       this.panel.classList.remove("compact");
       this.panel.replaceChildren(h("div", { class: "body" }, ...nodes));
+      this.current = null; // set again by showResult, so a late search result knows where the shopper is
     }
 
     // Basket page: one line, no glow. "£3.00 cheaper at Smyths" [See] [x]
@@ -523,7 +598,7 @@ globalThis.ST = globalThis.ST || {};
 
     // result: { verdict, title, message, insights: [{label, value}], actions: [{id, label, variant, confirmation?}] }
     // One decision at a time, never a menu. In this order: over budget, then "could get cheaper if you wait", then
-    // "cheaper elsewhere". "I want to buy now" moves on to the next one; the last one offers "Buy here anyway".
+    // "cheaper elsewhere". "I still want to buy it" moves on (or, once a cheaper price is found, "Found it … →" jumps to it).
     decisions(result) {
       return [
         result.verdict === "reconsider" && "budget",
@@ -537,10 +612,12 @@ globalThis.ST = globalThis.ST || {};
       clearTimeout(this.quietTimer);
       this.root.dataset.phase = "result";
       const steps = this.decisions(result);
+      // "I still want to buy it" while the price search is still running: wait for it here, or stop and buy.
+      if (result.searching && index >= steps.length) return this.showSearching(result, onAction, index);
       index = Math.min(index, steps.length - 1);
       this.stepIndex = index;
       const step = steps[index];
-      const last = index === steps.length - 1;
+      const last = index === steps.length - 1 && !result.searching;
 
       const choose = (a) => () => {
         for (const b of this.panel.querySelectorAll("button")) b.disabled = true;
@@ -554,6 +631,7 @@ globalThis.ST = globalThis.ST || {};
           badge: VERDICT_LABEL.reconsider,
           title: result.title,
           msg: result.message,
+          extra: [result.chart && financeChart(result.chart), result.searching && this.searchingLine(onAction)],
           main: { id: "not_now", label: "Don't buy now", confirmation: "Good call. Your basket is still here if you change your mind." },
         }),
         wait: () => ({
@@ -561,9 +639,12 @@ globalThis.ST = globalThis.ST || {};
           badge: o.likelihood === "likely" ? "Likely cheaper soon" : "Could get cheaper",
           title: o.expectedText ? `Could drop to ~${o.expectedText}${o.byText ? ` by ${o.byText}` : ""}` : "Could get cheaper soon",
           msg: o.reason,
-          extra: o.signals.length > 0 && h("details", { class: "outlook-why" },
-            h("summary", { text: "Why?" }),
-            h("ul", { class: "outlook-signals" }, o.signals.map((t) => h("li", { text: t })))),
+          extra: [
+            o.signals.length > 0 && h("details", { class: "outlook-why" },
+              h("summary", { text: "Why?" }),
+              h("ul", { class: "outlook-signals" }, o.signals.map((t) => h("li", { text: t })))),
+            result.searching && this.searchingLine(onAction),
+          ],
           main: {
             id: "watch",
             label: "Notify me if it drops",
@@ -582,16 +663,23 @@ globalThis.ST = globalThis.ST || {};
 
       this.setTone(view.tone);
       const mainBtn = h("button", { class: "btn primary", text: view.main.label, onclick: choose(view.main) });
-      const way = last
-        ? h("button", { class: "btn ghost", text: "Buy here anyway", onclick: choose({ id: "proceed" }) })
-        : h("button", {
-            class: "btn ghost",
-            text: "I want to buy now",
-            onclick: () => {
-              onAction?.({ id: "buy_now", from: step });
-              this.showResult(result, onAction, index + 1);
-            },
-          });
+      // The way out. Once a cheaper price is found, it becomes the way to it ("Found it £24 cheaper at X →");
+      // otherwise "I still want to buy it" moves on, and the cheaper store's own step offers "Buy here anyway".
+      const goTo = (i) => () => {
+        onAction?.({ id: "buy_now", from: step });
+        this.showResult(result, onAction, i);
+      };
+      const switchAt = steps.indexOf("switch");
+      const way =
+        step !== "switch" && switchAt > index
+          ? h("button", {
+              class: "btn ghost found",
+              text: `Found it ${best.savingsShort ? `${best.savingsShort} cheaper` : "cheaper"} at ${best.merchant} →`,
+              onclick: goTo(switchAt),
+            })
+          : last
+            ? h("button", { class: "btn ghost", text: step === "switch" ? "Buy here anyway" : "I still want to buy it", onclick: choose({ id: "proceed" }) })
+            : h("button", { class: "btn ghost", text: "I still want to buy it", onclick: goTo(index + 1) });
 
       this.more = null;
       this.toggle = null;
@@ -606,12 +694,47 @@ globalThis.ST = globalThis.ST || {};
           view.extra,
           h("div", { class: "actions" }, mainBtn, way))
       );
+      this.current = { result, onAction, index };
       if (!phone.matches) mainBtn.focus({ preventScroll: true });
       // The way out sits where the last one was: ignore a double click carrying on into "Buy here anyway".
       if (index > 0) {
         way.disabled = true;
         setTimeout(() => (way.disabled = false), 600);
       }
+    }
+
+    // Under "You can't afford this" or "Could get cheaper" while the cheaper-price search runs.
+    searchingLine(onAction) {
+      return h("div", { class: "outlook-pending searching" },
+        "Still searching for a better price…",
+        h("button", { class: "stop", text: "Stop", onclick: () => onAction?.({ id: "stop_search" }) }));
+    }
+
+    showSearching(result, onAction, index) {
+      this.setTone("neutral");
+      this.panel.classList.remove("attention", "expanded");
+      this.render(
+        h("div", { class: "result" },
+          h("div", { class: "head" },
+            h("div", { class: "head-text" }, h("span", { class: "badge", text: "Cheaper elsewhere?" })),
+            this.closeButton()),
+          h("div", { class: "title", text: "Looking for a cheaper price…" }),
+          h("p", { class: "msg", text: "This can take up to a minute. We'll show you what we find." }),
+          h("div", { class: "outlook-pending", text: "Searching other stores" }),
+          h("div", { class: "actions" },
+            h("button", { class: "btn primary", text: "Stop and buy here", onclick: () => onAction?.({ id: "proceed" }) })))
+      );
+      this.current = { result, onAction, index };
+    }
+
+    // The price search finished while its panel is open: carry on from where the shopper is.
+    updateResult(result) {
+      const c = this.current;
+      if (!c) return;
+      if (c.index >= this.decisions(result).length) {
+        return this.showQuiet({ title: "No cheaper price found", sub: "Go ahead when you're ready.", tone: "neutral" });
+      }
+      this.showResult(result, c.onAction, c.index);
     }
 
     async showError(message, onAction) {

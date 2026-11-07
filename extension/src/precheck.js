@@ -176,6 +176,20 @@ globalThis.ST = globalThis.ST || {};
           payday != null && { label: "Next payday", value: payday === 0 ? "today" : `in ${payday} days` },
         ].filter(Boolean),
         budgetInfo: { budget: d.income?.salary || 0, spent: 0, left: spare, safe: null, payday: null, leftLabel: `spare in ${month} before you miss your savings goal`, fromModel: true },
+        // The month the model forecast, for the panel's chart: money across all accounts today, then salary, bills and
+        // everyday spending to the month's end (which adds up to the model's forecastEndWithout), and the goal.
+        chart: {
+          today: d.today,
+          end: `${d.month}-${new Date(+d.month.slice(0, 4), +d.month.slice(5, 7), 0).getDate()}`,
+          start: nw.now,
+          goal: nw.goal,
+          price: d.price,
+          payday: d.income?.salaryDueThisMonth > 0 ? d.income.nextPayday : null,
+          salary: d.income?.salaryDueThisMonth || 0,
+          due: (d.regularDueThisMonth || []).map((r) => [r.due, r.amount]),
+          everyday: d.everyday?.remainder || 0,
+          endWithout: nw.forecastEndWithout,
+        },
       };
     } catch (e) {
       ST.log.error("affordability model: not reachable, using the saved budget", e.message);
@@ -191,5 +205,5 @@ globalThis.ST = globalThis.ST || {};
     return { ...result, ...verdict, budgetInfo: info };
   }
 
-  ST.precheck = { run, find, forCheckout, budgetVerdict, budgetInfo, withBudget, baseDomain };
+  ST.precheck = { run, find, forCheckout, budgetVerdict, budgetInfo, withBudget, modelVerdict, baseDomain };
 })();

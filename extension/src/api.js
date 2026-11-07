@@ -31,6 +31,8 @@ globalThis.ST = globalThis.ST || {};
 
   ST.api = {
     analyze: (payload) => (inExtension() ? call("ST_ANALYZE", payload) : demoAnalyze(payload)),
+    // The affordability model alone (fast); null when it's off or unreachable.
+    afford: (payload) => (inExtension() ? call("ST_AFFORD", payload) : ST.precheck.modelVerdict(payload.total, payload.currency)),
     // Silent check when something goes in the basket; the checkout reuses it.
     precheck: async (payload) => {
       if (inExtension()) return call("ST_PRECHECK", payload);
