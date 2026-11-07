@@ -118,7 +118,8 @@ def generator_mean(info, T, cats):
     ons = ms.load_ons()
     means = {}
     for pid, p in info.items():
-        pool, _ = ms.spend_model(p["hh"], p["tenure"], p["region"], ons, ms.decile(p["gross"], ons))
+        # the decile uses April 2025 pay (see mock_statements.build)
+        pool, _ = ms.spend_model(p["hh"], p["tenure"], p["region"], ons, ms.decile(p["gross"] / ons["awe"], ons))
         means[pid] = {c: pool[c] * ms.WK for c in CATS}
     g = pd.Series({pid: sum(m.values()) + cats[pid]["oct"].get("football tickets", 0.0) for pid, m in means.items()})
     return g[T.index] - T.bnpl_oct, means

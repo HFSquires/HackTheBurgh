@@ -10,7 +10,7 @@ Last month and mean Aug-Sep as for discretionary spending; the third row is Sept
 |---|---|---|---|---|
 | Last month (Sep) | 100 | 19.70 ± 1.56 | 25.09 ± 1.88 | 1.29 ± 0.11 |
 | Mean Aug-Sep | 100 | 17.59 ± 1.41 | 22.51 ± 1.73 | 1.16 ± 0.10 |
-| Committed + BNPL schedule + pooled regression | 100 | 17.09 ± 1.49 | 22.65 ± 1.69 | 1.15 ± 0.11 |
+| Committed + BNPL schedule + pooled regression | 100 | 17.08 ± 1.49 | 22.64 ± 1.69 | 1.15 ± 0.11 |
 
 ## Card spending by merchant group, mean Aug-Sep forecast
 
