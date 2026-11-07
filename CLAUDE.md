@@ -1,6 +1,6 @@
 # HackTheBurgh 2026
 
-Code and records for the HackTheBurgh hackathon, started 7 November 2026. The topic had not been announced when this repository was set up. Current state: scaffold only, with no code yet.
+Code and records for the HackTheBurgh hackathon, started 7 November 2026. The topic had not been announced when this repository was set up. Current state: challenge and idea recorded; no code yet.
 
 `CLAUDE.md` (read by Claude Code) and `AGENTS.md` (read by Astra and other agents) are identical. Whoever edits one copies it over the other in the same commit. Every other folder in this repository that gets a `CLAUDE.md` gets an identical `AGENTS.md` beside it, and the reverse. Both files are self-contained: they restate the rules from Harrison's skills and from the PhD workspace `CLAUDE.md` (`C:\Users\s2191671\OneDrive - University of Edinburgh\PhD\CLAUDE.md`) that apply here, so do not rely on `@` imports or on instruction files in parent folders.
 
@@ -9,6 +9,7 @@ Code and records for the HackTheBurgh hackathon, started 7 November 2026. The to
 | File | Purpose |
 | --- | --- |
 | `BRIEF.md` | The challenge: theme, rules, judging criteria, submission requirements, team. Fill this in as soon as the topic is announced |
+| Notion page "hacktheburgh" (https://app.notion.com/p/hacktheburgh-411b2fb4d76580188ba4e5d313f4861a) | Harrison's own notes on the sponsor challenges. Harrison edits it; it is authoritative for his shortlist. Agents with Notion access re-read it at the start of each session and before editing `BRIEF.md`, and carry any changes into `BRIEF.md` with the date read. Agents without Notion access ask Harrison whether it has changed. Do not edit the Notion page unless asked |
 | `TASKS.md` | Task board. Agents claim tasks here before starting |
 | `DECISIONS.md` | Log of design and scope decisions, who made each one and why |
 | `README.md` | What the project is, plus the dated work log |
@@ -134,9 +135,10 @@ LaTeX documents follow the `latex-house-style` skill and its style guide (`C:\Us
 
 ## Open items
 
-The topic, rules, judging criteria, deadline and team are not yet known (see `BRIEF.md`). There is no GitHub remote yet. The web and interface palette above was extrapolated by an agent and has not yet been confirmed by the user.
+The challenge is Bank of Scotland's "Smart Cost of Living"; the idea is an affordability browser extension with an opt-in buy-now-pay-later float, whose scope is still open (see `BRIEF.md`, `DECISIONS.md`). The rules, judging criteria, deadline and team are not yet known. There is no GitHub remote yet. The web and interface palette above was extrapolated by an agent and has not yet been confirmed by the user.
 
 ## Log
 
 - 2026-11-07 (Claude): Set up the repository: local git, `.gitignore`, and tracking files (`BRIEF.md`, `TASKS.md`, `DECISIONS.md`, `README.md`, `USER_GUIDE.md`), with `CLAUDE.md` and an identical `AGENTS.md` for Astra. Added the parallel-agent rules and the design style on the user's instruction. On the user's instruction, plots import the shared TeXFormat module from `03_code/TeXFormat` and load its master `TeXFormat.mplstyle`, without project copies. Test-rendered a plot from this folder with `py -3`: the shared module was imported (TeXFormat commit `556865b`), LaTeX rendered in Computer Modern, and PDF and SVG were written.
 - 2026-11-07 (Claude): On the user's instruction, added the Skills table (`ponytail`, `plot-companion-stats`, `latex-house-style`, `texformat-powerpoint`, `phd-onedrive`, with paths so that Astra can read them), restated the `ponytail` discipline, and added file organisation, environment and writing rules adapted from the PhD workspace `CLAUDE.md`. The figure folder is now `Figures/`, in line with the workspace convention.
+- 2026-11-07 (Claude): On the user's instruction, added the Notion page "hacktheburgh" to the key files, to be re-read each session; recorded its challenge shortlist in `BRIEF.md`.

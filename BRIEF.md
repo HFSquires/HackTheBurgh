@@ -1,13 +1,13 @@
 # Brief
 
-Fill this in when the challenge is announced. Keep `unknown` wherever the organisers have not said.
+Fill this in when the challenge is announced. Keep `unknown` wherever the organisers have not said. Harrison's own shortlist of sponsor challenges is kept in the Notion page "hacktheburgh" (https://app.notion.com/p/hacktheburgh-411b2fb4d76580188ba4e5d313f4861a); re-read it before updating this file.
 
 | Item | Detail |
 | --- | --- |
 | Event | HackTheBurgh 2026 |
 | Dates and hacking window | unknown (repository set up 7 November 2026) |
 | Final submission deadline | unknown |
-| Theme or tracks | unknown beyond the challenge below |
+| Theme or tracks | Sponsor challenges, as shortlisted in Harrison's Notion page "hacktheburgh" (read 7 November 2026): ruled out Instanlily (spelling as written; unclear), JetBrains, Viridien; broad HRT (making decisions based on data), G-Research (making hidden data visible), Wordsmith (end-to-end browser based); narrow Bank of Scotland. Official track list and wording unknown |
 | Track or challenge chosen | "Smart Cost of Living: Build boldly. Solve something real." (challenge slide supplied by Harrison, 7 November 2026) |
 | Team | Harrison F. Squires; others unknown |
 | Team size limit | unknown |
@@ -15,7 +15,7 @@ Fill this in when the challenge is announced. Keep `unknown` wherever the organi
 | Rules on AI tools | unknown |
 | Judging criteria | unknown |
 | Submission platform and format (repo, video, demo, slides) | unknown |
-| Sponsor APIs, datasets or prizes worth targeting | unknown. The slide's card artwork carries a black horse, which suggests Lloyds Banking Group as the sponsor (agent inference from the artwork, unconfirmed); no APIs or data are mentioned on the slide |
+| Sponsor APIs, datasets or prizes worth targeting | The challenge belongs to Bank of Scotland (Harrison's Notion page lists it as the narrow track; the black horse on the slide is the Lloyds Banking Group mark, and Bank of Scotland is part of that group). An earlier agent guess of Lloyds alone is superseded. Whether the browser extension could also be entered for Wordsmith (end-to-end browser based) or HRT (decisions based on data) depends on the rules on multiple entries, which are unknown. No APIs or data are mentioned on the slide |
 
 ## Problem statement
 
