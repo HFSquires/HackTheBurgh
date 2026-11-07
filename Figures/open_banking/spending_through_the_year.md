@@ -6,7 +6,7 @@ Files: `spending_through_the_year.pdf`, `spending_through_the_year.svg` (this fi
 
 ## Source data
 
-Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `9107100`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
+Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `0aff08f`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
 
 ## Filters, transformations and units
 
