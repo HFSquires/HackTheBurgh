@@ -13,3 +13,4 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-07 (Claude): Added the `notion-keeper` sub-agent (`.claude/agents/notion-keeper.md`), run every 5 minutes to check and organise the Notion page.
 - 2026-11-07 (notion-keeper, Claude): Read the Notion page after Harrison added "Notes on spendings and investments" (BNPL source link, Zilch snooze fees, screenshot); page already organised, no edit made; noted in `BRIEF.md`.
 - 2026-11-07 (Claude): Added the Haiku `notion-watch` change detector in front of `notion-keeper`, so the Sonnet agent runs only when the Notion page has changed.
+- 2026-11-07 (notion-keeper, Claude): Read the Notion page after Harrison's further edits to "Notes on spendings and investments" (sentence on fixed late fees completed; 0% credit card or overdraft quotation added); page already organised, no edit made; `BRIEF.md` updated.
