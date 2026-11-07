@@ -6,7 +6,7 @@ Files: `forecast_errors.pdf`, `forecast_errors.svg` (this file: `forecast_errors
 
 ## Source data
 
-The 100 customer pictures read through the v2 mock bank (`mock_bank.fetch_customer`) from `Analysis/open_banking/persona*.json` (written by `ob_generator.py`, commit `0aff08f`), scored against `Analysis/open_banking/ground_truth_monthly.csv` (`booked`, summed over categories). Code: `model.py` (commit `0ef5018`). Every forecast and actual value: [`Analysis/model/backtest.csv`](../../Analysis/model/backtest.csv).
+The 100 customer pictures read through the v2 mock bank (`mock_bank.fetch_customer`) from `Analysis/open_banking/persona*.json` (written by `ob_generator.py`, commit `0aff08f`), scored against `Analysis/open_banking/ground_truth_monthly.csv` (`booked`, summed over categories). Code: `model.py` (commit `fcf62e6`). Every forecast and actual value: [`Analysis/model/backtest.csv`](../../Analysis/model/backtest.csv).
 
 ## Filters, transformations and units
 
@@ -14,7 +14,7 @@ Everyday spending per person and calendar month [GBP]: card purchases (rows with
 
 ## Plotted data
 
-Per person, the absolute error is averaged over the 9 target months (one value per person); the plot shows the mean of these across persons, with error bars ± SE = s / sqrt(n), ddof = 1. Points for the two models are offset by ±0.04 in k for legibility.
+Per person, the absolute error is averaged over the 9 target months (one value per person); the plot shows the mean of these across persons. The figure, drawn for a general audience, shows three of these at a glance as bars (plain mean k = 3, last month, deseasonalised mean k = 3) with no error bars; the full table with ± SE = s / sqrt(n), ddof = 1, is below.
 
 | k | Deseasonalised mean (Andrew, corrected): MAE ± SE [GBP] | Plain mean (k = 1: last month): MAE ± SE [GBP] | n |
 |---|---|---|---|

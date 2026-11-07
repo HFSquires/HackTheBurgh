@@ -6,7 +6,7 @@ Files: `payday_effect.pdf`, `payday_effect.svg` (this file: `payday_effect.md`),
 
 ## Source data
 
-Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `0aff08f`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
+Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `0aff08f`; read by `ob_figures.py` (commit `fcf62e6` or later). Plot style: `figstyle.py` (Auro's front-end style) sha256 `91e3bd61f98a`. No random numbers are drawn here (seed: not applicable).
 
 ## Filters, transformations and units
 
@@ -16,8 +16,8 @@ Payday = the booking date of each person's salary credit (`BGC`, "FAKE EMPLOYER 
 Day 0 is payday; day k is k calendar days after (negative: before). For each person and day k, the mean over that person's paydays
 of everyday spending on day P + k [GBP], using only paydays whose whole window (day -5 to day +10) lies inside 1 November 2025
 to 31 October 2026 (on average 11.0 paydays per person; days with no purchase count as 0). The bars are the mean
-across the n = 100 persons; error bars are standard errors of the mean, SE = s / sqrt(n), ddof = 1. The red bars are days 0 to
-2, the generator's payday window (`PAYDAY_DAYS = 3`). Plotted data: [`Analysis/open_banking_figures/payday_effect.csv`](../../Analysis/open_banking_figures/payday_effect.csv).
+across the n = 100 persons. Drawn for a general audience: headline and subtitle state the takeaway; standard errors are not drawn on the figure and are given in the table below. SE = s / sqrt(n), ddof = 1. The dark bars are days 0 to
+2, the generator's payday window (`PAYDAY_DAYS = 3`); the headline's ratio is the mean of days 0 to 2 over the mean of the other days. Plotted data: [`Analysis/open_banking_figures/payday_effect.csv`](../../Analysis/open_banking_figures/payday_effect.csv).
 
 ## Plotted data
 

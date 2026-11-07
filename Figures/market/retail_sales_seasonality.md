@@ -1,13 +1,13 @@
 # UK retail sales seasonality (non-seasonally adjusted)
 
-Files: `retail_sales_seasonality.pdf`, `retail_sales_seasonality.svg` (this file: `retail_sales_seasonality.md`), written by `market_data.py` (commit `bf13fa1` or later).
+Files: `retail_sales_seasonality.pdf`, `retail_sales_seasonality.svg` (this file: `retail_sales_seasonality.md`), written by `market_data.py` (commit `fcf62e6` or later).
 
 ## Source data
 
 [`data/ons_drsi_retail_sales_value_nsa_J5AH.csv`](../../data/ons_drsi_retail_sales_value_nsa_J5AH.csv): ONS Retail Sales Index (dataset DRSI), series `J5AH`, "RSI:Value Not seasonally Adjusted:All Retailers inc fuel:All Business Index",
 Great Britain, value of sales (current prices), not seasonally adjusted, all retailers including automotive fuel, all
 businesses. Release date shown: 23-10-2026. The file's unit field is blank and the index base year is not
-stated in it. Open Government Licence v3.0. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
+stated in it. Open Government Licence v3.0. Plot style: `figstyle.py` (Auro's front-end style) sha256 `91e3bd61f98a`.
 Store-type breakdowns of the non-seasonally-adjusted value index are not published as index levels in DRSI (only as
 percentage changes), so only the total is used.
 
@@ -15,11 +15,10 @@ percentage changes), so only the total is used.
 
 Monthly values for the complete calendar years 2021 to 2025 (n = 5 years; 2026 is partial and
 excluded). Within each year the 12 monthly values are divided by that year's mean and multiplied by 100, so every year
-has mean 100 (this removes year-to-year growth in the level); the raw index values are in the data file. Large points:
-mean over years of the scaled value; error bars: standard error of the mean over years (sample standard deviation divided by
-sqrt(n)), joined by a line; points with error bars rather than bars because the values are an index around 100, so a
-bar drawn from 0 would hide the seasonal swing and a bar from any other baseline (an earlier version started at 80)
-would misstate its length. The y axis does not start at 0. Grey points: single years. Dashed line: the annual mean, 100. The 2021 data include the early-2021 lockdown closures, which depress
+has mean 100 (this removes year-to-year growth in the level); the raw index values are in the data file. Bars: the
+mean over years of the scaled value minus 100, i.e. the percentage above or below the year's average month, drawn from the
+average (0); November and December in the dark shade, labelled. Drawn for a general audience: headline and subtitle state the takeaway; standard errors are not drawn on the figure and are given in the table below. (standard error of the mean over years: sample standard deviation divided by
+sqrt(n)). Single years are not drawn (they are in the second table). The 2021 data include the early-2021 lockdown closures, which depress
 January to April and so raise the other months relative to that year's mean.
 
 ## Plotted data

@@ -147,13 +147,12 @@ def git(*args):
 
 
 def provenance(meta):
-    import TeXFormat as tf
-    tfx = hashlib.sha256(Path(tf.__file__).read_bytes()).hexdigest()[:12]
+    import figstyle as fs
     return (f"Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed "
             f"{meta['Seed']}) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit "
             f"`{git('log', '-1', '--format=%h', '--', 'ob_generator.py')}`; read by `ob_figures.py` (commit "
-            f"`{git('log', '-1', '--format=%h', '--', 'ob_figures.py')}` or later). Plot style: `TeXFormat.py` sha256 "
-            f"`{tfx}`. No random numbers are drawn here (seed: not applicable).")
+            f"`{git('log', '-1', '--format=%h', '--', 'ob_figures.py')}` or later). Plot style: `figstyle.py` (Auro's front-end style) sha256 "
+            f"`{fs.sha()}`. No random numbers are drawn here (seed: not applicable).")
 
 
 def save(fig, name):
@@ -177,16 +176,16 @@ def write_md(name, title, meta, body):
 
 
 def tex(s):
-    return s.replace("&", r"\&").replace("%", r"\%")
+    return s  # plain text: the front-end style does not render LaTeX
 
 
 def legend(ax, **kw):
-    import TeXFormat as tf
-    return ax.legend(frameon=True, fancybox=False, fontsize=tf.fontsizeSmall, **kw)
+    import figstyle as tf
+    return ax.legend(fontsize=tf.fontsizeSmall, **kw)
 
 
 def ticks(ax):
-    import TeXFormat as tf
+    import figstyle as tf
     ax.tick_params(labelsize=tf.fontsizeSmall)
 
 
@@ -196,7 +195,7 @@ def ticks(ax):
 def fig_year(s, persons, meta):
     """3. Total monthly spending per person through the year, everyday and one-off."""
     import matplotlib.pyplot as plt
-    import TeXFormat as tf
+    import figstyle as tf
     ev = pivot(s[~s.oneoff], "month", persons).reindex(columns=MONTHS, fill_value=0.0)
     oo = pivot(s[s.oneoff], "month", persons).reindex(columns=MONTHS, fill_value=0.0)
     tot = ev + oo
@@ -205,16 +204,18 @@ def fig_year(s, persons, meta):
                         "total_se": mean_se(tot)[1]})
     tab.index.name = "month"
     csv_out(tab, "spending_through_the_year")
-    fig, ax = plt.subplots(figsize=(15, 7))
+    fig, ax = plt.subplots(figsize=(12, 6.75))
     x = np.arange(12)
-    tf.bar(ax, x, tab.everyday_mean, tf.CYCLE[0], width=1, label="Everyday spending")
-    tf.bar(ax, x, tab.oneoff_mean, tf.CYCLE[1], width=1, bottom=tab.everyday_mean, label="One-off purchases")
-    ax.errorbar(x, tab.total_mean, yerr=tab.total_se, fmt="none", ecolor="black", capsize=3, label=r"Total $\pm$ SE")
-    ax.set_xticks(x, MLAB, rotation=40, ha="right")
-    ax.set_ylabel(r"Spending per person [GBP per month]", fontsize=tf.fontsizeSmall)
-    ax.set_ylim(0, (tab.total_mean + tab.total_se).max() * 1.3)
-    ticks(ax)
-    legend(ax, loc="upper left", ncol=3)
+    tf.bar(ax, x, tab.everyday_mean, tf.C1, label="Everyday spending")
+    tf.bar(ax, x, tab.oneoff_mean, tf.tint(tf.C1, 0.35), bottom=tab.everyday_mean, label="One-off buys (holidays, big purchases)")
+    ax.set_xticks(x, [dt.date(int(m[:4]), int(m[5:]), 1).strftime("%b") + ("\n" + m[:4] if m[5:] in ("11", "01") else "")
+                      for m in MONTHS])
+    tf.gbp(ax)
+    tf.clean(ax)
+    ax.set_ylim(0, tab.total_mean.max() * 1.2)
+    ax.legend(loc="upper right", ncol=2)
+    assert tab.total_mean.idxmax() in ("2025-11", "2025-12")  # the headline's claim
+    tf.headline(fig, "Spending peaks before Christmas", "Average card spending per customer, each month")
     save(fig, "spending_through_the_year")
     hi, lo = tab.total_mean.idxmax(), tab.total_mean.idxmin()
     avg = tab.total_mean.mean()
@@ -225,8 +226,7 @@ def fig_year(s, persons, meta):
 {EVERYDAY}
 
 Per person and calendar month (London time, booking date): everyday spending and one-off purchases in GBP. The bars show the
-mean across the n = {len(persons)} persons (everyday below, one-off stacked above); the black error bars are the standard
-error of the mean of the **total** (everyday plus one-off), SE = s / sqrt(n), ddof = 1. The seasonal shape comes from the ONS
+mean across the n = {len(persons)} persons (everyday below, one-off stacked above, in a lighter shade). Drawn for a general audience: headline and subtitle state the takeaway; standard errors are not drawn on the figure and are given in the table below. SE = s / sqrt(n), ddof = 1. The seasonal shape comes from the ONS
 retail-sales profile in the generator. Plotted data: [`Analysis/open_banking_figures/spending_through_the_year.csv`](../../Analysis/open_banking_figures/spending_through_the_year.csv).
 
 ## Plotted data
@@ -246,7 +246,7 @@ uncertainty calculated). No tests were run (not applicable).
 
 Everyday spending rises in November and December, as set by the generator's seasonal profile. The one-off purchases (holidays
 and lumpy purchases) are spread unevenly across months and make the monthly total much more variable than everyday spending,
-which is visible in the larger error bars on the totals.
+as the larger standard errors of the totals in the table show.
 """
     write_md("spending_through_the_year", "Spending through the year, November 2025 to October 2026", meta, body)
     return tab
@@ -255,7 +255,7 @@ which is visible in the larger error bars on the totals.
 def fig_accounts(gt, persons, meta):
     """4. Accounts per person and holdings against FCA Financial Lives 2024."""
     import matplotlib.pyplot as plt
-    import TeXFormat as tf
+    import figstyle as tf
     summ = (OB / "summary.md").read_text(encoding="utf-8")
     fca = {}
     for key, pat in {"second": r"\| Current account \(other provider\) \|.*\| ([\d.]+) \(derived lower bound\) \|",
@@ -277,34 +277,39 @@ def fig_accounts(gt, persons, meta):
                         for n, f, p, fl in types]).set_index("type")
     csv_out(cnt.rename("persons").rename_axis("accounts"), "accounts_per_person")
     csv_out(tab, "account_holdings")
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(18, 7.5), gridspec_kw={"width_ratios": [1, 1.7]})
-    tf.bar(a1, cnt.index, cnt.values, tf.CYCLE[0], width=1)
-    for xi, v in zip(cnt.index, cnt.values):
-        a1.text(xi, v + 0.5, str(v), ha="center", fontsize=tf.fontsizeSmall)
-    a1.set_xlabel("Accounts held by a person", fontsize=tf.fontsizeSmall)
-    a1.set_ylabel(rf"Persons [count, $n = {len(gt)}$]", fontsize=tf.fontsizeSmall)
-    a1.set_ylim(0, cnt.max() * 1.15)
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(14, 6.75), gridspec_kw={"width_ratios": [1, 1.6]})
+    bars = tf.bar(a1, cnt.index, cnt.values, tf.C1)
+    a1.bar_label(bars, padding=3, color=tf.INK, fontsize=tf.fontsizeSmall)
+    a1.set_title("Accounts per customer", fontsize=15)
     a1.set_xticks(range(1, 8))
-    x, wd = np.arange(len(tab)), 0.27
-    for k, (c, lab) in enumerate([("share", "Generated data"), ("model_probability", "Model probability (mean)"),
-                                  ("fca_2024", "FCA Financial Lives 2024 (UK adults)")]):
+    a1.set_yticks([])
+    a1.set_ylim(0, cnt.max() * 1.2)
+    tf.clean(a1, grid=None)
+    x, wd = np.arange(len(tab)), 0.38
+    for k, (c, lab, col) in enumerate([("share", "Our example customers", tf.C1),
+                                       ("fca_2024", "UK adults (FCA survey, 2024)", tf.tint(tf.C2, 0.9))]):
         v = (100 * tab[c]).fillna(0)
-        tf.bar(a2, x + (k - 1) * wd, v, tf.CYCLE[[0, 2, 1][k]], width=wd, label=lab)
-        for xi, vi, raw in zip(x + (k - 1) * wd, v, tab[c]):
-            if not np.isnan(raw):
-                a2.text(xi, vi + 1, f"{vi:.0f}", ha="center", fontsize=tf.fontsizeTiny)
-    a2.set_xticks(x, [tex(n).replace(" account", "\naccount").replace(" (any)", "\n(any)") for n in tab.index], rotation=0)
-    a2.tick_params(axis="x", labelsize=tf.fontsizeTiny)
-    a2.set_ylabel(r"Holding [\% of persons]", fontsize=tf.fontsizeSmall)
-    a2.set_ylim(0, 125)
-    legend(a2, loc="upper right")
-    ticks(a1), a2.tick_params(axis="y", labelsize=tf.fontsizeSmall)
+        bars = tf.bar(a2, x + (k - 0.5) * wd, v, col, width=wd, label=lab)
+        a2.bar_label(bars, labels=["" if np.isnan(r) else f"{100 * r:.0f}%" for r in tab[c]], padding=3,
+                     color=tf.INK, fontsize=tf.fontsizeTiny)
+    short = {"Main current account": "Main\ncurrent", "Second current account": "Second\ncurrent",
+             "Joint current account": "Joint\ncurrent", "Savings account": "Savings", "Cash ISA": "Cash\nISA",
+             "Credit card (any)": "Credit\ncard"}
+    a2.set_xticks(x, [short[n] for n in tab.index])
+    a2.set_title("Share of customers holding each account", fontsize=15)
+    a2.set_yticks([])
+    a2.set_ylim(0, 118)
+    a2.legend(loc="upper right")
+    tf.clean(a2, grid=None)
+    multi = int((gt.n_accounts > 1).sum())
+    tf.headline(fig, f"{multi} in {len(gt)} customers hold more than one account",
+                "So a true picture of someone's money means looking across all their accounts")
     save(fig, "account_holdings")
     body = f"""## Filters, transformations and units
 
 All {len(gt)} personas. Left: number of accounts per person, `n_accounts` in `ground_truth.csv` (current accounts, joint
 account, savings, cash ISA and credit cards each count once). Right: share of persons holding each account type, from
-`account_keys` in `ground_truth.csv`; "Model probability" is the mean over persons of the holding probability the generator
+`account_keys` in `ground_truth.csv`, beside the FCA share (the figure shows these two; the model probabilities are in the table only). "Model probability" is the mean over persons of the holding probability the generator
 used (`p_savings`, `p_cash_isa`, `p_credit_card`, `p_second_current`, `p_joint`); the FCA column is read from the table in
 [`Analysis/open_banking/summary.md`](../../Analysis/open_banking/summary.md) (FCA Financial Lives 2024, weighted data tables, base all UK adults).
 The FCA second-current-account figure is a derived lower bound (sum of provider-group shares minus 1); the FCA main-current
@@ -369,22 +374,24 @@ def payday_table(s, tx, persons):
 def fig_payday(s, tx, persons, meta):
     """6. Everyday spending by day relative to payday."""
     import matplotlib.pyplot as plt
-    import TeXFormat as tf
+    import figstyle as tf
     per, nwin = payday_table(s, tx, persons)
     assert not per.isna().any().any()
     m, se = mean_se(per)
     tab = pd.DataFrame({"n": len(per), "mean": m, "se": se})
     tab.index.name = "day_relative_to_payday"
     csv_out(tab, "payday_effect")
-    fig, ax = plt.subplots(figsize=(14, 7))
-    col = [tf.CYCLE[1] if 0 <= k <= 2 else tf.CYCLE[0] for k in tab.index]
-    for k, c in zip(tab.index, col):
-        tf.bar(ax, [k], [tab["mean"][k]], c, width=1, yerr=[tab.se[k]], capsize=3, error_kw={"ecolor": c})
-    ax.set_xticks(list(tab.index))
-    ax.set_xlabel("Day relative to payday [days]", fontsize=tf.fontsizeSmall)
-    ax.set_ylabel(r"Everyday spending per person [GBP per day]", fontsize=tf.fontsizeSmall)
-    ax.set_ylim(0, (tab["mean"] + tab.se).max() * 1.25)
-    ticks(ax)
+    fig, ax = plt.subplots(figsize=(12, 6.75))
+    win = [0 <= k <= 2 for k in tab.index]
+    tf.bar(ax, list(tab.index), tab["mean"], [tf.C1 if w else tf.tint(tf.C1, 0.3) for w in win])
+    ax.set_xticks(list(tab.index), ["Payday" if k == 0 else f"{k:+d}" for k in tab.index])
+    ax.set_xlabel("Days before and after payday")
+    tf.gbp(ax)
+    tf.clean(ax)
+    ax.set_ylim(0, tab["mean"].max() * 1.2)
+    ratio = tab["mean"][[0, 1, 2]].mean() / tab["mean"].drop([0, 1, 2]).mean()
+    tf.headline(fig, f"Spending is {ratio:.1f}× higher in the three days after payday",
+                "Average everyday card spending per customer, by day")
     save(fig, "payday_effect")
     base = tab["mean"][[k for k in tab.index if k < 0 or k > 2]].mean()
     pw = tab["mean"][[0, 1, 2]].mean()
@@ -396,8 +403,8 @@ Payday = the booking date of each person's salary credit (`BGC`, "FAKE EMPLOYER 
 Day 0 is payday; day k is k calendar days after (negative: before). For each person and day k, the mean over that person's paydays
 of everyday spending on day P + k [GBP], using only paydays whose whole window (day -5 to day +10) lies inside 1 November 2025
 to 31 October 2026 (on average {np.mean(list(nwin.values())):.1f} paydays per person; days with no purchase count as 0). The bars are the mean
-across the n = {len(per)} persons; error bars are standard errors of the mean, SE = s / sqrt(n), ddof = 1. The red bars are days 0 to
-2, the generator's payday window (`PAYDAY_DAYS = 3`). Plotted data: [`Analysis/open_banking_figures/payday_effect.csv`](../../Analysis/open_banking_figures/payday_effect.csv).
+across the n = {len(per)} persons. Drawn for a general audience: headline and subtitle state the takeaway; standard errors are not drawn on the figure and are given in the table below. SE = s / sqrt(n), ddof = 1. The dark bars are days 0 to
+2, the generator's payday window (`PAYDAY_DAYS = 3`); the headline's ratio is the mean of days 0 to 2 over the mean of the other days. Plotted data: [`Analysis/open_banking_figures/payday_effect.csv`](../../Analysis/open_banking_figures/payday_effect.csv).
 
 ## Plotted data
 
@@ -421,7 +428,7 @@ size of the effect is a synthetic assumption, not an estimate from real customer
 def fig_balances(bal, gt, tx, meta):
     """7. Main current-account balance through the year and overdraft use by month."""
     import matplotlib.pyplot as plt
-    import TeXFormat as tf
+    import figstyle as tf
     persons = list(bal.columns)
     lim = gt.set_index("persona").overdraft_limit.reindex(persons)
     q = bal.quantile([0.25, 0.5, 0.75], axis=1).T
@@ -437,25 +444,27 @@ def fig_balances(bal, gt, tx, meta):
     mt = pd.DataFrame({"persons_overdrawn": use, "persons_beyond_arranged_limit": una})
     mt.index.name = "month"
     csv_out(mt, "overdraft_by_month")
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(18, 7.5), gridspec_kw={"width_ratios": [1.3, 1]})
-    a1.fill_between(q.index, q.q1, q.q3, facecolor=tf.CYCLE[0], alpha=0.25, edgecolor="none", label="Interquartile range")
-    a1.plot(q.index, q["median"], color=tf.CYCLE[0], lw=2.5, label="Median")
-    a1.axhline(0, color="black", lw=1)
-    a1.set_ylabel("Main current account balance [GBP]", fontsize=tf.fontsizeSmall)
-    a1.set_xlabel("End of day, 2025--2026", fontsize=tf.fontsizeSmall)
-    a1.set_title(rf"All persons ($n = {len(persons)}$)", fontsize=tf.fontsize)
-    legend(a1, loc="upper left")
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(14, 6.75), gridspec_kw={"width_ratios": [1.4, 1]})
+    a1.fill_between(q.index, q.q1, q.q3, facecolor=tf.tint(tf.C1, 0.18), edgecolor="none", label="Middle half of customers")
+    a1.plot(q.index, q["median"], color=tf.C1, lw=2.5, label="Typical customer (median)")
+    a1.axhline(0, color=tf.MUTED, lw=1)
+    a1.set_title("Main current account balance", fontsize=15)
+    a1.legend(loc="upper left")
     import matplotlib.dates as mdates
     a1.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
-    a1.xaxis.set_major_locator(mdates.MonthLocator())
-    x, w = np.arange(12), 0.4
-    tf.bar(a2, x - w / 2, mt.persons_overdrawn, tf.CYCLE[1], width=w, label="Overdrawn at end of a day")
-    tf.bar(a2, x + w / 2, mt.persons_beyond_arranged_limit, tf.CYCLE[0], width=w, label="Beyond arranged limit")
-    a2.set_xticks(x, MLAB, rotation=60, ha="right")
-    a2.set_ylabel(r"Persons [count, $n = 100$]", fontsize=tf.fontsizeSmall)
-    a2.set_ylim(0, max(mt.persons_overdrawn.max(), 1) * 1.35)
-    legend(a2, loc="upper left")
-    ticks(a1), ticks(a2)
+    a1.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[11, 1, 3, 5, 7, 9]))
+    tf.gbp(a1)
+    tf.clean(a1)
+    x, w = np.arange(12), 0.42
+    tf.bar(a2, x - w / 2, mt.persons_overdrawn, tf.C1, width=w, label="Went overdrawn")
+    tf.bar(a2, x + w / 2, mt.persons_beyond_arranged_limit, tf.tint(tf.BAD, 0.75), width=w, label="Went past their overdraft limit")
+    a2.set_xticks(x, [dt.date(int(m[:4]), int(m[5:]), 1).strftime("%b")[0] for m in MONTHS])
+    a2.set_title("Customers overdrawn each month (of 100)", fontsize=15)
+    a2.set_ylim(0, max(mt.persons_overdrawn.max(), 1) * 1.5)
+    a2.legend(loc="upper left")
+    tf.clean(a2)
+    tf.headline(fig, "Balances jump on payday, then drift down",
+                "A few customers still slip into their overdraft each month")
     save(fig, "balances_and_overdraft")
     ever, ever_u = int(neg.any().sum()), int(unarr.any().sum())
     body = f"""## Filters, transformations and units
@@ -503,8 +512,8 @@ FIGS = ("spending_through_the_year", "account_holdings", "payday_effect", "balan
 
 def main():
     import matplotlib.pyplot as plt
-    import TeXFormat as tf
-    plt.style.use(Path(tf.__file__).with_name("TeXFormat.mplstyle"))
+    import figstyle as tf
+    tf.use()
     plt.rcParams["svg.hashsalt"] = "t25"
     tx, gt, bal, meta = load()
     persons = list(gt.persona)
@@ -523,7 +532,7 @@ def main():
 
 def check():
     """Recompute from the raw JSON with a separate code path and compare with the written CSVs and .md files."""
-    import TeXFormat  # noqa: F401  (the style module must import)
+    import figstyle  # noqa: F401  (the style module must import)
     gt = pd.read_csv(OB / "ground_truth.csv")
     persons = list(gt.persona)
     # 2. account-count bars sum to 100
