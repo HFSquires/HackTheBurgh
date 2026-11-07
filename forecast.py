@@ -79,7 +79,10 @@ def person(tx, origin=SEP):
             cat[k][group(t["desc"])] = cat[k].get(group(t["desc"]), 0.0) + t["debit"]
     for o, nxt, k in ((AUG, SEP, "sep"), (SEP, OCT, "oct")):
         rows = upto(o)
-        r[f"sched_{k}"] = sum(s["amount"] for p in af.detect_bnpl(rows) for s in p["schedule"]
+        plans = af.detect_bnpl(rows)
+        if any(p["uncertain"] for p in plans):
+            raise af.StatementError("Cannot backtest a statement with ambiguous BNPL repayment schedules.")
+        r[f"sched_{k}"] = sum(s["amount"] for p in plans for s in p["schedule"]
                               if ym(dt.date.fromisoformat(s["due"])) == nxt)
         r[f"net_{o[1]:02d}"] = [t for t in rows if t["credit"] > 0][-1]["credit"]  # latest credit (the salary here)
     r["bnpl_any"] = any(af.BNPL.search(t["desc"]) for t in tx)

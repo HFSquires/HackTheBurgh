@@ -39,10 +39,12 @@ A = k (1 - n rho e) / D and C = k rho e s, and Var(F | data, beta, sigma^2) = V 
 V = k (1 + (k - 1) rho) - k^2 n rho^2 e; months add. Integrating out beta and sigma^2 gives a Student t with 2a degrees
 of freedom, location A m + C and squared scale (b / a)(V + A^2 / kappa).
 
-Shortfall. P(cushion - F < 0), where cushion = balance after the statement's last day - committed payments and BNPL
+Shortfall. P(cushion - max(0, F) < 0), where cushion = balance after the statement's last day - committed payments and BNPL
 instalments due after that day and before payday - the purchase (the full price, or the pay-in-3 instalments due before
 payday), and F is discretionary spending on the days from the day after the statement's last day to the day before
-payday. With no credits before payday the balance only falls, so this is also the probability of dropping below zero at
+payday. Negative predictive mass is censored at zero for spending means, intervals and risk; a negative cushion always
+means a shortfall. This physical constraint does not establish calibration on real-world spending shocks.
+With no credits before payday the balance only falls, so this is also the probability of dropping below zero at
 any point before payday.
 
 Run:   .venv\\Scripts\\python -X utf8 bayes.py          # October backtest: writes Analysis/bayes/ and Figures/bayes/
@@ -201,6 +203,8 @@ def shortfall_probability(tx, price, today=None, payday=None, pay_in_3=False, hy
     as_of, today = dt.date.fromisoformat(a["asOf"]), dt.date.fromisoformat(a["today"])
     if not a["income"]:
         raise af.StatementError("No salary detected; the spending prior needs net monthly pay.")
+    if a["assessmentStatus"] == "incomplete":
+        raise af.StatementError(" ".join(a["assessmentWarnings"]))
     payday = payday or dt.date.fromisoformat(a["income"]["nextPayday"])
     due = lambda d: as_of < dt.date.fromisoformat(d) < payday
     out = (sum(c["amount"] for c in a["committed"] if due(c["due"]))
@@ -215,12 +219,34 @@ def shortfall_probability(tx, price, today=None, payday=None, pay_in_3=False, hy
     F = spending_until(tx, payday, hyper)
     if F is None:  # no day left before payday
         return res
-    return res | dict(probability=float(F.sf(cushion)), spendMean=float(F.mean()), spend80=list(F.interval(0.8)))
+    summary = spending_summary(F)
+    return res | dict(probability=spending_risk(F, cushion), spendMean=summary["mean"], spend80=summary["interval80"])
+
+
+def spending_summary(F):
+    """Mean and central 80% interval of max(0, F), for the raw Student-t spending predictive (None means zero days).
+    The positive-part mean is loc * P(T > z) + scale * (df + z^2)/(df - 1) * t_pdf(z), z = -loc/scale.
+    Censoring moves negative mass to zero; merely clipping the mean would not be the expectation of this distribution.
+    ponytail: this enforces non-negative expenditure, not calibration on real spending shocks; replace the raw Gaussian
+    daily likelihood with a non-negative spending model when real-data validation is available."""
+    if F is None:
+        return dict(mean=0.0, interval80=[0.0, 0.0])
+    loc, scale, df = float(F.mean()), F.kwds["scale"], F.args[0]
+    z = -loc / scale
+    mean = loc * stats.t.sf(z, df) + scale * (df + z * z) / (df - 1) * stats.t.pdf(z, df)
+    return dict(mean=max(0.0, float(mean)), interval80=[max(0.0, float(x)) for x in F.interval(0.8)])
+
+
+def spending_risk(F, cushion):
+    """P(max(0, F) > cushion): a negative cash cushion is a certain shortfall, even if F has negative mass."""
+    if cushion < 0:
+        return 1.0
+    return float(F.sf(cushion)) if F is not None else 0.0
 
 
 def spending_until(tx, payday, hyper=None):
-    """Student-t predictive of discretionary spending from the day after the statement's last transaction to the day
-    before payday, or None when no such day is left. Used by shortfall_probability and affordability.assess."""
+    """Raw Student-t predictive from the day after the last transaction to the day before payday, or None for no days.
+    Use spending_summary and spending_risk to obtain non-negative expenditure statistics for decisions."""
     first, last = tx[-1]["date"] + dt.timedelta(days=1), payday - dt.timedelta(days=1)
     if last < first:
         return None
@@ -549,6 +575,15 @@ def check():
     st, info = fc.load()
     T = fc.table(st, info)[0]
     h = population()
+    # Censored spending: analytic positive-part expectation agrees with independent numerical integration.
+    for loc in (-20, -3, 0, 5):
+        F = stats.t(8, loc=loc, scale=2)
+        summary = spending_summary(F)
+        assert math.isclose(summary["mean"], F.expect(lambda x: x, lb=0), rel_tol=1e-7)
+        assert all(x >= 0 for x in summary["interval80"])
+        assert spending_risk(F, -0.01) == 1.0 and spending_risk(F, 0) == F.sf(0)
+    assert spending_summary(None) == dict(mean=0.0, interval80=[0.0, 0.0])
+    assert spending_risk(None, -1) == 1.0 and spending_risk(None, 0) == 0.0
     # Data: month sums equal forecast.py's discretionary spending for August and September.
     for p in sorted(st):
         blk = blocks([t for t in st[p] if t["date"] <= ORIGIN], ORIGIN, START)
