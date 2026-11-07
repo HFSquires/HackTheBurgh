@@ -1,6 +1,6 @@
 # Brief
 
-Fill this in when the challenge is announced. Keep `unknown` wherever the organisers have not said. Harrison's own shortlist of sponsor challenges is kept in the Notion page "hacktheburgh" (https://app.notion.com/p/hacktheburgh-411b2fb4d76580188ba4e5d313f4861a); re-read it before updating this file. Last read: 7 November 2026 15:12 UTC, latest page_last_edited_at of the page and its child page 2026-11-07T15:07:05.507Z (main page; the child page "Claude's notes and sources", https://app.notion.com/p/411b2fb4d7658139a9c9d6bb4d6edc0b, was last edited 2026-11-07T15:04:30.092Z). The 15:07 edit introduced no content not already recorded here and in `DECISIONS.md` (Parked Entire line, T05 proposals, team note, Demo data quotes); the page was already organised and was not changed by this run.
+Fill this in when the challenge is announced. Keep `unknown` wherever the organisers have not said. Harrison's own shortlist of sponsor challenges is kept in the Notion page "hacktheburgh" (https://app.notion.com/p/hacktheburgh-411b2fb4d76580188ba4e5d313f4861a); re-read it before updating this file. Last read: 7 November 2026 15:28 UTC, latest page_last_edited_at of the page and its child page 2026-11-07T15:27:42.059Z (child page "Claude's notes and sources", https://app.notion.com/p/411b2fb4d7658139a9c9d6bb4d6edc0b). Harrison made no new edit since 15:07; the 15:27 edits are the keeper's own chat sync (Demo data quotes, Analysis tool, Build status, two open questions on catalogue prices and branding).
 
 | Item | Detail |
 | --- | --- |
@@ -9,7 +9,7 @@ Fill this in when the challenge is announced. Keep `unknown` wherever the organi
 | Final submission deadline | unknown |
 | Theme or tracks | Sponsor challenges, as shortlisted in Harrison's Notion page "hacktheburgh" (read 7 November 2026): ruled out Instanlily (spelling as written; unclear), JetBrains, Viridien; broad HRT (making decisions based on data), G-Research (making hidden data visible), Wordsmith (end-to-end browser based); narrow Bank of Scotland; parked: Entire (agent-human Git forge challenge), parked by Harrison, 7 November 2026. Official track list and wording unknown |
 | Track or challenge chosen | "Smart Cost of Living: Build boldly. Solve something real." (challenge slide supplied by Harrison, 7 November 2026) |
-| Team | Harrison F. Squires; Auro (front end, per Harrison, 7 November 2026); others unknown |
+| Team | Harrison F. Squires; Auro (front end, T10, per Harrison, 7 November 2026); others unknown |
 | Team size limit | unknown |
 | Rules on pre-written code and libraries | unknown |
 | Rules on AI tools | unknown |
@@ -44,3 +44,7 @@ Proposed by Claude, 7 November 2026; verdicts are Harrison's to make.
 ## Submission checklist
 
 Requirements will be added once known. A typical set is: code pushed to the required repository, `USER_GUIDE.md` lets a judge run it, demo recorded or rehearsed, submission form completed before the deadline.
+
+## Open items (chat sync, 7 November 2026)
+
+Harrison asked for 100 statements from 100 personas from anywhere (done: T05c, 34 with BNPL plans) and an analysis tool for affordability, a better price elsewhere and sale prediction. Agent answer (not a decision): affordability is answerable from the statement; a better price needs a small demo catalogue; sale prediction needs paid price history, so a sales-calendar note (Black Friday, 27 November 2026) in guidance-not-advice wording is proposed. Status: T07 back end in progress (front end calls POST /assess); T05b in progress. Open for Harrison: synthetic or real catalogue prices; Bank of Scotland/Lloyds branding or the house palette.

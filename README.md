@@ -28,3 +28,4 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-07 (Claude): Merged T05 (mock bank-statement generator, `mock_statements.py`; outputs in `Analysis/mock_statements/`) into `main` on Harrison's instruction; self-check passes on `main`. Wrote `USER_GUIDE.md` for it. Known data issues (spending not scaled to income, tenure mix, rest-of-UK tax bands) carried to T05b.
 - 2026-11-07 (Claude): Merged T05c on Harrison's request: the generator now writes 100 statements from 100 UK personas in all 12 regions (`--n`, default 100), with regional ONS spending; self-check passes on `main`. Updated `USER_GUIDE.md`.
 - 2026-11-07 (Claude): Recorded that Auro is working on the front end (T10).
+- 2026-11-07 (notion-keeper, Claude): Batched chat sync: recorded Harrison's requests (100 personas, analysis tool, Auro on front end), build status and two open questions on the Notion page and its child page; `BRIEF.md` updated.
