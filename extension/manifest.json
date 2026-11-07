@@ -32,6 +32,7 @@
       "js": [
         "src/config.js",
         "src/log.js",
+        "src/persona.js",
         "src/mock.js",
         "src/detect.js",
         "src/api.js",

@@ -132,6 +132,7 @@
     show("loading");
     $("who").hidden = false;
     $("who-email").textContent = email || "Demo account";
+    $("demo-fill").hidden = configured;
     try {
       account = await request("GET");
       fill(account);
@@ -145,6 +146,7 @@
 
   function showLanding() {
     $("who").hidden = true;
+    $("demo-fill").hidden = true;
     $("sign-in").hidden = !configured;
     $("try-demo").hidden = configured;
     show("landing");
@@ -154,6 +156,13 @@
 
   $("sign-in").addEventListener("click", () => auth0Client.loginWithRedirect());
   $("try-demo").addEventListener("click", () => showApp(null));
+  // Demo mode: fill the form with the made-up shopper from persona.js (not saved until Save is clicked).
+  $("demo-fill").addEventListener("click", () => {
+    const p = window.ST?.persona;
+    if (!p) return;
+    fill({ profile: p.profile, payment: p.payment, budget: p.budget });
+    status(`Filled in ${p.name}'s details. Click Save to keep them.`, "ok");
+  });
   $("sign-out").addEventListener("click", () => {
     if (!configured) return showLanding();
     auth0Client.logout({ logoutParams: { returnTo: location.origin } });

@@ -41,6 +41,17 @@
     #log-list .event { font-weight: 600; }
     #log-list .error .event { color: #dc2626; }
     #log-list .data { white-space: pre-wrap; word-break: break-word; color: var(--muted); margin-top: 2px; }
+    .money-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+    .stat { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+    .stat .k { font-size: 12px; color: var(--muted); }
+    .stat b { font-size: 18px; letter-spacing: -.01em; }
+    .money-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+    .money-cols h3 { font-size: 13px; margin: 0 0 4px; }
+    ul.plain { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+    ul.plain li { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-top: 1px solid var(--line); }
+    ul.plain .muted { color: var(--muted); }
+    ul.plain .in { color: #16a34a; }
+    @media (max-width: 560px) { .money-grid, .money-cols { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -56,6 +67,29 @@
         <button id="acct-sync" hidden>Sync now</button>
         <button id="acct-sign-out" hidden>Sign out</button>
         <a id="acct-site" href="#" target="_blank" rel="noopener" hidden>Edit details on your account page</a>
+      </div>
+    </section>
+
+    <section id="demo">
+      <h2>Demo shopper</h2>
+      <p class="hint" id="demo-text">
+        For demos: fill everything below with a made-up shopper, plus a bank picture (balance, bills, payday) that the
+        verdict uses to say what's safe to spend. Nothing here is real.
+      </p>
+      <div class="bar">
+        <button class="primary" id="demo-use">Use demo details</button>
+        <button id="demo-clear" hidden>Remove bank picture</button>
+      </div>
+      <div id="money" hidden>
+        <div class="money-grid">
+          <div class="stat"><span class="k">Balance</span><b id="m-balance"></b></div>
+          <div class="stat"><span class="k">Safe to spend</span><b id="m-safe"></b><span class="k" id="m-safe-sub"></span></div>
+          <div class="stat"><span class="k">Savings</span><b id="m-savings"></b><span class="k" id="m-savings-sub"></span></div>
+        </div>
+        <div class="money-cols">
+          <div><h3>Due before payday</h3><ul id="m-bills" class="plain"></ul></div>
+          <div><h3>Recent</h3><ul id="m-recent" class="plain"></ul></div>
+        </div>
       </div>
     </section>
 
@@ -135,6 +169,7 @@
     </section>
   </main>
   <script src="src/config.js"></script>
+  <script src="src/persona.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

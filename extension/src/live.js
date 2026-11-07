@@ -99,12 +99,18 @@ Keep the tone friendly and short. Format money for display in the shopper's curr
       settings.budget > 0
         ? `Monthly shopping budget: ${settings.budget} ${p.currency}. Already spent this month: ${settings.spent || 0} ${p.currency}.`
         : "No budget information.";
+    // Bank picture (persona.js, or a bank connection): lets the message say "with rent due in 6 days".
+    const b = settings.money && ST.persona ? ST.persona.safeToSpend(settings.money) : null;
+    const bank = b
+      ? `Bank: current balance ${b.balance} ${b.currency}. Bills due before the next payday: ${b.upcoming.map((u) => `${u.name} ${u.amount} in ${u.inDays} days`).join(", ") || "none"} (total ${b.committed}). Safe to spend before payday: ${b.safe} ${b.currency}.${b.payday ? ` Next income: ${b.payday.name} ${b.payday.amount} in ${b.payday.inDays} days.` : ""}${settings.money.savings ? ` Savings: ${settings.money.savings.balance} towards ${settings.money.savings.goalName || "a goal"} (${settings.money.savings.goal}).` : ""} If the total is more than what's safe to spend, the verdict is "reconsider" even if it fits the shopping budget; mention the bill that makes it tight.`
+      : "";
     return [
       `Today is ${new Date().toDateString()}.`,
       `Store: ${p.merchant} (${p.url})`,
       `Checkout total: ${p.total ?? "unknown"} ${p.currency}`,
       `Items found on the page: ${JSON.stringify(p.items)}`,
       budget,
+      bank,
       `Checkout page text (may include the items if the list above is empty):\n${p.pageText}`,
     ].join("\n");
   }

@@ -334,19 +334,23 @@
     if (pausedOnce || !lastResult?.budgetInfo || lastPayload?.total == null || !ST.detect.isCheckout()) return;
     const el = e.type === "submit" ? e.submitter || e.target.querySelector?.('[type="submit"]') : ST.stages.clickable(e.target);
     if (!ST.stages.isPlaceOrder(el)) return;
-    const { left } = lastResult.budgetInfo;
+    const { left, safe, payday } = lastResult.budgetInfo;
     const total = lastPayload.total;
-    if (total <= left) return;
+    // The tighter of the two limits: the shopping budget, or (with a bank picture) what's safe before payday.
+    const bankBound = safe != null && safe < left;
+    const limit = bankBound ? safe : left;
+    if (total <= limit) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     pausedOnce = true;
     const cur = lastPayload.currency;
     const alt = lastResult.alternatives?.[0];
-    ST.log("place order: paused once, over budget", { total, left, button: ST.stages.labelOf(el) });
+    ST.log("place order: paused once, over budget", { total, left, safe, button: ST.stages.labelOf(el) });
     overlay.showOverBudget({
-      overBy: money(total - left, cur),
-      left: money(Math.max(left, 0), cur),
+      overBy: money(total - limit, cur),
+      left: money(Math.max(limit, 0), cur),
       total: money(total, cur),
+      leftLabel: bankBound ? `safe to spend before payday${payday ? ` (in ${payday.inDays} days)` : ""}` : "left this month",
       alt,
       onStop: () => {
         reportAction({ id: "not_now" });

@@ -1,6 +1,6 @@
-importScripts("config.js", "log.js", "mock.js", "live.js", "handoff.js", "prepare.js", "precheck.js", "account.js");
+importScripts("config.js", "log.js", "persona.js", "mock.js", "live.js", "handoff.js", "prepare.js", "precheck.js", "account.js");
 
-const getSettings = () => chrome.storage.local.get(["apiKey", "model", "budget", "spent"]);
+const getSettings = () => chrome.storage.local.get(["apiKey", "model", "budget", "spent", "money"]);
 
 async function post(path, body) {
   const res = await fetch(`${ST.config.BACKEND_URL}${path}`, {

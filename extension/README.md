@@ -41,7 +41,25 @@ Closing the panel keeps it quiet on that store for the rest of the session (the 
 Earlier checks are kept for 30 minutes in `chrome.storage.session`.
 
 **Demo journey:** open `demo/product.html` → Add to basket → basket pill → Proceed to checkout (instant verdict) →
-Place order (over-budget pause). The demo uses a sample budget of £400 with £240 spent (`MOCK_BUDGET` in `config.js`).
+Place order (over-budget pause). The demo pages use the demo shopper below; `MOCK_BUDGET` in `config.js` can override
+the budget part.
+
+## Demo shopper (`src/persona.js`)
+
+A made-up shopper for demo videos on real sites: **Jamie Ferguson**, a student in Marchmont, Edinburgh, with delivery
+details, a preferred card (nickname + last 4 only), a £250 shopping budget with £138 spent, and a bank picture:
+£312.40 in the current account, rent / gym / phone / Spotify / electricity on fixed days, café wages on the 25th,
+£850 saved towards Interrail. Nothing is real (the phone number is Ofcom's reserved range, the email is example.com).
+
+**Options → Demo shopper → Use demo details** writes it into the same storage keys a real account sync fills
+(`profile`, `budget`, `spent`, `paymentPreference`) plus `money`, and shows the balance, what's safe to spend before
+payday, upcoming bills and recent transactions. **Remove bank picture** goes back to budget-only verdicts.
+
+With `money` saved, the verdict (`precheck.js`, and the prompt in `live.js`) also checks **safe to spend** = balance
+minus bills due before the next payday: a total above it is `reconsider` ("This could leave you short… rent due in
+6 days") even when it fits the shopping budget, and the Place-order pause uses the tighter of the two limits. Two
+extra insights appear: "Safe to spend until payday" and the next bill. The account page's demo mode has a matching
+"Fill in the demo shopper's details" link (`web/public/persona.js` is a copy of the same file).
 
 ## Real results now (before the backend exists)
 

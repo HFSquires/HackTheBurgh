@@ -426,7 +426,7 @@ globalThis.ST = globalThis.ST || {};
     }
 
     // "Place order" clicked while over budget: one pause. The safe choice is the main button; buying is still one click.
-    showOverBudget({ overBy, left, total, alt, onStop, onBuyAnyway, onSwitch }) {
+    showOverBudget({ overBy, left, total, leftLabel = "left this month", alt, onStop, onBuyAnyway, onSwitch }) {
       this.mount();
       clearInterval(this.stepTimer);
       clearTimeout(this.quietTimer);
@@ -438,7 +438,7 @@ globalThis.ST = globalThis.ST || {};
             h("div", { class: "head-text" }, h("span", { class: "badge", text: "Over budget" })),
             this.closeButton()),
           h("div", { class: "title" }, "This puts you ", h("span", { class: "over-amount", text: overBy }), " over budget"),
-          h("p", { class: "msg", text: `It costs ${total} and you have ${left} left this month.${alt ? ` It's ${alt.priceText} at ${alt.merchant}.` : ""}` }),
+          h("p", { class: "msg", text: `It costs ${total} and you have ${left} ${leftLabel}.${alt ? ` It's ${alt.priceText} at ${alt.merchant}.` : ""}` }),
           h("div", { class: "actions" },
             h("button", { class: "btn primary", text: "Not now", onclick: onStop }),
             alt && h("button", { class: "btn secondary", text: `Buy at ${alt.merchant} instead`, onclick: onSwitch }),

@@ -78,24 +78,43 @@ globalThis.ST = globalThis.ST || {};
     try { return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(n); } catch { return n.toFixed(2); }
   };
 
+  // Bank picture, if one is saved (persona.js or a future bank connection): what's safe to spend before payday.
+  const bank = (settings) => (settings?.money && ST.persona ? ST.persona.safeToSpend(settings.money) : null);
+  const inDays = (n) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
+
   // The budget verdict, worked out here from the saved budget (no AI needed): fits / tight / over / no budget.
+  // With a bank picture, "over" also means it would eat into money needed for bills due before payday.
   function budgetVerdict(total, currency, settings) {
     const budget = Number(settings?.budget) || 0;
     if (!(budget > 0) || total == null) {
       return { verdict: "neutral", title: "Here's how this price compares", message: "Add a monthly budget in settings and we'll also tell you whether this fits your plan.", insights: [] };
     }
     const left = budget - (Number(settings.spent) || 0);
+    const b = bank(settings);
     const insights = [
       { label: "Budget left this month", value: money(Math.max(left, 0), currency) },
       { label: "After this", value: money(left - total, currency) },
     ];
+    if (b) {
+      insights.push({ label: b.payday ? `Safe to spend until ${b.payday.name.toLowerCase().includes("wage") ? "payday" : b.payday.name.toLowerCase()}` : "Safe to spend", value: money(Math.max(b.safe, 0), currency) });
+      if (b.nextBill) insights.push({ label: `${b.nextBill.name} due`, value: `${inDays(b.nextBill.inDays)} · ${money(b.nextBill.amount, currency)}` });
+    }
+    if (b && total > b.safe) {
+      const bills = b.upcoming.map((u) => u.name.toLowerCase()).slice(0, 3).join(", ");
+      return {
+        verdict: "reconsider",
+        title: "This could leave you short",
+        message: `After ${bills ? `${bills} ` : ""}due before payday${b.payday ? ` (${inDays(b.payday.inDays)})` : ""}, you have ${money(Math.max(b.safe, 0), currency)} to spend. This is ${money(total, currency)}.`,
+        insights,
+      };
+    }
     if (total > left) {
       return { verdict: "reconsider", title: "This would put you over budget", message: `It's ${money(total, currency)} and you have ${money(Math.max(left, 0), currency)} left this month.`, insights };
     }
     if (total > 0.6 * left) {
-      return { verdict: "caution", title: "Worth a pause", message: `This uses most of the ${money(left, currency)} you have left this month.`, insights };
+      return { verdict: "caution", title: "Worth a pause", message: `This uses most of the ${money(left, currency)} you have left this month${b?.nextBill ? `, with ${b.nextBill.name.toLowerCase()} due ${inDays(b.nextBill.inDays)}` : ""}.`, insights };
     }
-    return { verdict: "good", title: "This fits your budget", message: `You'll still have ${money(left - total, currency)} left this month.`, insights };
+    return { verdict: "good", title: "This fits your budget", message: `You'll still have ${money(left - total, currency)} left this month${b ? ` and ${money(b.safe - total, currency)} safe to spend before payday` : ""}.`, insights };
   }
 
   // Turn an earlier price check into the checkout answer: keep its alternatives and outlook, redo the budget part
@@ -110,9 +129,13 @@ globalThis.ST = globalThis.ST || {};
   }
 
   // Money left this month, attached to every answer so the page can say "£X over budget" at Place order.
+  // `safe` (bank picture) is what's left before payday after upcoming bills; the pause uses the lower of the two.
   function budgetInfo(settings) {
     const budget = Number(settings?.budget) || 0;
-    return budget > 0 ? { budget, spent: Number(settings.spent) || 0, left: budget - (Number(settings.spent) || 0) } : null;
+    if (!(budget > 0)) return null;
+    const left = budget - (Number(settings.spent) || 0);
+    const b = bank(settings);
+    return { budget, spent: Number(settings.spent) || 0, left, safe: b ? b.safe : null, payday: b?.payday ? { name: b.payday.name, inDays: b.payday.inDays } : null };
   }
 
   ST.precheck = { run, find, forCheckout, budgetVerdict, budgetInfo, baseDomain };

@@ -18,6 +18,55 @@ function loadFields() {
 }
 loadFields();
 
+// ---------- Demo shopper (persona.js): fills the form and saves a bank picture ----------
+
+const money = (n, currency = "GBP") => {
+  try { return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(n); } catch { return String(n); }
+};
+const inDays = (n) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
+const row = (left, right, cls = "") => {
+  const li = document.createElement("li");
+  const a = document.createElement("span");
+  a.textContent = left;
+  const b = document.createElement("span");
+  b.textContent = right;
+  if (cls) b.className = cls;
+  li.append(a, b);
+  return li;
+};
+
+async function renderMoney() {
+  const { money: m } = await chrome.storage.local.get("money");
+  $("money").hidden = !m;
+  $("demo-clear").hidden = !m;
+  if (!m) return;
+  const b = ST.persona.safeToSpend(m);
+  const cur = m.currency || "GBP";
+  $("m-balance").textContent = money(b.balance, cur);
+  $("m-safe").textContent = money(b.safe, cur);
+  $("m-safe-sub").textContent = b.payday ? `until ${b.payday.name.toLowerCase()} ${inDays(b.payday.inDays)}` : "";
+  $("m-savings").textContent = m.savings ? money(m.savings.balance, cur) : "–";
+  $("m-savings-sub").textContent = m.savings?.goal ? `of ${money(m.savings.goal, cur)} for ${m.savings.goalName || "a goal"}` : "";
+  $("m-bills").replaceChildren(...b.upcoming.map((u) => row(`${u.name} · ${inDays(u.inDays)}`, money(u.amount, cur))));
+  if (!b.upcoming.length) $("m-bills").append(row("Nothing due before payday", ""));
+  $("m-recent").replaceChildren(
+    ...(m.recent || []).slice(0, 6).map((t) => row(`${t.merchant}`, t.amount < 0 ? `+${money(-t.amount, cur)}` : money(t.amount, cur), t.amount < 0 ? "in" : "muted"))
+  );
+}
+
+$("demo-use").addEventListener("click", async () => {
+  await chrome.storage.local.set(ST.persona.settings());
+  await loadFields();
+  await renderMoney();
+  status(`Using ${ST.persona.name}'s details. Open a checkout to see the verdict.`, "ok");
+});
+$("demo-clear").addEventListener("click", async () => {
+  await chrome.storage.local.remove("money");
+  await renderMoney();
+  status("Bank picture removed. The verdict now uses the budget only.", "ok");
+});
+renderMoney();
+
 // ---------- Account (Auth0 sign-in, synced from the account page) ----------
 
 const sendAccount = async (type) => {

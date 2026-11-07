@@ -14,8 +14,9 @@ globalThis.ST = globalThis.ST || {};
     return res.data;
   }
 
-  // Demo page (no extension): the same staged behaviour, with the mock and a sample budget.
-  const demoSettings = () => ST.config.MOCK_BUDGET || {};
+  // Demo page (no extension): the same staged behaviour, with the mock and the demo shopper's budget and bank
+  // picture (persona.js). MOCK_BUDGET in config.js overrides the budget part.
+  const demoSettings = () => ({ ...(ST.persona ? ST.persona.settings() : {}), ...(ST.config.MOCK_BUDGET || {}) });
   async function demoAnalyze(payload) {
     const earlier = !ST.config.MOCK_SCENARIO && (await ST.precheck.find(payload));
     const result = earlier ? ST.precheck.forCheckout(earlier.result, payload, demoSettings()) : await ST.mock.analyze(payload);
