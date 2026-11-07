@@ -618,6 +618,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send(404, dict(error=f"Unknown path {self.path}; use /health, /personas or POST /assess."))
 
     def do_POST(self):
+        if self.path in ("/analyze", "/action"):  # T26: the extension's own contract, in extension_api.py
+            import extension_api
+            return extension_api.handle(self)
         if self.path != "/assess":
             return self.send(404, dict(error="Unknown path; POST /assess."))
         if self.headers.get_content_type() != "application/json":  # also makes browsers send a CORS preflight
