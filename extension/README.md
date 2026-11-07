@@ -54,6 +54,25 @@ Earlier checks are kept for 30 minutes in `chrome.storage.session`.
 Place order (over-budget pause). The demo pages use the demo shopper below; `MOCK_BUDGET` in `config.js` can override
 the budget part.
 
+## Affordability model (`model.py` on `main`)
+
+The budget decision comes from the team's affordability model when it's running: it reads the customer's accounts
+through the mock bank, which serves them in the **UK Open Banking Read/Write API v3.1** account-information format, and
+forecasts whether the purchase keeps them on their net-worth goal this month (`POST /decide`). Its verdict replaces the
+saved-budget one at Add to basket and at checkout, and the Place order pause uses its "spare this month" figure. When
+it's off or unreachable, the saved budget is used and the activity log says so.
+
+On a checkout of `main` (standard library only):
+
+```bash
+python3 -X utf8 mock_bank.py --serve --source v2   # mock Open Banking bank on 8766
+python3 -X utf8 model.py --serve                   # affordability model on 8765
+```
+
+`MODEL` in `src/config.js` sets the model URL, the bank URL and which synthetic customer to read (default
+`persona001`: 62, North East, £2,414 a month after tax, rent £692; up to about £283 fits, £283 to £525 is tight, above
+£525 it says "You can't afford this right now"). `url: ""` turns it off.
+
 ## Demo shopper (`src/persona.js`)
 
 A made-up shopper for demo videos on real sites: **Jamie Ferguson**, a student in Marchmont, Edinburgh, with delivery
@@ -96,9 +115,12 @@ Clicking **Go to checkout at …** shows "Preparing your checkout", while the ba
 | Store | Route | Lands on |
 | --- | --- | --- |
 | Shopify | `/products/<handle>.js` → `/cart/<variantId>:1` (only when the exact variant is known) | Checkout, item in basket |
-| Amazon | ASIN from the URL → `/gp/aws/cart/add.html?ASIN.1=…` | Add-to-basket page |
+| Amazon (left out for now, see below) | ASIN from the URL → `/gp/aws/cart/add.html?ASIN.1=…` | Add-to-basket page |
 | WooCommerce | `add-to-cart` id from the page → `/checkout/?add-to-cart=<id>` | Checkout, item in basket |
 | Anything else | Product page; the extension clicks "Add to basket" → "Checkout" | Checkout |
+
+Amazon is left out of "cheaper elsewhere" for now: `EXCLUDED_STORES` in `src/config.js` keeps it out of the AI's search
+and filters it from any answer (AI, mock or backend) and from the toolbar badge. Remove it there to bring it back.
 
 Before preparing, if the alternative isn't the exact item (`match` is `different_variant` or `similar_item`), the
 panel says what differs ("Moss green, not Forest") and asks to continue. Basket links use the shopper's variant and

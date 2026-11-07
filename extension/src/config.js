@@ -34,9 +34,25 @@ ST.config = {
     auth0ClientId: "",
   },
 
+  // Stores never suggested as "cheaper elsewhere" (matched against the store's name and web address). Amazon is
+  // left out for now; remove it here to bring it back (its basket links still work, see prepare.js).
+  EXCLUDED_STORES: ["amazon"],
+
+  // The team's affordability model (model.py on main, `--serve`, POST /decide), reading the customer's accounts
+  // through the mock Open Banking bank (`mock_bank.py --serve --source v2`). When it answers, its verdict replaces the
+  // saved-budget one; when it's off or unreachable, the saved budget is used. url "" = never ask it.
+  MODEL: { url: "http://127.0.0.1:8765", bankUrl: "http://127.0.0.1:8766", persona: "persona001" },
+
   // Demo page only: overrides the demo shopper's budget from persona.js (e.g. { budget: 400, spent: 240 }).
   // Null = use the persona's budget, balance and bills as they are.
   MOCK_BUDGET: null,
+};
+
+// A suggested store that's in EXCLUDED_STORES, by name or web address.
+ST.excludedStore = (alt) => {
+  let host = "";
+  try { host = new URL(alt.url).hostname; } catch {}
+  return (ST.config.EXCLUDED_STORES || []).some((s) => `${alt.merchant} ${host}`.toLowerCase().includes(s.toLowerCase()));
 };
 
 // OpenAI-compatible API to call for a given key. University of Edinburgh ELM keys ("elm-…") go through the

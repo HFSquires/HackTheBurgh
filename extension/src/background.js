@@ -51,7 +51,7 @@ async function analyze(payload) {
   } else {
     result = await checkBoth(payload);
   }
-  return { ...result, budgetInfo: ST.precheck.budgetInfo(settings) };
+  return ST.precheck.withBudget(result, payload, settings);
 }
 
 // Silent price check when something goes in the basket (or the basket page is opened): no UI, just remembered,
@@ -64,7 +64,7 @@ async function precheck(payload, sender) {
     items: payload.items.map((i) => i.name),
     cheaper: (result.alternatives || []).map((a) => `${a.merchant} ${a.price}`),
   });
-  const best = Math.max(0, ...(result.alternatives || []).map((a) => payload.total - Number(a.price)).filter(Number.isFinite));
+  const best = Math.max(0, ...(result.alternatives || []).filter((a) => !ST.excludedStore(a)).map((a) => payload.total - Number(a.price)).filter(Number.isFinite));
   const tabId = sender?.tab?.id;
   if (tabId != null && best >= 1) {
     const sym = { GBP: "£", USD: "$", EUR: "€" }[payload.currency] || "";
@@ -72,7 +72,7 @@ async function precheck(payload, sender) {
     chrome.action.setBadgeText({ tabId, text: `-${sym}${Math.round(best)}` }).catch(() => {});
     chrome.action.setTitle({ tabId, title: `Cheaper elsewhere: save about ${sym}${best.toFixed(2)}` }).catch(() => {});
   }
-  return { ...result, budgetInfo: ST.precheck.budgetInfo(await getSettings()) };
+  return ST.precheck.withBudget(result, payload, await getSettings());
 }
 const outlook = (payload) => cached("outlook", payload, outlookFresh);
 

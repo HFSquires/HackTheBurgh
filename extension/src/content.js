@@ -39,6 +39,7 @@
   function normalizeAlternatives(list, payload) {
     return (Array.isArray(list) ? list : [])
       .filter((a) => a && a.merchant && isWebUrl(a.url) && Number.isFinite(Number(a.price)))
+      .filter((a) => !ST.excludedStore(a)) // left out for now, whoever suggested it (AI, mock or backend)
       .map((a) => {
         const price = Number(a.price);
         const currency = a.currency || payload?.currency || "GBP";
@@ -355,7 +356,7 @@
       overBy: money(total - limit, cur),
       left: money(Math.max(limit, 0), cur),
       total: money(total, cur),
-      leftLabel: bankBound ? `safe to spend before payday${payday ? ` (in ${payday.inDays} days)` : ""}` : "left this month",
+      leftLabel: lastResult.budgetInfo.leftLabel || (bankBound ? `safe to spend before payday${payday ? ` (in ${payday.inDays} days)` : ""}` : "left this month"),
       alt,
       onStop: () => {
         reportAction({ id: "not_now" });

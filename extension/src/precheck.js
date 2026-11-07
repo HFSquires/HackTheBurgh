@@ -138,5 +138,58 @@ globalThis.ST = globalThis.ST || {};
     return { budget, spent: Number(settings.spent) || 0, left, safe: b ? b.safe : null, payday: b?.payday ? { name: b.payday.name, inDays: b.payday.inDays } : null };
   }
 
-  ST.precheck = { run, find, forCheckout, budgetVerdict, budgetInfo, baseDomain };
+  // The affordability model: will this purchase keep the customer on their net-worth goal this month, judged from
+  // their accounts read through Open Banking. Null when it's not configured, not running, or has too little history.
+  async function modelVerdict(total, currency) {
+    const m = ST.config.MODEL || {};
+    if (!m.url || !(total > 0) || (currency && currency !== "GBP")) return null;
+    try {
+      const res = await fetch(`${m.url.replace(/\/$/, "")}/decide`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bank: { baseUrl: m.bankUrl, persona: m.persona }, price: Math.round(total * 100) / 100 }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+      ST.log("affordability model: answer", { price: d.price, verdict: d.verdict, headroom: d.netWorth?.headroom, daysToAfford: d.daysToAfford });
+      if (!["good", "caution", "reconsider"].includes(d.verdict)) return null;
+      const nw = d.netWorth;
+      const month = new Date(`${d.month}-01T12:00:00`).toLocaleDateString("en-GB", { month: "long" });
+      const payday = d.income?.nextPayday ? Math.max(0, Math.round((new Date(`${d.income.nextPayday}T12:00:00`) - new Date(`${d.today}T12:00:00`)) / 86400000)) : null;
+      const spare = Math.max(nw.surplusWithout, 0);
+      const text = {
+        good: ["Fits your savings goal", `You'd still end ${month} ${money(nw.headroom)} ahead of your goal.`],
+        caution: ["Tight against your goal", `You'd end ${month} only ${money(nw.headroom)} ahead of your goal.`],
+        reconsider: [
+          "You can't afford this right now",
+          `It would leave you ${money(-nw.headroom)} short of your savings goal this ${month}.` +
+            (d.daysToAfford ? ` Wait about ${d.daysToAfford} days and it fits.` : " It won't fit within the next 3 months."),
+        ],
+      }[d.verdict];
+      return {
+        verdict: d.verdict,
+        title: text[0],
+        message: text[1],
+        insights: [
+          { label: `Spare in ${month}`, value: money(spare) },
+          payday != null && { label: "Next payday", value: payday === 0 ? "today" : `in ${payday} days` },
+        ].filter(Boolean),
+        budgetInfo: { budget: d.income?.salary || 0, spent: 0, left: spare, safe: null, payday: null, leftLabel: `spare in ${month} before you miss your savings goal`, fromModel: true },
+      };
+    } catch (e) {
+      ST.log.error("affordability model: not reachable, using the saved budget", e.message);
+      return null;
+    }
+  }
+
+  // The budget part of an answer: the model's verdict when it answers, else the saved budget's numbers.
+  async function withBudget(result, payload, settings) {
+    const m = await modelVerdict(payload.total, payload.currency);
+    if (!m) return { ...result, budgetInfo: budgetInfo(settings) };
+    const { budgetInfo: info, ...verdict } = m;
+    return { ...result, ...verdict, budgetInfo: info };
+  }
+
+  ST.precheck = { run, find, forCheckout, budgetVerdict, budgetInfo, withBudget, baseDomain };
 })();

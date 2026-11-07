@@ -26,7 +26,7 @@ globalThis.ST = globalThis.ST || {};
     const earlier = !ST.config.MOCK_SCENARIO && (await ST.precheck.find(payload));
     const result = earlier ? ST.precheck.forCheckout(earlier.result, payload, demoSettings()) : await demoBoth(payload);
     if (earlier) ST.log("analyse: reused the price check from earlier", { stage: earlier.stage });
-    return { ...result, budgetInfo: ST.precheck.budgetInfo(demoSettings()) };
+    return ST.precheck.withBudget(result, payload, demoSettings());
   }
 
   ST.api = {
@@ -35,7 +35,7 @@ globalThis.ST = globalThis.ST || {};
     precheck: async (payload) => {
       if (inExtension()) return call("ST_PRECHECK", payload);
       const { result } = await ST.precheck.run(payload, demoBoth);
-      return { ...result, budgetInfo: ST.precheck.budgetInfo(demoSettings()) };
+      return ST.precheck.withBudget(result, payload, demoSettings());
     },
     // "Likely cheaper soon?": a separate, slower call started alongside analyze().
     outlook: (payload) => (inExtension() ? call("ST_OUTLOOK", payload) : ST.mock.outlook(payload)),
