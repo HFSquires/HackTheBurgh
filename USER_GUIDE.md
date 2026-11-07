@@ -1,6 +1,6 @@
 # User guide
 
-Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c) the back end (`affordability.py`, task T07) the affordability figures (`affordability_figures.py`, task T07b) the spending-forecast backtest (`forecast.py`, task T12) and the market data (`market_data.py`, task T14). The browser extension front end is being built by Auro (T10) and is not yet in the repository.
+Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c) the back end (`affordability.py`, task T07) the affordability figures (`affordability_figures.py`, task T07b) the spending-forecast backtest (`forecast.py`, task T12) the market data (`market_data.py`, task T14) and the Bayesian spending model (`bayes.py`, task T17). The browser extension front end is being built by Auro (T10) and is not yet in the repository.
 
 ## Purpose
 
@@ -97,4 +97,17 @@ Limitation: the mock statements have independent monthly noise and no persistent
 ```
 
 Limitations: the data are a snapshot (to September 2026); to update, re-download the CSVs from the ONS URLs in `data/README.md` (ONS rate-limits repeated requests) and rerun. The retail index base year is not stated in the file. The years used (2021 to 2025) are fixed in `YEARS`. The bar chart's y axis starts at 80, which exaggerates the seasonal rise visually.
+
+## Bayesian spending model
+
+`bayes.py` (task T17) models each persona's daily discretionary card spending (defined as in `affordability.card_spend`) as a share of a monthly budget, with a Normal-Inverse-Gamma prior from a population regression on net pay. It updates exactly after each day and gives a Student-t predictive for spending over any future days. `shortfall_probability(tx, price, today=None, payday=None, pay_in_3=False)` returns the probability that the balance falls below zero before payday after a purchase paid in full or by pay-in-3, with the cushion and the predicted spending. Its default prior is fitted on all 100 mock statements.
+
+```
+.venv\Scripts\python -X utf8 bayes.py           # October backtest: writes Analysis/bayes and Figures/bayes (about 25 s)
+.venv\Scripts\python -X utf8 bayes.py --check   # asserts only; writes nothing
+```
+
+The check asserts that daily updates equal the batch posterior, that 80% intervals cover about 80% on data simulated from the model (seed 20261107), that the shortfall probability does not decrease with price, and that corrupting October changes no fitted quantity. Outputs: `Analysis/bayes/` (`intervals_october.csv`, `shortfall_october.csv`, `bayes_summary.md`) and `Figures/bayes/` (`calibration`, `cold_start`: PDF, SVG and `.md`). Needs scipy, matplotlib, the `texformat.pth` link and MiKTeX.
+
+Limitations: Gaussian days ignore skew, so intervals over a few days are rough. The model works in calendar months, not pay cycles. The intra-month correlation parameter φ (about 0.02 here) is plugged in without its own uncertainty and reflects the generator's fixed monthly totals; real data would give a larger φ. The prior uses net pay only. A statement with no detected salary raises an error. The shortfall test has few intermediate probabilities, so it is uninformative on these data.
 
