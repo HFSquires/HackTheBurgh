@@ -8,9 +8,9 @@ Last month and mean Aug-Sep as for discretionary spending; the third row is Sept
 
 | Forecast | n | MAE [GBP] (± SE) | RMSE [GBP] (± SE) | MAPE [%] (± SE) |
 |---|---|---|---|---|
-| Last month (Sep) | 100 | 19.70 ± 1.56 | 25.09 ± 1.88 | 1.29 ± 0.11 |
-| Mean Aug-Sep | 100 | 17.59 ± 1.41 | 22.51 ± 1.73 | 1.16 ± 0.10 |
-| Committed + BNPL schedule + pooled regression | 100 | 17.08 ± 1.49 | 22.64 ± 1.69 | 1.15 ± 0.11 |
+| Last month (Sep) | 100 | 17.71 ± 1.42 | 22.63 ± 1.68 | 1.34 ± 0.12 |
+| Mean Aug-Sep | 100 | 15.14 ± 1.27 | 19.72 ± 1.48 | 1.17 ± 0.11 |
+| Committed + BNPL schedule + pooled regression | 100 | 14.61 ± 1.28 | 19.39 ± 1.50 | 1.13 ± 0.11 |
 
 ## Card spending by merchant group, mean Aug-Sep forecast
 
@@ -24,7 +24,7 @@ Groups come from the merchant names in `mock_statements.MERCH`; TESCO STORES is 
 | health | 100 | 22.30 | 1.15 ± 0.11 | 5.3 ± 0.4 |
 | household goods | 100 | 81.58 | 4.81 ± 0.34 | 6.1 ± 0.4 |
 | miscellaneous | 100 | 104.75 | 5.67 ± 0.44 | 5.5 ± 0.4 |
-| recreation | 100 | 125.95 | 8.81 ± 0.78 | 6.8 ± 0.5 |
+| recreation | 100 | 64.07 | 4.48 ± 0.41 | 6.8 ± 0.5 |
 | restaurants | 100 | 79.57 | 4.79 ± 0.42 | 5.8 ± 0.4 |
 | transport | 100 | 108.38 | 5.92 ± 0.45 | 5.7 ± 0.4 |
 

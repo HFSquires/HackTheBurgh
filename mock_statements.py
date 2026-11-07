@@ -4,7 +4,8 @@ Personas: Nemotron-Personas-UK rows (data/personas_rows_offset*.json), N of them
 Salary:   ONS ASHE Table 14.7a (annual gross pay, 2025 revised), 3-digit SOC 2020 median.
 Spending: ONS Family Spending FYE 2025, workbooks 2 and 3 (each persona's own region, workbook 3), scaled by the gross
           income decile of the persona's salary (workbook 2, Table A4), uprated to September 2026 prices by CPI division
-          (Analysis/market/cpi_uprating_factors.csv, written by market_data.py).
+          (Analysis/market/cpi_uprating_factors.csv, written by market_data.py). Council tax: the UK council-tax share of
+          ONS 13.1 from workbook 1, Table A1.
 Net pay:  2026/27 income tax and employee NI (bands below, from gov.uk).
 Tenure:   English Housing Survey 2024-25 live table FA1201 (England), by age of household reference person.
 Output:   Analysis/mock_statements/<persona>.csv and personas.md.
@@ -48,6 +49,8 @@ F_INC = DATA / "fs_workbook2_by_income_fye2025.xlsx"              # A4 (all hous
 F_EHS = DATA / "ehs_fa1201_age_by_tenure_2024-25.ods"             # sheet "2024-25": percentages within age group
 F_AWE = DATA / "ons_lms_awe_whole_economy_regular_pay_sa_KAI7.csv"  # ONS AWE KAI7, GBP a week, rows "YYYY MON"
 F_REG = DATA / "fs_workbook3_by_region_fye2025.xlsx"              # A33 (categories), A35 (detail), 3-year average
+F_DET = DATA / "fs_workbook1_detailed_fye2025.xlsx"               # A1 (UK detail, FYE 2025): rows below, column 6 GBP/wk
+A1_ROWS = {"13.1": (768, "13.1 Housing: mortgage interest payments, council tax"), "13.1.3": (771, "13.1.3 Council tax, domestic rates")}
 # A33 / A35 columns by region (header rows 6 to 8 are asserted); key = Nemotron `region`, value = (column, ONS header text)
 REGION_COL = {"North East": (6, "north east"), "North West": (7, "north west"),
               "Yorkshire and The Humber": (8, "yorkshire and the humber"), "East Midlands": (9, "east midlands"),
@@ -63,10 +66,11 @@ CAT_A23 = {c: r + 1 for c, r in CAT_A33.items()}
 A23_COLS = {"alone": (10, "1.0", 1), "couple": (11, "2.0", 2),
             "lone_parent": (13, "2.0", 1), "couple_kids": (17, "4.0", 2)}
 # A35 detail rows (any region column), with a label fragment asserted at each row
-A35 = {"maint": (142, "Maintenance"), "water": (144, "relating to the dwelling"), "energy": (146, "Electricity, gas"),
-       "veh_purchase": (210, "Purchase of vehicles"), "tel": (232, "Telephone and telefax services"),
-       "internet": (233, "Internet"), "combined_tel": (234, "Combined telecom"),
-       "sports": (283, "and equipment hire"), "tv": (286, "and TV licences"), "council_tax": (382, "council tax etc.")}
+A35 = {"gross_rent": (137, "4.1.1 Gross rent"), "maint": (142, "Maintenance"), "water": (144, "relating to the dwelling"),
+       "energy": (146, "Electricity, gas"), "veh_purchase": (210, "Purchase of vehicles"),
+       "tel": (232, "Telephone and telefax services"), "internet": (233, "Internet"), "combined_tel": (234, "Combined telecom"),
+       "sports": (283, "and equipment hire"), "tv": (286, "and TV licences"), "pkg_hol": (298, "9.6 Package holidays"),
+       "council_tax": (382, "council tax etc.")}
 # A32 (tenure): housing row 30; columns for owned outright, all social rented (col 10, header "All"), all private rented (col 15, "All")
 A32_ROW = 30
 A32_TENURE = {"Owned outright": 4, "Social rented": 10, "Private rented": 15}
@@ -154,6 +158,11 @@ def load_ons():
     assert a4[A4_BOUND_ROW - 1][0].startswith("Lower boundary") and a4[A4_TOTAL_ROW - 1][0] == "Total expenditure"
     for c, r in CAT_A4.items():
         assert str(c) == str(a4[r - 1][0]), (c, r)
+    a1 = sheet(F_DET, "A1")
+    assert a1[2][0] == "UK, financial year ending 2025" and a1[5][6] == "Average weekly" and a1[8][6] == "holds (£)"
+    for r, frag in A1_ROWS.values():
+        assert label(a1[r - 1]).startswith(frag), (r, label(a1[r - 1]))
+    ons["ct_share"] = num(a1[A1_ROWS["13.1.3"][0] - 1][6]) / num(a1[A1_ROWS["13.1"][0] - 1][6])  # council tax / 13.1, UK
     ons["cpi"] = cpi_factors(ons)
     ons["awe"] = awe_factor()
     return ons
@@ -284,7 +293,7 @@ def spend_model(key, tenure, region, ons, dec):
     col, persons, adults = A23_COLS[key]
     assert ons["a23"][18][col] == persons, "A23 column does not match the household composition"
     rc = REGION_COL[region][0]
-    d = lambda k: num(ons["a35"][A35[k][0] - 1][rc]) or 0.0
+    d = lambda k, col=rc: num(ons["a35"][A35[k][0] - 1][col]) or 0.0  # col=UK for the United Kingdom column
     cat = {}
     for c in range(1, 13):
         sco = num(ons["a33"][CAT_A33[c] - 1][rc])
@@ -300,19 +309,26 @@ def spend_model(key, tenure, region, ons, dec):
     u = ons["cpi"]  # CPI factor by category: every amount below is uprated by its own COICOP division
     f = lambda c: cat[c][1] * dr[c]
     reg = {"energy": (d("energy") + d("water")) * share,
-           # ponytail: ONS 13.1 pools council tax with mortgage interest, averaged over all households in the region
-           "council_tax": d("council_tax") * share,
+           # ponytail: ONS 13.1 pools council tax with mortgage interest (and protection premiums, second-home council tax),
+           # averaged over all households in the region; only its UK council-tax share (A1: 13.1.3 / 13.1, FYE 2025) is kept.
+           # Ceiling: the same share in every region, although mortgage interest weighs more where mortgages are larger
+           # (London, South East); no single-person discount beyond the average. Upgrade: council tax per dwelling by nation
+           # and region (MHCLG, Scottish and Welsh Government, NI domestic rates).
+           "council_tax": d("council_tax") * ons["ct_share"] * share,
            "phone": (d("tel") + d("internet") + d("combined_tel")) * f(8) * share,
            "tv": d("tv") * f(9) * share, "sports": d("sports") * f(9) * share}
     if tenure != "Owned outright":
-        # ponytail: rent = UK net housing cost (A32, category 4) for the tenure less regional maintenance, water and energy;
-        # mixes UK and regional figures. Mortgagors are not modelled: ONS excludes mortgage interest from category 4 and pools
-        # it with council tax in 13.1, so a payment cannot be separated from the regional council-tax figure without inventing one.
-        reg["rent"] = max(0.0, num(ons["a32"][A32_ROW - 1][A32_TENURE[tenure]]) - d("maint") - d("water") - d("energy")) * share
+        # ponytail: rent = UK net housing cost (A32, category 4) for the tenure less UK maintenance, water and energy (A35,
+        # all households), times the region's gross rent over the UK's (A35 4.1.1). Both rent figures average over all
+        # households, so a region's share of renters enters the ratio as well as its rent level (London's ratio 2.16 is
+        # above its private-rent ratio). Upgrade: ONS private rents by region. Mortgagors are not modelled: ONS excludes
+        # mortgage interest from category 4 and pools it with council tax in 13.1, regionally inseparable.
+        reg["rent"] = (max(0.0, num(ons["a32"][A32_ROW - 1][A32_TENURE[tenure]]) - d("maint", UK) - d("water", UK) - d("energy", UK))
+                       * d("gross_rent") / d("gross_rent", UK) * share)
     reg = {k: v * u[REG_CAT[k]] for k, v in reg.items()}
     pool = {c: cat[c][0] * f(c) * share * u[c] for c in range(1, 13)}
     pool[8] = max(0.0, pool[8] - reg["phone"])
-    pool[9] = max(0.0, pool[9] - reg["tv"] - reg["sports"])  # package holidays (9.6) stay excluded: lumpy
+    pool[9] = max(0.0, pool[9] - reg["tv"] - reg["sports"] - d("pkg_hol") * f(9) * share * u[9])  # package holidays (9.6) excluded: lumpy
     pool[7] = max(0.0, pool[7] - d("veh_purchase") * f(7) * share * u[7])  # vehicle purchases (7.1) excluded: lumpy
     pool[12] += pool.pop(10) + pool.pop(8)  # education and leftover communications fold into miscellaneous
     return pool, reg
@@ -458,6 +474,9 @@ def generate(out, n=100):
                  "(vehicle purchase excluded), 9 recreation (package holidays, TV and sports subscriptions removed), 11 restaurants, "
                  "12 miscellaneous (with education and leftover communications). Category 4 housing is replaced by the regular debits "
                  "(rent, energy and water, council tax); maintenance and ONS categories 13 and 14 other than council tax are excluded. "
+                 "Rent is the UK housing cost of the tenure (A32) less UK maintenance, water and energy, times the region's gross "
+                 "rent over the UK's (A35 4.1.1). Council tax is the region's ONS 13.1 (which pools council tax with mortgage "
+                 f"interest) times the UK council-tax share of 13.1, {ons['ct_share']:.4f} (workbook 1, Table A1, 13.1.3 over 13.1). "
                  f"BNPL instalments are paid out of the named category's spending, so totals are unchanged.{NL}{NL}")
         fh.write("| No. | " + " | ".join(keys) + f" | Total |{NL}|---|" + "---|" * (len(keys) + 1) + NL)
         for k, (nm, p, t, g, nt, s, b, rows) in enumerate(summ, 1):
@@ -482,6 +501,12 @@ def check(n=100):
         (p1, r1), (p0, r0) = spend_model(key, ten, reg, ons, 5), spend_model(key, ten, reg, flat, 5)
         assert all(abs(p1[c] - p0[c] * ons["cpi"][c]) < 1e-9 for c in (1, 2, 3, 5, 6, 7, 11)), key
         assert all(abs(r1[k] - r0[k] * ons["cpi"][REG_CAT[k]]) < 1e-9 for k in r1), key
+    # T24: rent follows the region's rent level; council tax is only part of ONS 13.1; package holidays leave pool 9.
+    rent = {r: spend_model("alone", "Private rented", r, ons, 5)[1]["rent"] for r in ("London", "North East")}
+    assert rent["London"] > 1.5 * rent["North East"], rent
+    assert 0.3 < ons["ct_share"] < 0.7, ons["ct_share"]
+    nohol = ons | {"a35": [r if n != A35["pkg_hol"][0] - 1 else (r[:UK] + (None,) * (len(r) - UK)) for n, r in enumerate(ons["a35"])]}
+    assert spend_model("alone", "Private rented", "Scotland", ons, 5)[0][9] < spend_model("alone", "Private rented", "Scotland", nohol, 5)[0][9]
     with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
         names, summ = generate(Path(a), n)
         generate(Path(b), n)

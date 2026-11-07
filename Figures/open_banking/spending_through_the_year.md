@@ -6,7 +6,7 @@ Files: `spending_through_the_year.pdf`, `spending_through_the_year.svg` (this fi
 
 ## Source data
 
-Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `4287a78`; read by `ob_figures.py` (commit `unknown` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
+Source: the 100 files `Analysis/open_banking/persona*.json` (Open Banking Read/Write v3.1 objects; seed 20261107) and `Analysis/open_banking/ground_truth.csv`, written by `ob_generator.py` at commit `9107100`; read by `ob_figures.py` (commit `dd145f1` or later). Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`. No random numbers are drawn here (seed: not applicable).
 
 ## Filters, transformations and units
 
@@ -21,24 +21,24 @@ retail-sales profile in the generator. Plotted data: [`Analysis/open_banking_fig
 
 | Month | n | Everyday mean [GBP] | Everyday SE | One-off mean [GBP] | One-off SE | Total mean [GBP] | Total SE |
 |---|---|---|---|---|---|---|---|
-| Nov 2025 | 100 | 759.21 | 29.21 | 152.50 | 33.77 | 911.72 | 47.01 |
-| Dec 2025 | 100 | 785.90 | 29.92 | 90.87 | 26.95 | 876.77 | 42.55 |
-| Jan 2026 | 100 | 573.88 | 23.05 | 73.25 | 23.69 | 647.13 | 33.76 |
-| Feb 2026 | 100 | 596.95 | 23.67 | 101.76 | 28.40 | 698.71 | 40.09 |
-| Mar 2026 | 100 | 628.58 | 24.03 | 138.91 | 32.69 | 767.49 | 42.04 |
-| Apr 2026 | 100 | 636.17 | 25.44 | 87.37 | 26.27 | 723.54 | 39.77 |
-| May 2026 | 100 | 644.71 | 25.68 | 105.48 | 29.50 | 750.20 | 40.60 |
-| Jun 2026 | 100 | 646.40 | 25.38 | 101.82 | 26.42 | 748.21 | 41.15 |
-| Jul 2026 | 100 | 646.98 | 25.77 | 102.03 | 27.53 | 749.01 | 39.05 |
-| Aug 2026 | 100 | 628.87 | 24.01 | 94.26 | 24.31 | 723.13 | 38.25 |
-| Sep 2026 | 100 | 631.22 | 24.87 | 129.17 | 32.01 | 760.39 | 41.00 |
-| Oct 2026 | 100 | 666.89 | 27.11 | 103.60 | 26.76 | 770.48 | 38.92 |
+| Nov 2025 | 100 | 761.79 | 28.75 | 152.50 | 33.77 | 914.30 | 46.65 |
+| Dec 2025 | 100 | 789.84 | 29.14 | 90.87 | 26.95 | 880.72 | 41.74 |
+| Jan 2026 | 100 | 579.31 | 21.77 | 73.25 | 23.69 | 652.56 | 32.78 |
+| Feb 2026 | 100 | 605.08 | 22.40 | 101.76 | 28.40 | 706.84 | 39.26 |
+| Mar 2026 | 100 | 635.54 | 23.17 | 138.91 | 32.69 | 774.45 | 41.32 |
+| Apr 2026 | 100 | 644.74 | 24.41 | 87.37 | 26.27 | 732.11 | 38.92 |
+| May 2026 | 100 | 651.96 | 25.03 | 104.00 | 29.51 | 755.96 | 40.32 |
+| Jun 2026 | 100 | 654.34 | 24.53 | 103.46 | 26.41 | 757.81 | 40.23 |
+| Jul 2026 | 100 | 653.91 | 24.69 | 102.03 | 27.53 | 755.94 | 38.15 |
+| Aug 2026 | 100 | 638.06 | 23.38 | 92.34 | 24.31 | 730.40 | 38.11 |
+| Sep 2026 | 100 | 643.87 | 24.40 | 130.33 | 31.99 | 774.19 | 40.20 |
+| Oct 2026 | 100 | 676.69 | 26.53 | 110.14 | 27.82 | 786.83 | 39.11 |
 
 ## Statistics
 
-Mean total across the 12 months GBP 760.56 per person per month. Highest month 2025-11 (GBP 911.72), lowest 2026-01
-(GBP 647.13). Everyday spending in November and December 2025 averaged GBP 759.21 and GBP 785.90, against
-GBP 630.06 in the other ten months (20.5% and 24.7% above; ratio of means, no
+Mean total across the 12 months GBP 768.51 per person per month. Highest month 2025-11 (GBP 914.30), lowest 2026-01
+(GBP 652.56). Everyday spending in November and December 2025 averaged GBP 761.79 and GBP 789.84, against
+GBP 638.35 in the other ten months (19.3% and 23.7% above; ratio of means, no
 uncertainty calculated). No tests were run (not applicable).
 
 ## Interpretation

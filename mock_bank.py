@@ -595,7 +595,7 @@ def check():
         assert [x["AccountId"] for x in accounts["Data"]["Account"]] == [acc] and accounts["Meta"]["TotalPages"] == 1
         so = call(f"{base}{API}/accounts/{acc}/standing-orders", tok)["Data"]["StandingOrder"]
         assert [(s["Reference"], s["Frequency"], s["NextPaymentDateTime"][:10], s["NextPaymentAmount"]["Amount"])
-                for s in so] == [("RENT LETTING AGENT", "IntrvlMnthDay:01:01", "2026-11-01", "1001.86")], so
+                for s in so] == [("RENT LETTING AGENT", "IntrvlMnthDay:01:01", "2026-11-01", "781.17")], so
         dd = call(f"{base}{API}/accounts/{acc}/direct-debits", tok)["Data"]["DirectDebit"]
         assert {d["Name"] for d in dd} == {t["desc"] for t in statement("persona050")[2] if t["type"] == "DD"}
         assert all(d["DirectDebitStatusCode"] == "Active" and d["PreviousPaymentDateTime"].startswith("2026-10") for d in dd)
