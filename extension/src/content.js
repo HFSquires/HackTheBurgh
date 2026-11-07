@@ -122,6 +122,10 @@
   async function handleAction(action) {
     if (action.id === "retry") return run({ force: true });
     if (action.id === "alternative") return switchStore(action);
+    // Said "I want to buy now" / "Buy here anyway" past the over-budget decision: no second pause at Place order.
+    if ((action.id === "buy_now" || action.id === "proceed") && lastResult?.verdict === "reconsider") pausedOnce = true;
+    // On to the next decision; the panel moves itself.
+    if (action.id === "buy_now") return reportAction(action);
 
     reportAction(action);
     if (action.confirmation) overlay.showConfirmation(action.confirmation);
@@ -150,7 +154,7 @@
     if (alt.match !== "exact" && !action.confirmed) {
       return overlay.showMismatch(alt, {
         onContinue: () => switchStore({ ...action, confirmed: true }),
-        onBack: () => overlay.showResult(lastResult, handleAction),
+        onBack: () => overlay.showResult(lastResult, handleAction, overlay.stepIndex),
       });
     }
     reportAction(action);
@@ -225,18 +229,6 @@
       paymentMethod: lastPayload.paymentMethod,
     });
 
-    // Started now, alongside the price comparison, so its web search doesn't hold the result up.
-    const outlookCall = ST.api
-      .outlook(lastPayload)
-      .then((o) => {
-        ST.log("outlook: result", { seconds: ((Date.now() - started) / 1000).toFixed(1), likelihood: o?.likelihood ?? null });
-        return o;
-      })
-      .catch((e) => {
-        ST.log.error("outlook: failed", e.message);
-        return null;
-      });
-
     let result = null;
     let error = null;
     try {
@@ -244,6 +236,7 @@
       ST.log("analyse: result", {
         seconds: ((Date.now() - started) / 1000).toFixed(1),
         verdict: result.verdict,
+        couldGetCheaper: result.priceOutlook?.likelihood ?? null,
         alternatives: result.alternatives.map((a) => `${a.merchant} ${a.priceText} (${a.match}) ${a.url}`),
       });
     } catch (e) {
@@ -256,29 +249,16 @@
     lastResult = result;
     if (error) await overlay.showError(`Something went wrong: ${error.message}`, handleAction);
     else {
-      // A backend may already have sent the outlook with the result; otherwise it fills in when its call finishes.
-      result.outlookPending = !result.priceOutlook;
-      // Nothing to act on (fits the budget or no budget set, nothing cheaper): a small note that fades, not a panel.
-      const quietly = (result.verdict === "good" || result.verdict === "neutral") && !result.alternatives.length && !result.priceOutlook;
-      if (quietly) {
-        ST.log("checkout: all fine, showing a quiet note", { verdict: result.verdict });
+      // No decision to make (affordable, nothing cheaper, no drop coming): a small note that fades, not a panel.
+      if (!overlay.decisions(result).length) {
+        ST.log("checkout: nothing to decide, showing a quiet note", { verdict: result.verdict });
         overlay.showQuiet({
-          title: result.verdict === "good" ? "Fits your budget" : "No cheaper price found",
-          sub: result.verdict === "good" ? result.message : "We didn't find it cheaper at other stores.",
-          tone: result.verdict === "good" ? "good" : "neutral",
+          title: { good: "Fits your budget", caution: "Worth a pause" }[result.verdict] || "No cheaper price found",
+          sub: result.verdict === "good" || result.verdict === "caution" ? result.message : "We didn't find it cheaper at other stores.",
+          tone: result.verdict === "caution" ? "caution" : result.verdict === "good" ? "good" : "neutral",
         });
       } else {
         await overlay.showResult(result, handleAction);
-      }
-      if (result.outlookPending) {
-        outlookCall.then((o) => {
-          if (lastResult !== result) return; // re-analysed since
-          result.priceOutlook = normalizeOutlook(o, lastPayload);
-          result.outlookPending = false;
-          // A drop worth waiting for turns the quiet note into the full panel; otherwise just update it.
-          if (quietly && result.priceOutlook && !isQuiet()) overlay.showResult(result, handleAction);
-          else if (!quietly) overlay.setOutlook(result.priceOutlook);
-        });
       }
     }
     running = false;

@@ -522,125 +522,96 @@ globalThis.ST = globalThis.ST || {};
     }
 
     // result: { verdict, title, message, insights: [{label, value}], actions: [{id, label, variant, confirmation?}] }
-    async showResult(result, onAction) {
-      await this.finishSteps();
+    // One decision at a time, never a menu. In this order: over budget, then "could get cheaper if you wait", then
+    // "cheaper elsewhere". "I want to buy now" moves on to the next one; the last one offers "Buy here anyway".
+    decisions(result) {
+      return [
+        result.verdict === "reconsider" && "budget",
+        result.priceOutlook && "wait",
+        result.alternatives[0] && "switch",
+      ].filter(Boolean);
+    }
+
+    async showResult(result, onAction, index = 0) {
+      if (index === 0) await this.finishSteps(); // moving between decisions is instant
+      clearTimeout(this.quietTimer);
       this.root.dataset.phase = "result";
-      this.setTone(result.verdict);
+      const steps = this.decisions(result);
+      index = Math.min(index, steps.length - 1);
+      this.stepIndex = index;
+      const step = steps[index];
+      const last = index === steps.length - 1;
 
-      const buttons = [];
-      const makeButton = (a, variant) => {
-        const btn = h("button", {
-          class: `btn ${variant}`,
-          text: a.label,
-          onclick: (e) => {
-            for (const b of buttons) b.disabled = true;
-            onAction?.(a, e);
-          },
-        });
-        buttons.push(btn);
-        return btn;
+      const choose = (a) => () => {
+        for (const b of this.panel.querySelectorAll("button")) b.disabled = true;
+        onAction?.(a);
       };
-      const actionButtons = result.actions.map((a) => makeButton(a, a.variant || "secondary"));
+      const o = result.priceOutlook;
+      const best = result.alternatives[0];
+      const view = {
+        budget: () => ({
+          tone: "reconsider",
+          badge: VERDICT_LABEL.reconsider,
+          title: result.title,
+          msg: result.message,
+          main: { id: "not_now", label: "Don't buy now", confirmation: "Good call. Your basket is still here if you change your mind." },
+        }),
+        wait: () => ({
+          tone: "neutral",
+          badge: o.likelihood === "likely" ? "Likely cheaper soon" : "Could get cheaper",
+          title: o.expectedText ? `Could drop to ~${o.expectedText}${o.byText ? ` by ${o.byText}` : ""}` : "Could get cheaper soon",
+          msg: o.reason,
+          extra: o.signals.length > 0 && h("details", { class: "outlook-why" },
+            h("summary", { text: "Why?" }),
+            h("ul", { class: "outlook-signals" }, o.signals.map((t) => h("li", { text: t })))),
+          main: {
+            id: "watch",
+            label: "Notify me if it drops",
+            confirmation: o.expectedText ? `We'll watch the price and tell you when it's near ${o.expectedText}.` : "We'll watch the price and tell you when it drops.",
+          },
+        }),
+        switch: () => ({
+          tone: "good",
+          badge: "Cheaper elsewhere",
+          title: best.savingsShort ? `Save ${best.savingsShort} at ${best.merchant}` : `Cheaper at ${best.merchant}`,
+          msg: `${best.priceText} there${best.note ? `, ${best.note.toLowerCase()}` : ""}.`,
+          extra: best.match !== "exact" && h("div", { class: "offer-warn", text: mismatchText(best) }),
+          main: { id: "alternative", label: `Go to checkout at ${best.merchant}`, alternative: best },
+        }),
+      }[step]();
 
-      // Cheaper elsewhere: links straight to the other store's cart/checkout (opens in a new tab).
-      const alts = result.alternatives;
-      const best = alts[0];
-      // Not plain links: the click first prepares the other store's checkout (see content.js switchStore).
-      const altLink = (alt, cls, children) =>
-        h("button", { class: cls, onclick: () => onAction?.({ id: "alternative", alternative: alt }) }, children);
-      const offer = best &&
-        h("div", { class: "offer" },
-          h("div", { class: "offer-label", text: "Cheaper elsewhere" }),
-          h("div", { class: "offer-row" },
-            h("div", { class: "logo", text: best.merchant.slice(0, 1).toUpperCase() }),
-            h("div", { class: "offer-main" },
-              h("div", { class: "offer-name", text: best.merchant }),
-              best.note && h("div", { class: "offer-note", text: best.note }),
-              best.match !== "exact" && h("div", { class: "offer-warn", text: mismatchText(best) })),
-            h("div", { class: "offer-price" },
-              h("div", { text: best.priceText }),
-              best.savingsText && h("div", { class: "save", text: best.savingsText }))),
-          altLink(best, "btn offer-cta", `Go to checkout at ${best.merchant}`),
-          alts.slice(1).map((alt) =>
-            altLink(alt, "offer-other", [
-              h("span", {}, alt.merchant, alt.match !== "exact" && h("span", { class: "offer-warn inline", text: ` · ${mismatchText(alt)}` })),
-              h("span", { class: "offer-other-price", text: alt.priceText }),
-            ])));
+      this.setTone(view.tone);
+      const mainBtn = h("button", { class: "btn primary", text: view.main.label, onclick: choose(view.main) });
+      const way = last
+        ? h("button", { class: "btn ghost", text: "Buy here anyway", onclick: choose({ id: "proceed" }) })
+        : h("button", {
+            class: "btn ghost",
+            text: "I want to buy now",
+            onclick: () => {
+              onAction?.({ id: "buy_now", from: step });
+              this.showResult(result, onAction, index + 1);
+            },
+          });
 
-      // Likely cheaper if they wait: comes from its own, slower call, so it usually fills in after the panel opens.
-      this.makeButton = makeButton;
-      this.outlookSlot = h("div", { class: "outlook-slot" },
-        result.priceOutlook
-          ? this.outlookCard(result.priceOutlook)
-          : result.outlookPending && h("div", { class: "outlook-pending", text: "Checking whether it'll get cheaper soon…" }));
-
-      // Phone, collapsed: the main action plus "More" to open the details.
-      // A cheaper option wins the slot, since saving money is the point.
-      const main = result.actions.find((a) => a.variant === "primary") || result.actions[0];
-      const moreBtn = h("button", { class: "btn secondary more-btn", onclick: () => this.setExpanded(true) }, "More");
-      moreBtn.insertAdjacentHTML("beforeend", CHEVRON_ICON);
-      const quickMain = best
-        ? altLink(best, "btn offer-cta two-line", [
-            h("span", { text: best.savings > 0 ? `Save ${best.savingsShort} →` : "Cheaper option →" }),
-            h("span", { class: "cta-sub", text: `at ${best.merchant}` }),
-          ])
-        : makeButton(main, "primary");
-      const quick = h("div", { class: "quick" }, quickMain, moreBtn);
-
-      // Summary (badge + title) is always visible; on phones tapping it reveals the rest.
-      this.more = h("div", { class: "more" },
-        h("div", { class: "more-inner" },
-          result.message && h("p", { class: "msg", text: result.message }),
-          offer,
-          this.outlookSlot,
-          result.insights.length > 0 &&
-            h("div", { class: "insights" },
-              result.insights.map((i) =>
-                h("div", { class: "insight" }, h("div", { class: "k", text: i.label }), h("div", { class: "v", text: i.value })))),
-          h("div", { class: "actions" }, actionButtons)));
-
+      this.more = null;
+      this.toggle = null;
+      this.panel.classList.remove("attention", "expanded");
       this.render(
         h("div", { class: "result" },
-          h("div", { class: "summary", onclick: () => phone.matches && this.setExpanded(!this.panel.classList.contains("expanded")) },
-            h("div", { class: "head" },
-              h("div", { class: "head-text" }, h("span", { class: "badge", text: VERDICT_LABEL[result.verdict] })),
-              this.toggleButton(),
-              this.closeButton()),
-            h("div", { class: "title", text: result.title })),
-          quick,
-          this.more)
+          h("div", { class: "head" },
+            h("div", { class: "head-text" }, h("span", { class: "badge", text: view.badge })),
+            this.closeButton()),
+          h("div", { class: "title", text: view.title }),
+          view.msg && h("p", { class: "msg", text: view.msg }),
+          view.extra,
+          h("div", { class: "actions" }, mainBtn, way))
       );
-      // Phone: pulse the expand control for budget warnings, or when there's money to save.
-      this.panel.classList.toggle("attention", result.verdict === "caution" || result.verdict === "reconsider" || !!best || !!result.priceOutlook);
-      this.setExpanded(false);
-      if (!phone.matches) (offer?.querySelector(".offer-cta") || actionButtons[0])?.focus({ preventScroll: true });
-    }
-
-    // Why, roughly how much and when, and a button to watch the price.
-    outlookCard(o) {
-      const watchAction = {
-        id: "watch",
-        label: "Notify me if it drops",
-        confirmation: o.expectedText ? `We'll watch the price and tell you when it's near ${o.expectedText}.` : "We'll watch the price and tell you when it drops.",
-      };
-      return h("div", { class: "outlook" },
-        h("div", { class: "outlook-label", text: o.likelihood === "likely" ? "Likely cheaper soon" : "Could get cheaper" }),
-        h("div", { class: "outlook-row" },
-          h("div", { class: "outlook-reason", text: o.reason }),
-          o.expectedText && h("div", { class: "outlook-price" },
-            h("div", { text: `~${o.expectedText}` }),
-            o.byText && h("div", { class: "outlook-when", text: `by ${o.byText}` }))),
-        o.signals.length > 0 && h("details", { class: "outlook-why" },
-          h("summary", { text: "Why?" }),
-          h("ul", { class: "outlook-signals" }, o.signals.map((t) => h("li", { text: t })))),
-        this.makeButton(watchAction, "outlook-cta"));
-    }
-
-    // The outlook arrived (or null: nothing worth waiting for). Fills the slot in the result panel if it's still open.
-    setOutlook(o) {
-      if (!this.outlookSlot?.isConnected) return;
-      this.outlookSlot.replaceChildren(...(o ? [this.outlookCard(o)] : []));
-      if (o) this.panel.classList.add("attention");
+      if (!phone.matches) mainBtn.focus({ preventScroll: true });
+      // The way out sits where the last one was: ignore a double click carrying on into "Buy here anyway".
+      if (index > 0) {
+        way.disabled = true;
+        setTimeout(() => (way.disabled = false), 600);
+      }
     }
 
     async showError(message, onAction) {

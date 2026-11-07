@@ -49,7 +49,7 @@ async function analyze(payload) {
     ST.log("analyse: reused the price check from earlier", { stage: earlier.stage, secondsAgo: Math.round((Date.now() - earlier.at) / 1000) });
     result = ST.precheck.forCheckout(earlier.result, payload, settings);
   } else {
-    result = await cached("analyse", payload, analyzeFresh);
+    result = await checkBoth(payload);
   }
   return { ...result, budgetInfo: ST.precheck.budgetInfo(settings) };
 }
@@ -58,7 +58,7 @@ async function analyze(payload) {
 // plus a "-£3" badge on the toolbar icon when it's cheaper elsewhere.
 async function precheck(payload, sender) {
   if (!payload?.items?.length || payload.total == null) return null;
-  const { result, reused } = await ST.precheck.run(payload, (p) => cached("analyse", p, analyzeFresh));
+  const { result, reused } = await ST.precheck.run(payload, checkBoth);
   ST.log(reused ? "precheck: already checked" : "precheck: done", {
     stage: payload.stage,
     items: payload.items.map((i) => i.name),
@@ -75,6 +75,21 @@ async function precheck(payload, sender) {
   return { ...result, budgetInfo: ST.precheck.budgetInfo(await getSettings()) };
 }
 const outlook = (payload) => cached("outlook", payload, outlookFresh);
+
+// The price comparison and "could it get cheaper if you wait?" together, so the page shows one settled decision
+// instead of changing under the shopper. The slower outlook search is capped so it can't hold the checkout up.
+const OUTLOOK_WAIT_MS = 40000;
+async function checkBoth(payload) {
+  const giveUp = new Promise((resolve) => setTimeout(() => resolve(null), OUTLOOK_WAIT_MS));
+  const [result, o] = await Promise.all([
+    cached("analyse", payload, analyzeFresh),
+    Promise.race([
+      outlook(payload).catch((e) => (ST.log.error("outlook: failed", e.message), null)),
+      giveUp.then(() => (ST.log("outlook: too slow, showing the result without it"), null)),
+    ]),
+  ]);
+  return result.priceOutlook ? result : { ...result, priceOutlook: o };
+}
 
 // Priority: the team backend if configured, else live analysis with the user's OpenAI key, else the mock.
 async function analyzeFresh(payload) {

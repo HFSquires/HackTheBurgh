@@ -17,9 +17,14 @@ globalThis.ST = globalThis.ST || {};
   // Demo page (no extension): the same staged behaviour, with the mock and the demo shopper's budget and bank
   // picture (persona.js). MOCK_BUDGET in config.js overrides the budget part.
   const demoSettings = () => ({ ...(ST.persona ? ST.persona.settings() : {}), ...(ST.config.MOCK_BUDGET || {}) });
+  // Price comparison and "could get cheaper" together, as the background does.
+  async function demoBoth(payload) {
+    const [result, outlook] = await Promise.all([ST.mock.analyze(payload), ST.mock.outlook(payload)]);
+    return { ...result, priceOutlook: result.priceOutlook || outlook };
+  }
   async function demoAnalyze(payload) {
     const earlier = !ST.config.MOCK_SCENARIO && (await ST.precheck.find(payload));
-    const result = earlier ? ST.precheck.forCheckout(earlier.result, payload, demoSettings()) : await ST.mock.analyze(payload);
+    const result = earlier ? ST.precheck.forCheckout(earlier.result, payload, demoSettings()) : await demoBoth(payload);
     if (earlier) ST.log("analyse: reused the price check from earlier", { stage: earlier.stage });
     return { ...result, budgetInfo: ST.precheck.budgetInfo(demoSettings()) };
   }
@@ -29,7 +34,7 @@ globalThis.ST = globalThis.ST || {};
     // Silent check when something goes in the basket; the checkout reuses it.
     precheck: async (payload) => {
       if (inExtension()) return call("ST_PRECHECK", payload);
-      const { result } = await ST.precheck.run(payload, ST.mock.analyze);
+      const { result } = await ST.precheck.run(payload, demoBoth);
       return { ...result, budgetInfo: ST.precheck.budgetInfo(demoSettings()) };
     },
     // "Likely cheaper soon?": a separate, slower call started alongside analyze().

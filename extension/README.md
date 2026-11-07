@@ -34,8 +34,18 @@ cheaper store when the original checkout didn't show which method was chosen. Se
 | --- | --- |
 | Product page | Nothing. Clicking **Add to basket / Pre-order** starts a silent price check (and a "-£3" badge on the toolbar icon if it's cheaper elsewhere). |
 | Basket page | A small "£3.00 cheaper at X · See" pill with no glow, only if there's a cheaper price. Before any forms. |
-| Checkout | Glow + budget verdict. Instant when the basket was already checked (the earlier result is reused, with the budget part redone against the real total). If it fits and nothing is cheaper, just a small "Fits your budget" note that fades. |
-| "Place order" | Paused once, only when it would go over budget: "This puts you £X over budget" with Not now / Buy at X instead / Buy anyway. "Buy anyway" lets the next click through. |
+| Checkout | Glow, then **one decision** (below). Instant when the basket was already checked (the earlier result is reused, with the budget part redone against the real total). If there's nothing to decide, just a small "Fits your budget" note that fades. |
+| "Place order" | Paused once, only when it would go over budget and the shopper hasn't already said "I want to buy now": "This puts you £X over budget" with Not now / Buy at X instead / Buy anyway. "Buy anyway" lets the next click through. |
+
+**One decision at a time** (`overlay.decisions`): one message and one main button, never a menu. The first that applies:
+
+1. **Over budget** (`verdict: "reconsider"`): **Don't buy now**.
+2. **Could get cheaper if you wait** (`priceOutlook` likely/possible): **Notify me if it drops**.
+3. **Cheaper elsewhere** (`alternatives[0]`): **Go to checkout at X**.
+
+Under the main button, **I want to buy now** moves on to the next one that applies; the last one offers **Buy here
+anyway**. The panel waits for both the price comparison and the price outlook (outlook capped at 40 s) so the decision
+doesn't change under the shopper.
 
 Closing the panel keeps it quiet on that store for the rest of the session (the over-budget pause still applies).
 Earlier checks are kept for 30 minutes in `chrome.storage.session`.
@@ -220,15 +230,13 @@ Response:
 }
 ```
 
-- Live mode gets it from a **separate call** (`ST.live.outlook`), started at the same time as the price comparison, so
-  the history research doesn't slow the main result down: the panel opens with "Checking whether it'll get cheaper
-  soon…" and the card fills in when the answer arrives (or the line disappears if there's nothing worth waiting for).
-  The model looks for evidence with web search: price history sites, upcoming sales (Black Friday, Cyber Monday,
+- Live mode gets it from a **separate call** (`ST.live.outlook`), run alongside the price comparison (at Add to basket
+  and at checkout). The panel waits for both, up to 40 s for the outlook, so it shows one settled decision. The model looks for evidence with web search: price history sites, upcoming sales (Black Friday, Cyber Monday,
   Boxing Day…), a successor launching, pre-order undercutting. `likely` needs concrete evidence.
 - A team backend sends `priceOutlook` inside the `/analyze` response instead; the extension then makes no extra call.
-- Shown as a blue "Likely cheaper soon" / "Could get cheaper" card only for `likely`/`possible`, and only when
-  `expectedPrice` (if given) is below the total. Like alternatives, it never changes `verdict`.
-- Its **Wait, notify me if it drops** button reports `{ "actionId": "watch", "outlook": { ... }, "purchase": ... }` to
+- Shown as the "Could get cheaper" decision only for `likely`/`possible`, and only when `expectedPrice` (if given) is
+  below the total. Like alternatives, it never changes `verdict`. `signals` sit under a collapsed "Why?".
+- Its **Notify me if it drops** button reports `{ "actionId": "watch", "outlook": { ... }, "purchase": ... }` to
   `/action`. Without a backend, the extension watches the price itself: a web-search price check every 12 hours (your API
   key), a notification when it's at or under `expectedPrice` or at least 3% under the checkout total (clicking opens
   the deal), and a "no drop yet" notification a week after `byDate` (30 days if none, 60 at most). Watches are listed in
