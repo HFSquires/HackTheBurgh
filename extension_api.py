@@ -149,7 +149,10 @@ def analyze(req):
     # Price: the total, else the sum of the items' prices as scraped (line prices; quantities are not multiplied).
     price = total if total and total > 0 else (
         af.money(sum(prices)) if prices and all(p and p > 0 for p in prices) else None)
-    product = next((p for p in (names[0] if names else None, title) if p and af.find_product(p[:300])), None)
+    # Catalogue prices are for one unit of one product, so only a one-line, one-unit basket (or no items, the page
+    # title) is matched; otherwise a single item's price would be compared with the whole basket total.
+    single = not items or len(items) == 1 and items[0].get("qty", 1) in (1, None)
+    product = single and next((p for p in (names[0] if names else None, title) if p and af.find_product(p[:300])), None)
     sid = uuid.uuid4().hex
     base = dict(sessionId=sid, persona=pid, alternatives=[], priceOutlook=None)
     if price is None:
@@ -272,6 +275,11 @@ def check():
         "page title only": (dict(merchant="johnlewis.com", total=229.99, items=[],
                                  pageTitle="Sony WH-1000XM5 wireless noise-cancelling headphones | John Lewis"), 229.99),
         "dollars": (dict(currency="USD"), None),
+        "two items, one in catalogue": (dict(merchant="John Lewis", total=409.98, pageTitle="Checkout",
+                                             items=[dict(name=sony, qty=1, price=229.99),
+                                                    dict(name="Trailhead Waterproof Jacket", qty=1, price=179.99)]), 409.98),
+        "two of a catalogue item": (dict(merchant="John Lewis", total=459.98, pageTitle="Checkout",
+                                         items=[dict(name=sony, qty=2, price=459.98)]), 459.98),
     }
     ps = [p["id"] for p in af.personas()]
     chosen = sorted({ps[0], ps[len(ps) // 4], ps[len(ps) // 2], ps[3 * len(ps) // 4], ps[-1]})
@@ -305,7 +313,8 @@ def check():
                     assert r["verdict"] in ("reconsider", "neutral")
                 if name in ("cheaper in catalogue", "page title only"):
                     assert r["alternatives"] and r["priceOutlook"]["likelihood"] in ("possible", "unknown"), r
-                if name in ("readme", "null total, items only"):  # the jacket is not in the catalogue
+                if name in ("readme", "null total, items only", "two items, one in catalogue", "two of a catalogue item"):
+                    # the jacket is not in the catalogue; one unit's price is never compared with a larger basket
                     assert not r["alternatives"] and (r["priceOutlook"] is None
                                                       or r["priceOutlook"]["likelihood"] == "unknown")
         # /action: validated and acknowledged; page content never kept.
