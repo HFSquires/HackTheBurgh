@@ -4,7 +4,7 @@ Files: `affordability_by_price.pdf`, `affordability_by_price.svg` (this file: `a
 
 ## Source data
 
-The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `e01f34f`), read by `affordability.py` at commit `2c5e080` (with `bayes.py` at commit `22804b4` for everyday spending), called by `affordability_figures.py` (commit `2c5e080` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
+The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `4617bf4`), read by `affordability.py` at commit `2c5e080` (with `bayes.py` at commit `22804b4` for everyday spending), called by `affordability_figures.py` (commit `2c5e080` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
 
 ## Filters, transformations and units
 
@@ -38,14 +38,14 @@ data and is not used here. `today` is the engine default, the day after each sta
 
 | Price [GBP] | Can pay now (or with the BNPL pot) (`payNow`) | Only with plain pay-in-3 (`bnplPlainOnly`) | Neither (`neither`) | Total |
 |---|---|---|---|---|
-| 50 | 83 | 0 | 17 | 100 |
-| 100 | 83 | 0 | 17 | 100 |
-| 200 | 82 | 0 | 18 | 100 |
-| 300 | 81 | 0 | 19 | 100 |
-| 500 | 80 | 0 | 20 | 100 |
-| 750 | 78 | 0 | 22 | 100 |
-| 1,000 | 76 | 0 | 24 | 100 |
-| 1,500 | 71 | 0 | 29 | 100 |
+| 50 | 86 | 0 | 14 | 100 |
+| 100 | 86 | 0 | 14 | 100 |
+| 200 | 86 | 0 | 14 | 100 |
+| 300 | 83 | 0 | 17 | 100 |
+| 500 | 82 | 0 | 18 | 100 |
+| 750 | 80 | 0 | 20 | 100 |
+| 1,000 | 77 | 0 | 23 | 100 |
+| 1,500 | 74 | 0 | 26 | 100 |
 
 Per-persona categories: [`Analysis/affordability/households.csv`](../../Analysis/affordability/households.csv)
 (columns `outcome_<price>`).
@@ -69,8 +69,8 @@ None (the engine is deterministic; the mock statements were generated with the s
 
 ## Interpretation
 
-At GBP 50, 83 of 100 households can pay now, 0 only with plain pay-in-3 and 17
-neither. At GBP 1,500, the counts are 71, 0 and 29. Safe-to-spend deducts the predicted
+At GBP 50, 86 of 100 households can pay now, 0 only with plain pay-in-3 and 14
+neither. At GBP 1,500, the counts are 74, 0 and 26. Safe-to-spend deducts the predicted
 everyday spending until payday, so a household counted under `payNow` is expected to stay at or above zero until payday
 on average; `shortfallProbability` in the engine output gives the chance that it does not. The mock statements are
 synthetic, so the counts describe the generator's households, not real customers.

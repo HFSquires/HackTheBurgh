@@ -4,7 +4,7 @@ Plot: `calibration.pdf` / `.svg`. Written by `bayes.py`; regenerate with it.
 
 ## Source and transformations
 
-Source: the 100 statements in `Analysis/mock_statements/`, via `bayes.py` (which reuses `forecast.py` and `affordability.py`). Discretionary spending as in `affordability.card_spend` (card payments that are neither BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. Every model is fitted on the rows up to 30 September only (August and September); each person's prior comes from a fit on the other persons, by person-level 10-fold cross-validation with forecast.py's folds (seed 20261107). October is used only to score. Statements last changed in commit `e01f34f`; `bayes.py` at commit `22804b4`; `forecast.py` at commit `22804b4`; `affordability.py` at commit `2c5e080` (or later, if uncommitted changes were run).
+Source: the 100 statements in `Analysis/mock_statements/`, via `bayes.py` (which reuses `forecast.py` and `affordability.py`). Discretionary spending as in `affordability.card_spend` (card payments that are neither BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. Every model is fitted on the rows up to 30 September only (August and September); each person's prior comes from a fit on the other persons, by person-level 10-fold cross-validation with forecast.py's folds (seed 20261107). October is used only to score. Statements last changed in commit `4617bf4`; `bayes.py` at commit `22804b4`; `forecast.py` at commit `4617bf4`; `affordability.py` at commit `2c5e080` (or later, if uncommitted changes were run).
 
 Model (full derivation in the docstring of `bayes.py`): daily discretionary spending, Gaussian on the raw scale; within a calendar month of D days each day has mean beta / D (beta: the person's monthly budget) and variance sigma^2, and two days of the same month have correlation (phi - 1) / (D - 1), so a month's total has variance phi D sigma^2. Normal-Inverse-Gamma prior on (beta, sigma^2) centred on a population regression of ln budget on ln net pay; exact conjugate update after each day; Student-t predictive for the sum over any set of future days. The independent-days model is the same with phi fixed at 1.
 
@@ -14,12 +14,12 @@ For each person, central posterior predictive intervals (50 %, 80 %, 95 %) of cu
 
 | Hyperparameter | Monthly budget, mean ± SD over the 10 folds | Independent days (phi = 1), mean ± SD over folds | Default for live use (all 100 statements, Aug-Oct) |
 |---|---|---|---|
-| c0 (intercept, ln GBP) | 0.4881 ± 0.1644 | 0.4881 ± 0.1644 | 0.4788 |
-| c1 (slope on ln net pay) | 0.7872 ± 0.0206 | 0.7872 ± 0.0206 | 0.7878 |
-| tau^2 (between-person variance of ln budget) | 0.01922 ± 0.0009378 | 0.00208 ± 0.0008947 | 0.01884 |
+| c0 (intercept, ln GBP) | 0.4514 ± 0.1642 | 0.4514 ± 0.1642 | 0.4421 |
+| c1 (slope on ln net pay) | 0.7879 ± 0.0205 | 0.7879 ± 0.0205 | 0.7885 |
+| tau^2 (between-person variance of ln budget) | 0.01904 ± 0.000921 | 0.001907 ± 0.0008769 | 0.01867 |
 | r (daily variance / budget^2) | 0.001145 ± 5.834e-06 | 0.001145 ± 5.834e-06 | 0.001142 |
 | a0 | 24.420 ± 2.722 | 24.420 ± 2.722 | 36.995 |
-| kappa0 = r / tau^2 | 0.05973 ± 0.002767 | 0.6794 ± 0.3675 | 0.06058 |
+| kappa0 = r / tau^2 | 0.06027 ± 0.002758 | 0.768 ± 0.4554 | 0.06114 |
 | phi | 0.0190 ± 0.0007 | 1.0000 ± 0.0000 | 0.0179 |
 | persons used per fit | 90 ± 0 | 90 ± 0 | 100 |
 
@@ -30,7 +30,7 @@ Width: mean ± SE across persons [GBP].
 | Model | Horizon | Nominal | Empirical coverage (± binomial SE) | n | Mean width [GBP] (± SE) |
 |---|---|---|---|---|---|
 | Monthly budget (phi fitted) | days 1 to 7 | 0.50 | 0.52 ± 0.05 | 100 | 80.6 ± 2.1 |
-| Monthly budget (phi fitted) | days 1 to 7 | 0.80 | 0.80 ± 0.04 | 100 | 153.6 ± 4.1 |
+| Monthly budget (phi fitted) | days 1 to 7 | 0.80 | 0.79 ± 0.04 | 100 | 153.6 ± 4.1 |
 | Monthly budget (phi fitted) | days 1 to 7 | 0.95 | 0.95 ± 0.02 | 100 | 236.1 ± 6.2 |
 | Monthly budget (phi fitted) | days 1 to 14 | 0.50 | 0.41 ± 0.05 | 100 | 96.6 ± 2.6 |
 | Monthly budget (phi fitted) | days 1 to 14 | 0.80 | 0.74 ± 0.04 | 100 | 184.1 ± 4.9 |
@@ -40,25 +40,25 @@ Width: mean ± SE across persons [GBP].
 | Monthly budget (phi fitted) | days 1 to 21 | 0.95 | 0.90 ± 0.03 | 100 | 270.4 ± 7.1 |
 | Monthly budget (phi fitted) | days 1 to 28 | 0.50 | 0.51 ± 0.05 | 100 | 63.6 ± 1.7 |
 | Monthly budget (phi fitted) | days 1 to 28 | 0.80 | 0.86 ± 0.03 | 100 | 121.2 ± 3.2 |
-| Monthly budget (phi fitted) | days 1 to 28 | 0.95 | 0.94 ± 0.02 | 100 | 186.3 ± 4.9 |
+| Monthly budget (phi fitted) | days 1 to 28 | 0.95 | 0.95 ± 0.02 | 100 | 186.2 ± 4.9 |
 | Monthly budget (phi fitted) | October total | 0.50 | 0.60 ± 0.05 | 100 | 31.7 ± 0.8 |
 | Monthly budget (phi fitted) | October total | 0.80 | 0.85 ± 0.04 | 100 | 60.4 ± 1.6 |
-| Monthly budget (phi fitted) | October total | 0.95 | 0.96 ± 0.02 | 100 | 92.9 ± 2.5 |
-| Independent days (phi = 1) | days 1 to 7 | 0.50 | 0.56 ± 0.05 | 100 | 90.4 ± 2.4 |
-| Independent days (phi = 1) | days 1 to 7 | 0.80 | 0.82 ± 0.04 | 100 | 172.2 ± 4.6 |
-| Independent days (phi = 1) | days 1 to 7 | 0.95 | 0.95 ± 0.02 | 100 | 264.7 ± 7.0 |
-| Independent days (phi = 1) | days 1 to 14 | 0.50 | 0.53 ± 0.05 | 100 | 128.5 ± 3.4 |
-| Independent days (phi = 1) | days 1 to 14 | 0.80 | 0.79 ± 0.04 | 100 | 244.9 ± 6.5 |
-| Independent days (phi = 1) | days 1 to 14 | 0.95 | 0.98 ± 0.01 | 100 | 376.5 ± 10.0 |
-| Independent days (phi = 1) | days 1 to 21 | 0.50 | 0.59 ± 0.05 | 100 | 158.3 ± 4.2 |
-| Independent days (phi = 1) | days 1 to 21 | 0.80 | 0.90 ± 0.03 | 100 | 301.7 ± 8.0 |
-| Independent days (phi = 1) | days 1 to 21 | 0.95 | 0.99 ± 0.01 | 100 | 463.7 ± 12.3 |
-| Independent days (phi = 1) | days 1 to 28 | 0.50 | 0.67 ± 0.05 | 100 | 183.9 ± 4.9 |
-| Independent days (phi = 1) | days 1 to 28 | 0.80 | 0.94 ± 0.02 | 100 | 350.3 ± 9.3 |
-| Independent days (phi = 1) | days 1 to 28 | 0.95 | 1.00 ± 0.00 | 100 | 538.4 ± 14.3 |
-| Independent days (phi = 1) | October total | 0.50 | 0.72 ± 0.04 | 100 | 193.9 ± 5.1 |
-| Independent days (phi = 1) | October total | 0.80 | 0.94 ± 0.02 | 100 | 369.4 ± 9.8 |
-| Independent days (phi = 1) | October total | 0.95 | 0.99 ± 0.01 | 100 | 567.9 ± 15.1 |
+| Monthly budget (phi fitted) | October total | 0.95 | 0.96 ± 0.02 | 100 | 92.8 ± 2.5 |
+| Independent days (phi = 1) | days 1 to 7 | 0.50 | 0.56 ± 0.05 | 100 | 90.3 ± 2.4 |
+| Independent days (phi = 1) | days 1 to 7 | 0.80 | 0.82 ± 0.04 | 100 | 172.1 ± 4.6 |
+| Independent days (phi = 1) | days 1 to 7 | 0.95 | 0.95 ± 0.02 | 100 | 264.6 ± 7.0 |
+| Independent days (phi = 1) | days 1 to 14 | 0.50 | 0.53 ± 0.05 | 100 | 128.4 ± 3.4 |
+| Independent days (phi = 1) | days 1 to 14 | 0.80 | 0.81 ± 0.04 | 100 | 244.7 ± 6.5 |
+| Independent days (phi = 1) | days 1 to 14 | 0.95 | 0.98 ± 0.01 | 100 | 376.1 ± 10.0 |
+| Independent days (phi = 1) | days 1 to 21 | 0.50 | 0.59 ± 0.05 | 100 | 158.1 ± 4.2 |
+| Independent days (phi = 1) | days 1 to 21 | 0.80 | 0.89 ± 0.03 | 100 | 301.3 ± 8.0 |
+| Independent days (phi = 1) | days 1 to 21 | 0.95 | 0.99 ± 0.01 | 100 | 463.1 ± 12.3 |
+| Independent days (phi = 1) | days 1 to 28 | 0.50 | 0.68 ± 0.05 | 100 | 183.5 ± 4.9 |
+| Independent days (phi = 1) | days 1 to 28 | 0.80 | 0.94 ± 0.02 | 100 | 349.7 ± 9.3 |
+| Independent days (phi = 1) | days 1 to 28 | 0.95 | 1.00 ± 0.00 | 100 | 537.5 ± 14.3 |
+| Independent days (phi = 1) | October total | 0.50 | 0.73 ± 0.04 | 100 | 193.5 ± 5.1 |
+| Independent days (phi = 1) | October total | 0.80 | 0.94 ± 0.02 | 100 | 368.7 ± 9.8 |
+| Independent days (phi = 1) | October total | 0.95 | 0.99 ± 0.01 | 100 | 566.8 ± 15.0 |
 
 Mean actual October total: 751.43 GBP.
 

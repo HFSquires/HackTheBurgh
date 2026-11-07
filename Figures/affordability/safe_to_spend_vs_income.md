@@ -5,7 +5,7 @@ Files: `safe_to_spend_vs_income.pdf`, `safe_to_spend_vs_income.svg` (this file: 
 
 ## Source data
 
-The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `e01f34f`), read by `affordability.py` at commit `2c5e080` (with `bayes.py` at commit `22804b4` for everyday spending), called by `affordability_figures.py` (commit `2c5e080` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
+The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `4617bf4`), read by `affordability.py` at commit `2c5e080` (with `bayes.py` at commit `22804b4` for everyday spending), called by `affordability_figures.py` (commit `2c5e080` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
 
 ## Filters, transformations and units
 
@@ -38,8 +38,8 @@ data and is not used here. `today` is the engine default, the day after each sta
 
 One point per household; all values in
 [`Analysis/affordability/households.csv`](../../Analysis/affordability/households.csv) (columns `income`,
-`safeToSpend`, `monthly.leftOver`, `tenure`). Income ranges from 956.98 to 5054.23 GBP
-(median 2341.84).
+`safeToSpend`, `monthly.leftOver`, `tenure`). Income ranges from 1003.84 to 5258.61 GBP
+(median 2442.14).
 
 ## n
 
@@ -51,19 +51,19 @@ All: 100. Owned outright: 22. Social rented: 29. Private rented: 49.
 
 | Group | n | Median | Q1 | Q3 | IQR | Min | Max | n below 0 |
 |---|---|---|---|---|---|---|---|---|
-| All | 100 | 3468.49 | 1240.61 | 5251.51 | 4010.90 | -3181.65 | 14241.86 | 16 |
-| Owned outright | 22 | 4621.14 | 3662.29 | 6173.81 | 2511.52 | 755.21 | 14241.86 | 0 |
-| Social rented | 29 | 4633.93 | 2101.65 | 6626.54 | 4524.89 | -589.08 | 11972.79 | 1 |
-| Private rented | 49 | 2002.05 | -496.99 | 3939.12 | 4436.11 | -3181.65 | 6795.17 | 15 |
+| All | 100 | 3855.51 | 1418.74 | 5718.31 | 4299.58 | -3031.40 | 15059.36 | 14 |
+| Owned outright | 22 | 4974.22 | 3959.81 | 6671.66 | 2711.85 | 942.64 | 15059.36 | 0 |
+| Social rented | 29 | 5070.77 | 2408.31 | 7179.43 | 4771.12 | -414.70 | 12790.30 | 1 |
+| Private rented | 49 | 2326.69 | -39.40 | 4375.94 | 4415.34 | -3031.40 | 7275.75 | 13 |
 
 `monthly.leftOver` [GBP]:
 
 | Group | n | Median | Q1 | Q3 | IQR | Min | Max | n below 0 |
 |---|---|---|---|---|---|---|---|---|
-| All | 100 | 842.26 | 305.31 | 1289.09 | 983.78 | -804.00 | 3542.14 | 17 |
-| Owned outright | 22 | 1142.42 | 923.36 | 1519.03 | 595.67 | 178.13 | 3542.14 | 0 |
-| Social rented | 29 | 1126.90 | 496.49 | 1638.06 | 1141.57 | -154.61 | 2961.53 | 2 |
-| Private rented | 49 | 485.88 | -159.64 | 954.11 | 1113.75 | -804.00 | 1670.89 | 15 |
+| All | 100 | 940.67 | 349.85 | 1400.95 | 1051.11 | -766.44 | 3746.52 | 14 |
+| Owned outright | 22 | 1230.70 | 997.73 | 1642.27 | 644.54 | 224.99 | 3746.52 | 0 |
+| Social rented | 29 | 1236.11 | 573.15 | 1776.29 | 1203.14 | -111.02 | 3165.91 | 1 |
+| Private rented | 49 | 567.04 | -45.25 | 1063.32 | 1108.57 | -766.44 | 1797.70 | 13 |
 
 Error bars: not applicable (none drawn).
 
@@ -75,8 +75,8 @@ p-values; read p only as far below 0.001.
 
 | y | rho | p |
 |---|---|---|
-| `safeToSpend` | 0.805 | 1.13e-15 |
-| `monthly.leftOver` | 0.804 | 1.29e-15 |
+| `safeToSpend` | 0.816 | 4.52e-16 |
+| `monthly.leftOver` | 0.814 | 5.37e-16 |
 
 No fit is drawn.
 
@@ -87,8 +87,8 @@ None (the engine is deterministic; the mock statements were generated with the s
 
 ## Interpretation
 
-Median `safeToSpend` is 3468.49 GBP (IQR 4010.90); 16 of
-100 households are below 0. Median `monthly.leftOver` is 842.26 GBP; 17 are below 0.
-The Spearman correlation of `safeToSpend` with income is 0.805. `safeToSpend` deducts the
-predicted everyday spending until payday (median 639.15 GBP); the mock end balances
+Median `safeToSpend` is 3855.51 GBP (IQR 4299.58); 14 of
+100 households are below 0. Median `monthly.leftOver` is 940.67 GBP; 14 are below 0.
+The Spearman correlation of `safeToSpend` with income is 0.816. `safeToSpend` deducts the
+predicted everyday spending until payday (median 639.20 GBP); the mock end balances
 are still on the high side because several ONS spending items are excluded (`Analysis/mock_statements/README.md`).

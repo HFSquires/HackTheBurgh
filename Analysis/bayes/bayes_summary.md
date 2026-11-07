@@ -2,7 +2,7 @@
 
 Written by `bayes.py`; regenerate with it. Calibration: `Figures/bayes/calibration.md`; cold start: `Figures/bayes/cold_start.md`.
 
-Source: the 100 statements in `Analysis/mock_statements/`, via `bayes.py` (which reuses `forecast.py` and `affordability.py`). Discretionary spending as in `affordability.card_spend` (card payments that are neither BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. Every model is fitted on the rows up to 30 September only (August and September); each person's prior comes from a fit on the other persons, by person-level 10-fold cross-validation with forecast.py's folds (seed 20261107). October is used only to score. Statements last changed in commit `e01f34f`; `bayes.py` at commit `22804b4`; `forecast.py` at commit `22804b4`; `affordability.py` at commit `2c5e080` (or later, if uncommitted changes were run).
+Source: the 100 statements in `Analysis/mock_statements/`, via `bayes.py` (which reuses `forecast.py` and `affordability.py`). Discretionary spending as in `affordability.card_spend` (card payments that are neither BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. Every model is fitted on the rows up to 30 September only (August and September); each person's prior comes from a fit on the other persons, by person-level 10-fold cross-validation with forecast.py's folds (seed 20261107). October is used only to score. Statements last changed in commit `4617bf4`; `bayes.py` at commit `22804b4`; `forecast.py` at commit `4617bf4`; `affordability.py` at commit `2c5e080` (or later, if uncommitted changes were run).
 
 Model (full derivation in the docstring of `bayes.py`): daily discretionary spending, Gaussian on the raw scale; within a calendar month of D days each day has mean beta / D (beta: the person's monthly budget) and variance sigma^2, and two days of the same month have correlation (phi - 1) / (D - 1), so a month's total has variance phi D sigma^2. Normal-Inverse-Gamma prior on (beta, sigma^2) centred on a population regression of ln budget on ln net pay; exact conjugate update after each day; Student-t predictive for the sum over any set of future days. The independent-days model is the same with phi fixed at 1.
 
@@ -10,12 +10,12 @@ Model (full derivation in the docstring of `bayes.py`): daily discretionary spen
 
 | Hyperparameter | Monthly budget, mean ± SD over the 10 folds | Independent days (phi = 1), mean ± SD over folds | Default for live use (all 100 statements, Aug-Oct) |
 |---|---|---|---|
-| c0 (intercept, ln GBP) | 0.4881 ± 0.1644 | 0.4881 ± 0.1644 | 0.4788 |
-| c1 (slope on ln net pay) | 0.7872 ± 0.0206 | 0.7872 ± 0.0206 | 0.7878 |
-| tau^2 (between-person variance of ln budget) | 0.01922 ± 0.0009378 | 0.00208 ± 0.0008947 | 0.01884 |
+| c0 (intercept, ln GBP) | 0.4514 ± 0.1642 | 0.4514 ± 0.1642 | 0.4421 |
+| c1 (slope on ln net pay) | 0.7879 ± 0.0205 | 0.7879 ± 0.0205 | 0.7885 |
+| tau^2 (between-person variance of ln budget) | 0.01904 ± 0.000921 | 0.001907 ± 0.0008769 | 0.01867 |
 | r (daily variance / budget^2) | 0.001145 ± 5.834e-06 | 0.001145 ± 5.834e-06 | 0.001142 |
 | a0 | 24.420 ± 2.722 | 24.420 ± 2.722 | 36.995 |
-| kappa0 = r / tau^2 | 0.05973 ± 0.002767 | 0.6794 ± 0.3675 | 0.06058 |
+| kappa0 = r / tau^2 | 0.06027 ± 0.002758 | 0.768 ± 0.4554 | 0.06114 |
 | phi | 0.0190 ± 0.0007 | 1.0000 ± 0.0000 | 0.0179 |
 | persons used per fit | 90 ± 0 | 90 ± 0 | 100 |
 
@@ -27,10 +27,10 @@ Bayes posterior predictive mean: MAE 17.02 ± 1.43 GBP, RMSE 22.17 ± 1.70 GBP, 
 
 | T12 forecast | MAE [GBP] (± SE) | Bayes minus it, absolute error [GBP] (± SE) | Paired t | p (t) | Wilcoxon W | p (W) |
 |---|---|---|---|---|---|---|
-| Last month (Sep) | 19.34 ± 1.59 | -2.32 ± 1.19 | -1.95 | 0.054 | 2029 | 0.088 |
-| Mean Aug-Sep | 17.41 ± 1.44 | -0.39 ± 0.18 | -2.14 | 0.035 | 1800 | 0.013 |
-| Pooled regression | 17.09 ± 1.49 | -0.07 ± 0.84 | -0.09 | 0.93 | 2397 | 0.66 |
-| Shrinkage | 17.25 ± 1.39 | -0.23 ± 0.37 | -0.63 | 0.53 | 2130 | 0.17 |
+| Last month (Sep) | 19.34 ± 1.59 | -2.33 ± 1.19 | -1.95 | 0.054 | 2029 | 0.088 |
+| Mean Aug-Sep | 17.41 ± 1.44 | -0.40 ± 0.19 | -2.14 | 0.035 | 1793 | 0.012 |
+| Pooled regression | 17.08 ± 1.49 | -0.06 ± 0.84 | -0.07 | 0.94 | 2393 | 0.65 |
+| Shrinkage | 17.25 ± 1.39 | -0.23 ± 0.37 | -0.63 | 0.53 | 2132 | 0.18 |
 
 ## Shortfall: probability of going below zero before the October payday
 
@@ -40,36 +40,36 @@ Brier score = mean of (p - outcome)^2 (± SE across persons); reference = Brier 
 
 | Plan | Price [GBP] | n | Shortfalls observed | Brier (± SE) | Reference o (1 - o) |
 |---|---|---|---|---|---|
-| pay now | 50 | 100 | 17 | 0.0012 ± 0.0012 | 0.1411 |
-| pay-in-3 | 50 | 100 | 16 | 0.0010 ± 0.0010 | 0.1344 |
-| pay now | 300 | 100 | 20 | 0.0043 ± 0.0043 | 0.1600 |
-| pay-in-3 | 300 | 100 | 17 | 0.0001 ± 0.0001 | 0.1411 |
-| pay now | 1200 | 100 | 29 | 0.0072 ± 0.0058 | 0.2059 |
-| pay-in-3 | 1200 | 100 | 20 | 0.0003 ± 0.0002 | 0.1600 |
-| pay now | all three | 300 | 66 | 0.0043 ± 0.0024 | 0.1716 |
-| pay-in-3 | all three | 300 | 53 | 0.0005 ± 0.0003 | 0.1455 |
+| pay now | 50 | 100 | 13 | 0.0056 ± 0.0056 | 0.1131 |
+| pay-in-3 | 50 | 100 | 13 | 0.0033 ± 0.0033 | 0.1131 |
+| pay now | 300 | 100 | 18 | 0.0001 ± 0.0001 | 0.1476 |
+| pay-in-3 | 300 | 100 | 13 | 0.0086 ± 0.0084 | 0.1131 |
+| pay now | 1200 | 100 | 26 | 0.0000 ± 0.0000 | 0.1924 |
+| pay-in-3 | 1200 | 100 | 18 | 0.0000 ± 0.0000 | 0.1476 |
+| pay now | all three | 300 | 57 | 0.0019 ± 0.0019 | 0.1539 |
+| pay-in-3 | all three | 300 | 44 | 0.0040 ± 0.0030 | 0.1252 |
 
 Reliability, pay now, all three prices pooled (n = 300; observed frequency ± binomial SE):
 
 | Predicted probability | n | Mean predicted | Shortfalls | Observed frequency (± SE) |
 |---|---|---|---|---|
-| 0.00 to 0.05 | 232 | 0.000 | 0 | 0.000 ± 0.000 |
+| 0.00 to 0.05 | 242 | 0.000 | 0 | 0.000 ± 0.000 |
 | 0.05 to 0.20 | 0 | not applicable | 0 | not applicable |
-| 0.20 to 0.50 | 2 | 0.373 | 1 | 0.500 ± 0.354 |
-| 0.50 to 0.80 | 2 | 0.698 | 1 | 0.500 ± 0.354 |
-| 0.80 to 0.95 | 2 | 0.939 | 2 | 1.000 ± 0.000 |
-| 0.95 to 1.00 | 62 | 0.999 | 62 | 1.000 ± 0.000 |
+| 0.20 to 0.50 | 0 | not applicable | 0 | not applicable |
+| 0.50 to 0.80 | 1 | 0.751 | 0 | 0.000 ± 0.000 |
+| 0.80 to 0.95 | 1 | 0.900 | 1 | 1.000 ± 0.000 |
+| 0.95 to 1.00 | 56 | 0.999 | 56 | 1.000 ± 0.000 |
 
 Reliability, pay-in-3, all three prices pooled (n = 300; observed frequency ± binomial SE):
 
 | Predicted probability | n | Mean predicted | Shortfalls | Observed frequency (± SE) |
 |---|---|---|---|---|
-| 0.00 to 0.05 | 244 | 0.000 | 0 | 0.000 ± 0.000 |
-| 0.05 to 0.20 | 2 | 0.119 | 0 | 0.000 ± 0.000 |
-| 0.20 to 0.50 | 1 | 0.313 | 0 | 0.000 ± 0.000 |
-| 0.50 to 0.80 | 0 | not applicable | 0 | not applicable |
-| 0.80 to 0.95 | 1 | 0.910 | 1 | 1.000 ± 0.000 |
-| 0.95 to 1.00 | 52 | 0.999 | 52 | 1.000 ± 0.000 |
+| 0.00 to 0.05 | 252 | 0.000 | 0 | 0.000 ± 0.000 |
+| 0.05 to 0.20 | 2 | 0.073 | 0 | 0.000 ± 0.000 |
+| 0.20 to 0.50 | 0 | not applicable | 0 | not applicable |
+| 0.50 to 0.80 | 1 | 0.578 | 0 | 0.000 ± 0.000 |
+| 0.80 to 0.95 | 1 | 0.919 | 0 | 0.000 ± 0.000 |
+| 0.95 to 1.00 | 44 | 1.000 | 44 | 1.000 ± 0.000 |
 
 With 100 persons and few shortfalls these figures are noisy: most persons' cushions are far from zero, so most predictions are near 0 or 1 and only a handful test the model's uncertainty.
 
