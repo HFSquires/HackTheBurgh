@@ -8,4 +8,5 @@ Statuses: `todo`, `in progress`, `review`, `blocked`, `done`. Claim a task by se
 | T02 | Choose the idea and record the choice in `DECISIONS.md` | Harrison | in progress | main | Idea chosen 7 November 2026 (affordability extension with BNPL float); scope of the float feature to be confirmed |
 | T03 | Choose the stack and set up the environment; write setup into `USER_GUIDE.md` | unassigned | todo |  | Depends on T02 |
 | T04 | Break the idea down into implementation tasks on this board | unassigned | todo | main | Depends on T02 |
-| T05 | Mock statement generator: pick personas from Nemotron-Personas-UK, give each a salary and category spending, write one statement CSV per persona | Claude | in progress | t05-mock-statements | Defaults accepted by Harrison 7 November 2026 (see `DECISIONS.md`); built by a Claude sub-agent in `.worktrees/t05-mock-statements` |
+| T05 | Mock statement generator: pick personas from Nemotron-Personas-UK, give each a salary and category spending, write one statement CSV per persona | Claude | done | t05-mock-statements | Merged 7 November 2026 (`ff706cc`); self-check passes. Known issues carried to T05b |
+| T05b | Mock data fixes: scale spending to income, at least two renters, Scottish income tax bands; keep ASHE 2025 revised | unassigned | todo |  | Proposed by Claude; awaiting Harrison's go-ahead |
