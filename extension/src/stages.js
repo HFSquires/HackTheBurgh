@@ -6,8 +6,12 @@
 globalThis.ST = globalThis.ST || {};
 
 (() => {
-  // Start of the label (sites append prices and dates: "Pre-order now £69.99"), any dash or space in "pre-order".
-  const ADD_TO_BASKET = /^\s*(add to (cart|basket|bag|trolley)|add$|pre[\s\u2010-\u2015-]?order|reserve now)/i;
+  // Anything that puts the item in a cart, basket, bag or trolley: "Add to bag", "Add to shopping bag", "Add item to
+  // your cart", "Move to basket", a plain "Add" / "+ Add" / "Add £5", and pre-orders (any dash or space).
+  // Not links that only go there ("Go to bag", "Back to cart").
+  const ADD_TO_BASKET = /\bto (\S+ ){0,2}(cart|basket|bag|trolley)\b|^\W*add\W*$|^\W*add\W*[£$€\d]|\bpre[\s\u2010-\u2015-]?order|^\W*reserve\b/i;
+  const JUST_GOING = /^\W*(go|back|return|continue|proceed|view|see|open|show|edit)\b|\b(view|go to|back to|return to) (your |my )?(shopping )?(cart|basket|bag|trolley)/i;
+  const isAddLabel = (t) => ADD_TO_BASKET.test(t) && !JUST_GOING.test(t);
   // How the button is coded (id/class/name/data-*), for icon-only buttons or labels in a language we don't match.
   const ADD_TO_BASKET_CODE = /add[-_]?(to[-_]?)?(cart|basket|bag|trolley)|pre[-_]?order/i;
   // The final buy button, by label or by how it's coded (id/class/data-*).
@@ -88,7 +92,7 @@ globalThis.ST = globalThis.ST || {};
         if (!el) return;
         const label = labelOf(el);
         // By label (aria-label, text or value), or by how it's coded when the label is just an icon.
-        const byLabel = [el.getAttribute("aria-label"), el.textContent, el.value].some((t) => t && ADD_TO_BASKET.test(t.replace(/\s+/g, " ").slice(0, 60)));
+        const byLabel = [el.getAttribute("aria-label"), el.textContent, el.value].some((t) => t && isAddLabel(t.replace(/\s+/g, " ").trim().slice(0, 60)));
         if (byLabel || (!PLACE_ORDER_LABEL.test(label) && ADD_TO_BASKET_CODE.test(codeOf(el)))) cb(el, label);
       },
       true
