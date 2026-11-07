@@ -5,7 +5,7 @@ Files: `safe_to_spend_vs_income.pdf`, `safe_to_spend_vs_income.svg` (this file: 
 
 ## Source data
 
-The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `d7ad54d`), read by `affordability.py` at commit `3e4d094`, called by `affordability_figures.py` (commit `5848aa0` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
+The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `e01f34f`), read by `affordability.py` at commit `79c06cc` (with uncommitted changes) (with `bayes.py` at commit `79c06cc` for everyday spending), called by `affordability_figures.py` (commit `f4d1a71` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
 
 ## Filters, transformations and units
 
@@ -16,19 +16,23 @@ values come from the call at GBP 50). Tenure is the sampled tenure in `personas.
 
 ## Definitions
 
-`safeToSpendDefinition`, copied from the engine output: "safeToSpend = balance (after the statement's last transaction, on asOf) minus every committed payment (recurring direct debit, standing order or same-amount card payment) and every BNPL instalment predicted after asOf and before nextPayday. Everyday spending such as food, and any card spending between asOf and today, is not deducted."
+`safeToSpendDefinition`, copied from the engine output: "safeToSpendBeforeEverydaySpending = balance (after the statement's last transaction, on asOf) minus every committed payment (recurring direct debit, standing order or same-amount card payment) and every BNPL instalment predicted after asOf and before nextPayday. safeToSpend = safeToSpendBeforeEverydaySpending minus predictedSpendingUntilPayday.mean, the Bayesian model's (bayes.py) expected everyday card spending from the day after asOf to the day before nextPayday; card spending between asOf and today is part of that prediction."
 
-Everyday spending until payday (food, travel and other card spending) is NOT deducted in the current definition, so
-safe-to-spend is generous: it exceeds what is actually left at payday by whatever is spent on everyday items in
-the meantime. The `bnplPlain` rule below likewise uses `afterCommitted`, which does not deduct everyday spending.
+`predictedSpendingUntilPayday.definition`: "Everyday (discretionary) card spending predicted from the day after asOf to the day before nextPayday by bayes.py (population prior from net pay, updated with this statement's daily card spending): posterior predictive mean and central 80% interval, lower end floored at 0."
+
+Since task T15, safe-to-spend deducts the predicted everyday spending until payday (Bayesian posterior predictive mean);
+before T15 it did not, and the earlier counts were correspondingly generous.
+
+`affordableDefinition`, copied from the engine output: "An option is affordable when safeToSpend minus what it takes from the account before nextPayday is at least 0 (payNow, bnplPot, cardPaidInFull: the full price; bnplPlain: the instalments due before payday), and, for bnplPlain, a month's income less committed payments, existing BNPL and typical everyday spending (monthly.leftOver) is at least one later instalment. leftAfter = safeToSpend minus what the option takes before nextPayday."
 
 `monthly.definition`, copied from the engine output: "afterCommitted = income (latest salary credit) - committed (one month of recurring payments) - bnpl (existing BNPL instalments due in the month after asOf); leftOver = afterCommitted - typicalCardSpending (median monthly everyday card spending over the full months in the statement, excluding BNPL and committed card payments)."
 
 Option rules in `assess()` for a price P (instalments are P/3, rounded to the penny, the first due on `today` and the
-others one and two months later). `payNow` is affordable when `safeToSpend - P >= 0`. `bnplPot` is affordable under the
-same condition; the engine's note reads: "The pot takes the same money as paying now, so it is affordable exactly when paying now is." `bnplPlain` is affordable when `safeToSpend` minus the instalments
-due before `nextPayday` is at least 0 and `monthly.afterCommitted - P/3 >= 0`. The `card0` option has no data and is
-not used here. `today` is the engine default, the day after each statement's last transaction (asOf).
+others one and two months later). `payNow` is affordable when `safeToSpend - P >= 0`. `bnplPot` and `cardPaidInFull`
+are affordable under the same condition; the engine's note on the pot reads: "The pot takes the same money as paying now, so it is affordable exactly when paying now is." `bnplPlain` is affordable when
+`safeToSpend` minus the instalments due before `nextPayday` is at least 0 and `monthly.leftOver - P/3 >= 0` (T15; before
+T15 the second test used `monthly.afterCommitted`, which does not deduct everyday spending). The `card0` option has no
+data and is not used here. `today` is the engine default, the day after each statement's last transaction (asOf).
 
 ## Plotted data
 
@@ -47,19 +51,19 @@ All: 100. Owned outright: 22. Social rented: 29. Private rented: 49.
 
 | Group | n | Median | Q1 | Q3 | IQR | Min | Max | n below 0 |
 |---|---|---|---|---|---|---|---|---|
-| All | 100 | 4440.77 | 1937.41 | 6451.22 | 4513.80 | -2236.75 | 15594.17 | 6 |
-| Owned outright | 22 | 5518.45 | 4381.36 | 7209.95 | 2828.59 | 1346.99 | 15594.17 | 0 |
-| Social rented | 29 | 5754.86 | 3127.38 | 7796.35 | 4668.97 | 189.77 | 13501.39 | 0 |
-| Private rented | 49 | 2992.05 | 844.28 | 5030.54 | 4186.26 | -2236.75 | 7985.29 | 6 |
+| All | 100 | 3468.49 | 1240.61 | 5251.51 | 4010.90 | -3181.65 | 14241.86 | 16 |
+| Owned outright | 22 | 4621.14 | 3662.29 | 6173.81 | 2511.52 | 755.21 | 14241.86 | 0 |
+| Social rented | 29 | 4633.93 | 2101.65 | 6626.54 | 4524.89 | -589.08 | 11972.79 | 1 |
+| Private rented | 49 | 2002.05 | -496.99 | 3939.12 | 4436.11 | -3181.65 | 6795.17 | 15 |
 
 `monthly.leftOver` [GBP]:
 
 | Group | n | Median | Q1 | Q3 | IQR | Min | Max | n below 0 |
 |---|---|---|---|---|---|---|---|---|
-| All | 100 | 961.00 | 361.03 | 1407.49 | 1046.46 | -638.48 | 3638.36 | 12 |
-| Owned outright | 22 | 1205.86 | 983.49 | 1613.00 | 629.51 | 233.00 | 3638.36 | 0 |
-| Social rented | 29 | 1223.10 | 601.97 | 1746.00 | 1144.03 | -42.75 | 3121.18 | 1 |
-| Private rented | 49 | 598.60 | 66.09 | 1073.94 | 1007.85 | -638.48 | 1796.84 | 11 |
+| All | 100 | 842.26 | 305.31 | 1289.09 | 983.78 | -804.00 | 3542.14 | 17 |
+| Owned outright | 22 | 1142.42 | 923.36 | 1519.03 | 595.67 | 178.13 | 3542.14 | 0 |
+| Social rented | 29 | 1126.90 | 496.49 | 1638.06 | 1141.57 | -154.61 | 2961.53 | 2 |
+| Private rented | 49 | 485.88 | -159.64 | 954.11 | 1113.75 | -804.00 | 1670.89 | 15 |
 
 Error bars: not applicable (none drawn).
 
@@ -71,8 +75,8 @@ p-values; read p only as far below 0.001.
 
 | y | rho | p |
 |---|---|---|
-| `safeToSpend` | 0.847 | 3.52e-17 |
-| `monthly.leftOver` | 0.828 | 1.78e-16 |
+| `safeToSpend` | 0.805 | 1.13e-15 |
+| `monthly.leftOver` | 0.804 | 1.29e-15 |
 
 No fit is drawn.
 
@@ -83,8 +87,8 @@ None (the engine is deterministic; the mock statements were generated with the s
 
 ## Interpretation
 
-Median `safeToSpend` is 4440.77 GBP (IQR 4513.80); 6 of
-100 households are below 0. Median `monthly.leftOver` is 961.00 GBP; 12 are below 0.
-The Spearman correlation of `safeToSpend` with income is 0.847. `safeToSpend` is generous
-because everyday spending until payday is not deducted, and the mock end balances are on the high side
-(`Analysis/mock_statements/README.md`).
+Median `safeToSpend` is 3468.49 GBP (IQR 4010.90); 16 of
+100 households are below 0. Median `monthly.leftOver` is 842.26 GBP; 17 are below 0.
+The Spearman correlation of `safeToSpend` with income is 0.805. `safeToSpend` deducts the
+predicted everyday spending until payday (median 639.15 GBP); the mock end balances
+are still on the high side because several ONS spending items are excluded (`Analysis/mock_statements/README.md`).

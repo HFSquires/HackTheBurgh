@@ -301,6 +301,23 @@ def better_price(product, price, merchant=None):
                    "cheapest other seller, shown only when below both."), hist
 
 
+def pay_in_3(price, today):
+    """Three instalments of price/3 to the penny (the first takes the rounding), due today and one and two months later."""
+    third = money(price / 3)
+    return [dict(due=add_months(today, i).isoformat(), amount=money(price - 2 * third) if i == 0 else third)
+            for i in range(3)]
+
+
+def rate_on(today):
+    """(date, Bank Rate in % a year) in force on `today`: the latest value on or before it (else the earliest)."""
+    return next((o for o in reversed(bank_rate()) if o[0] <= today), bank_rate()[0])
+
+
+def card_interest(price, rate):
+    """Simple interest in GBP on `price` left in an easy-access account for CARD_DAYS days at `rate` % a year."""
+    return money(price * rate / 100 * CARD_DAYS / 365)
+
+
 def pot_interest(price, start, schedule, rate):
     """Simple daily interest in GBP, 365-day year, on the pot's declining balance: `price` goes in on `start` and each
     instalment leaves on its due date. `rate` is in % a year. ponytail: no compounding, tax or rate changes over the
@@ -376,15 +393,14 @@ def assess(tx, price, today=None, merchant=None, product=None):
     # Payment options: facts only. cost = extra cost over the price, if every payment is made on time.
     left_now = money(safe - price)
     third = money(price / 3)
-    sched = [dict(due=add_months(today, i).isoformat(), amount=money(price - 2 * third) if i == 0 else third)
-             for i in range(3)]
+    sched = pay_in_3(price, today)
     due_now = money(sum(s["amount"] for s in sched if dt.date.fromisoformat(s["due"]) < horizon))
     left_plain = money(safe - due_now)
     spend_note = (f"Predicted everyday card spending until payday, about £{spend_mean:,.0f} (80% interval "
                   f"£{predicted['interval80'][0]:,.0f} to £{predicted['interval80'][1]:,.0f}), is already deducted."
                   if payday else "No salary was detected, so everyday spending is not deducted.")
-    rate_day, rate = next((o for o in reversed(bank_rate()) if o[0] <= today), bank_rate()[0])
-    card_float = money(price * rate / 100 * CARD_DAYS / 365)
+    rate_day, rate = rate_on(today)
+    card_float = card_interest(price, rate)
     in_s75 = S75[0] <= price <= S75[1]
     pot = dict(rateAnnual=rate, rateDate=rate_day.isoformat(), interest=pot_interest(price, today, sched, rate),
                rateSource="Bank of England database, series IUDBEDR (Official Bank Rate), latest value on or before "
