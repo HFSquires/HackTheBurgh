@@ -44,3 +44,16 @@ npm-debug.log*
 
 # Large raw downloads (see data/README.md for the download command)
 data/ashe_table14_2025revised.zip
+
+# Open Banking synthetic data (T20): about 47 MB of generated JSON; regenerate with ob_generator.py. A sample is committed:
+# persona001 (BNPL), persona029 (one account, unarranged overdraft), persona072 (seven accounts, three providers),
+# persona082 (joint account, two cards), persona100 (credit card, unarranged overdraft).
+Analysis/open_banking/persona*.json
+!Analysis/open_banking/persona001_*.json
+!Analysis/open_banking/persona029_*.json
+!Analysis/open_banking/persona072_*.json
+!Analysis/open_banking/persona082_*.json
+!Analysis/open_banking/persona100_*.json
+
+# FCA Financial Lives 2024 data tables (FCA terms restrict redistribution; see data/README.md for the download command)
+data/financial-lives-survey-2024-tables-volume-*.xlsx
