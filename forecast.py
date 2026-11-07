@@ -184,9 +184,16 @@ def metrics(pred, actual):
 
 def paired(pm, pb, actual):
     am, ab = np.abs(np.asarray(pm) - actual), np.abs(np.asarray(pb) - actual)
-    d, t, w = am - ab, stats.ttest_rel(am, ab), stats.wilcoxon(am - ab)
+    d = np.where(np.abs(am - ab) < 1e-9, 0.0, am - ab)  # floating-point noise from adding and subtracting is no difference
+    t, w = stats.ttest_rel(am, ab), stats.wilcoxon(d)
     return dict(diff=d.mean(), diff_SE=d.std(ddof=1) / math.sqrt(len(d)), t=t.statistic, df=len(d) - 1, p_t=t.pvalue,
                 W=w.statistic, p_w=w.pvalue, n_w=int((d != 0).sum()))  # Wilcoxon drops zero differences
+
+
+def moved_by_bnpl(P):
+    """|Mean + BNPL schedule - Aug-Sep mean| [GBP] for the personas it changes, rounded to pence (no float noise)."""
+    d = (P.mean_bnpl - P["mean"]).abs().round(2)
+    return d[d > 0]
 
 
 def holm(p):
@@ -276,8 +283,7 @@ def run(write=True):
                          for m in MODELS])
     ratio = {m: M[m]["RMSE"] / M["generator"]["RMSE"] for m in MODELS}
     n_tix = sum("football tickets" in cats[p]["oct"] for p in T.index)
-    moved = (P.mean_bnpl - P["mean"]).abs()
-    moved = moved[moved > 0]
+    moved = moved_by_bnpl(P)
     src = ("Source: the 100 statements in `Analysis/mock_statements/` (persona CSVs and `personas.md`), via `forecast.py`. "
            "Target: October 2026 discretionary card spending per persona [GBP], i.e. card (DEB) payments that are neither BNPL "
            "instalments nor committed payments, with committed payments detected by `affordability.detect_committed` on "
@@ -455,6 +461,10 @@ def check():
     assert math.isclose(m["MAE"], 2) and math.isclose(m["MAE_SE"], 1 / math.sqrt(3))
     assert math.isclose(m["RMSE"], math.sqrt(14 / 3)) and math.isclose(m["MAPE"], 40 / 3) and math.isclose(m["bias"], 2 / 3)
     assert np.allclose(holm([0.01, 0.04, 0.03]), [0.03, 0.06, 0.06])
+    noise = pd.DataFrame({"mean": [751.2, 10.0, 5.0], "mean_bnpl": [751.2 + 1.1e-13, 12.0, 5.0]})  # T23: float noise
+    assert list(moved_by_bnpl(noise)) == [2.0]
+    pr = paired([1.0, 2.0, 3.0 + 1e-13, 5.0, 9.0], [2.0, 4.0, 3.0, 6.0, 1.0], np.zeros(5))
+    assert pr["n_w"] == 4 and np.isclose(pr["diff"], 0.8)
     T, C, cats, P, M, comps, CM, info, means, st = run(write=False)
     # The discretionary definition matches affordability.card_spend when committed payments come from the whole statement.
     for pid, tx in st.items():

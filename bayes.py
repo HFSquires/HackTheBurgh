@@ -210,7 +210,8 @@ def shortfall_probability(tx, price, today=None, payday=None, pay_in_3=False, hy
     out = (sum(c["amount"] for c in a["committed"] if due(c["due"]))
            + sum(s["amount"] for p in a["bnplPlans"] for s in p["schedule"] if due(s["due"])))
     plan = next(o for o in a["options"] if o["kind"] == "bnplPlain")["schedule"]
-    buy = ([(dt.date.fromisoformat(s["due"]), s["amount"]) for s in plan if dt.date.fromisoformat(s["due"]) < payday]
+    buy = ([(dt.date.fromisoformat(s["due"]), s["amount"]) for s in plan  # due before payday or today (as affordability)
+            if dt.date.fromisoformat(s["due"]) < payday or dt.date.fromisoformat(s["due"]) == today]
            if pay_in_3 else [(today, float(price))])
     cushion = a["balance"] - out - sum(x for _, x in buy)
     first, last = as_of + dt.timedelta(days=1), payday - dt.timedelta(days=1)
