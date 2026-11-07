@@ -358,7 +358,8 @@ def run():
            "BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. "
            "Every model is fitted on the rows up to 30 September only (August and September); each person's prior "
            f"comes from a fit on the other persons, by person-level {fc.FOLDS}-fold cross-validation with forecast.py's "
-           f"folds (seed {fc.SEED}). October is used only to score.\n")
+           f"folds (seed {fc.SEED}). October is used only to score. "
+           + fc.commits("bayes.py", "forecast.py", "affordability.py") + "\n")
     model_txt = ("Model (full derivation in the docstring of `bayes.py`): daily discretionary spending, Gaussian on the "
                  "raw scale; within a calendar month of D days each day has mean beta / D (beta: the person's monthly "
                  "budget) and variance sigma^2, and two days of the same month have correlation (phi - 1) / (D - 1), so "

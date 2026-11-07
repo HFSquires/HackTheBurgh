@@ -12,6 +12,7 @@ import argparse
 import calendar
 import datetime as dt
 import math
+import subprocess
 from pathlib import Path
 
 import matplotlib
@@ -198,7 +199,15 @@ def md_table(head, rows):
                      + ["| " + " | ".join(str(x) for x in r) + " |" for r in rows]) + "\n"
 
 
-pm = lambda m, k, f=".2f": f"{m[k]:{f}} ± {m[k + '_SE']:{f}}"
+def commits(*files):
+    """Provenance sentence: the commit that last changed the statements and each named file (T15)."""
+    h = lambda *p: subprocess.run(["git", "log", "-1", "--format=%h", "--", *p], cwd=HERE, capture_output=True,
+                                  text=True).stdout.strip() or "unknown"
+    return (f"Statements last changed in commit `{h('Analysis/mock_statements')}`; "
+            + "; ".join(f"`{f}` at commit `{h(f)}`" for f in files) + " (or later, if uncommitted changes were run).")
+
+
+pm = lambda m, k, f=".2f":f"{m[k]:{f}} ± {m[k + '_SE']:{f}}"
 pv = lambda p: f"{p:.2g}" if p >= 1e-4 else f"{p:.1e}"
 
 NOISE = """## What these data can and cannot show
@@ -270,7 +279,8 @@ def run(write=True):
            "instalments nor committed payments, with committed payments detected by `affordability.detect_committed` on "
            f"the rows up to 30 September (so the fixed football-ticket card payments of {n_tix} personas, which need three "
            "months to be detected, count as discretionary in every month). Models are fitted on August and September only; "
-           "October is used only to score. Per-persona data: `Analysis/forecast/predictions_october.csv`.\n")
+           "October is used only to score. Per-persona data: `Analysis/forecast/predictions_october.csv`. "
+           + commits("forecast.py", "affordability.py") + "\n")
 
     # ---- figure (i): predicted versus actual, and errors of the primary model and the mean baseline
     plt.style.use(Path(tf.__file__).with_name("TeXFormat.mplstyle"))
@@ -335,7 +345,7 @@ def run(write=True):
         b.plot(days, mae, color=c, label=CURVES[k], ls=":" if k == "curve_generator" else "-")
         b.fill_between(days, mae - se, mae + se, color=c, alpha=0.2, lw=0)
     b.set(xlabel="Day of October", ylabel="MAE of cumulative spending [GBP]", xlim=(1, 31))
-    b.legend(frameon=True, fancybox=False, fontsize=tf.fontsizeTiny, loc="upper left")
+    b.legend(frameon=True, fancybox=False, fontsize=tf.fontsizeTiny, loc="lower center")
     for ax, lab in ((a, "(a)"), (b, "(b)")):
         ax.text(0.97, 0.95, lab, transform=ax.transAxes, ha="right", va="top", fontsize=tf.fontsizeSmall)
     fig.tight_layout()
