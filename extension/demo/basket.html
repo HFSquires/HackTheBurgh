@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta property="og:site_name" content="Northwind Outfitters" />
+  <title>Your basket · Northwind Outfitters</title>
+  <link rel="stylesheet" href="_shared.css" />
+  <style>
+    h1 { font-size: 26px; margin: 0 0 20px; letter-spacing: -.02em; }
+    .item { display: flex; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .thumb { width: 64px; height: 64px; border-radius: 10px; flex: none; }
+    .item .price { margin-left: auto; font-weight: 600; }
+    .row { display: flex; justify-content: space-between; padding: 14px 0 18px; font-weight: 700; font-size: 18px; }
+    .card { max-width: 560px; }
+  </style>
+</head>
+<body>
+  <header><div class="bar"><a class="logo" href="product.html">Northwind Outfitters</a><span class="bag">Bag (2)</span></div></header>
+  <main>
+    <h1>Your basket</h1>
+    <div class="card">
+      <div class="item" data-st-item>
+        <div class="thumb" style="background:linear-gradient(135deg,#3b5b4a,#8fb39c)"></div>
+        <div><div><b>Trailhead Waterproof Jacket</b></div><div class="muted">Forest · M · Qty 1</div></div>
+        <div class="price">£149.00</div>
+      </div>
+      <div class="item" data-st-item>
+        <div class="thumb" style="background:linear-gradient(135deg,#c9a46a,#efe0bf)"></div>
+        <div><div><b>Merino Hiking Socks (2 pack)</b></div><div class="muted">Sand · Qty 1</div></div>
+        <div class="price">£24.00</div>
+      </div>
+      <div class="row"><span>Basket total</span><span>£173.00</span></div>
+      <a class="btn" href="checkout.html">Proceed to checkout</a>
+    </div>
+  </main>
+  <div class="journey"><b>Demo · step 2 of 3</b><br />Before any forms: a small "cheaper elsewhere" pill, no glow.</div>
+
+  <script src="../src/config.js"></script>
+  <script src="../src/log.js"></script>
+  <script>ST.config.MOCK_ALT_URL = new URL("checkout.html", location.href).href;</script>
+  <script src="../src/mock.js"></script>
+  <script src="../src/detect.js"></script>
+  <script src="../src/api.js"></script>
+  <script src="../src/overlay.js"></script>
+  <script src="../src/precheck.js"></script>
+  <script src="../src/stages.js"></script>
+  <script src="../src/handoff.js"></script>
+  <script src="../src/content.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+rules_version = '2';
+// Nothing is readable or writable from browsers or apps. All access goes through the server (/api/profile),
+// which uses the Admin SDK (not subject to these rules) after verifying the user's Auth0 sign-in.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

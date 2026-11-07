@@ -1,0 +1,119 @@
+// Silent price checks started when something goes in the basket, kept for 30 minutes so the checkout can show its
+// answer instantly instead of waiting ~40s for a fresh web search. Runs in the background worker (stored in
+// chrome.storage.session, which survives the worker going to sleep) or, on the demo page, in sessionStorage.
+globalThis.ST = globalThis.ST || {};
+
+(() => {
+  const KEY = "second-thought-prechecks";
+  const MAX_AGE = 30 * 60 * 1000;
+  const MAX_ENTRIES = 20;
+  const pending = new Map(); // checks still running, so a second request waits for the first
+
+  const store = {
+    async get() {
+      if (globalThis.chrome?.storage?.session) return (await chrome.storage.session.get(KEY))[KEY] || [];
+      try { return JSON.parse(sessionStorage.getItem(KEY)) || []; } catch { return []; }
+    },
+    async set(list) {
+      if (globalThis.chrome?.storage?.session) return chrome.storage.session.set({ [KEY]: list });
+      try { sessionStorage.setItem(KEY, JSON.stringify(list)); } catch {}
+    },
+  };
+
+  const baseDomain = (url) => {
+    const p = new URL(url).hostname.replace(/^www\./, "").split(".");
+    const twoPart = p.length >= 3 && p[p.length - 1].length === 2 && /^(co|com|org|net|ac|gov)$/.test(p[p.length - 2]);
+    return p.slice(twoPart ? -3 : -2).join(".");
+  };
+  const words = (s) =>
+    (s || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").split(" ")
+      .filter((w) => w.length >= 3 && !/^(the|and|for|with|pre|order|edition|new|pack)$/.test(w));
+  const namesOf = (payload) => (payload.items || []).map((i) => i.name).filter(Boolean);
+
+  // Same store, same number of items, and each item's name mostly found in one of the checked names.
+  function sameBasket(entry, payload) {
+    const names = namesOf(payload);
+    if (!names.length || entry.domain !== baseDomain(payload.url) || entry.names.length !== names.length) return false;
+    return names.every((n) => {
+      const want = [...new Set(words(n))];
+      return want.length && entry.names.some((m) => {
+        const have = new Set(words(m));
+        return want.filter((w) => have.has(w)).length / want.length >= 0.6;
+      });
+    });
+  }
+
+  // A recent (or still running) check of this basket, or null.
+  async function find(payload) {
+    try {
+      for (const p of pending.values()) if (sameBasket(p, payload)) return { result: await p.promise, at: p.at, stage: p.stage };
+      const list = (await store.get()).filter((e) => Date.now() - e.at < MAX_AGE);
+      return list.reverse().find((e) => sameBasket(e, payload)) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Runs `analyze(payload)` unless this basket was checked recently; remembers the answer.
+  async function run(payload, analyze) {
+    const existing = await find(payload);
+    if (existing) return { ...existing, reused: true };
+    const entry = { domain: baseDomain(payload.url), names: namesOf(payload), price: payload.total, at: Date.now(), stage: payload.stage };
+    const key = `${entry.domain}|${entry.names.join("|")}`;
+    const promise = analyze(payload).then(async (result) => {
+      const list = (await store.get()).filter((e) => Date.now() - e.at < MAX_AGE);
+      list.push({ ...entry, result });
+      await store.set(list.slice(-MAX_ENTRIES));
+      return result;
+    });
+    pending.set(key, { ...entry, promise });
+    try {
+      return { result: await promise, at: entry.at, stage: entry.stage, reused: false };
+    } finally {
+      pending.delete(key);
+    }
+  }
+
+  const money = (n, currency = "GBP") => {
+    try { return new Intl.NumberFormat("en-GB", { style: "currency", currency }).format(n); } catch { return n.toFixed(2); }
+  };
+
+  // The budget verdict, worked out here from the saved budget (no AI needed): fits / tight / over / no budget.
+  function budgetVerdict(total, currency, settings) {
+    const budget = Number(settings?.budget) || 0;
+    if (!(budget > 0) || total == null) {
+      return { verdict: "neutral", title: "Here's how this price compares", message: "Add a monthly budget in settings and we'll also tell you whether this fits your plan.", insights: [] };
+    }
+    const left = budget - (Number(settings.spent) || 0);
+    const insights = [
+      { label: "Budget left this month", value: money(Math.max(left, 0), currency) },
+      { label: "After this", value: money(left - total, currency) },
+    ];
+    if (total > left) {
+      return { verdict: "reconsider", title: "This would put you over budget", message: `It's ${money(total, currency)} and you have ${money(Math.max(left, 0), currency)} left this month.`, insights };
+    }
+    if (total > 0.6 * left) {
+      return { verdict: "caution", title: "Worth a pause", message: `This uses most of the ${money(left, currency)} you have left this month.`, insights };
+    }
+    return { verdict: "good", title: "This fits your budget", message: `You'll still have ${money(left - total, currency)} left this month.`, insights };
+  }
+
+  // Turn an earlier price check into the checkout answer: keep its alternatives and outlook, redo the budget part
+  // against the real checkout total (delivery included).
+  function forCheckout(earlier, payload, settings) {
+    const verdict = budgetVerdict(payload.total, payload.currency, settings);
+    const cheaper = (earlier.alternatives || []).length > 0;
+    const actions = verdict.verdict === "good" || verdict.verdict === "neutral"
+      ? [{ id: "proceed", label: cheaper ? "Buy here instead" : "Continue to pay", variant: cheaper ? "secondary" : "primary" }, { id: "dismiss", label: "Dismiss", variant: "ghost" }]
+      : [{ id: "remind", label: "Remind me in 24h", variant: cheaper ? "secondary" : "primary", confirmation: "Got it. We'll remind you tomorrow." }, { id: "proceed", label: "Buy here anyway", variant: "ghost" }];
+    return { ...earlier, ...verdict, fromEarlierCheck: true, insights: [...verdict.insights, ...(earlier.insights || []).filter((i) => /prices compared/i.test(i.label))].slice(0, 4), actions };
+  }
+
+  // Money left this month, attached to every answer so the page can say "£X over budget" at Place order.
+  function budgetInfo(settings) {
+    const budget = Number(settings?.budget) || 0;
+    return budget > 0 ? { budget, spent: Number(settings.spent) || 0, left: budget - (Number(settings.spent) || 0) } : null;
+  }
+
+  ST.precheck = { run, find, forCheckout, budgetVerdict, budgetInfo, baseDomain };
+})();

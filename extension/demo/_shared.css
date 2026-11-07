@@ -1,0 +1,14 @@
+/* Shared look for the demo store's product and basket pages (the checkout has its own inline styles). */
+:root { --bg: #f6f5f2; --card: #fff; --ink: #1b1b1f; --muted: #6b6b75; --line: #e6e4df; --brand: #1f3a2e; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { background: var(--card); border-bottom: 1px solid var(--line); }
+.bar { max-width: 1040px; margin: 0 auto; padding: 18px 16px; display: flex; align-items: center; justify-content: space-between; }
+.logo { font-weight: 700; letter-spacing: -.02em; font-size: 18px; color: var(--brand); text-decoration: none; }
+.bag { color: var(--ink); text-decoration: none; font-size: 14px; }
+main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 120px; }
+.btn { display: inline-block; padding: 14px 22px; border: 0; border-radius: 11px; background: var(--brand); color: #fff; font: 600 15px/1 inherit; cursor: pointer; text-decoration: none; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+.muted { color: var(--muted); }
+.journey { position: fixed; left: 16px; bottom: 16px; z-index: 10; background: #111; color: #ddd; border-radius: 12px; padding: 10px 12px; font-size: 12px; max-width: 260px; }
+.journey b { color: #fff; }

@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Second Thought",
+  "version": "0.1.0",
+  "description": "An AI that helps you make a better money decision right at checkout.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Analyse this checkout",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "permissions": ["storage", "alarms", "notifications", "identity"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "run_at": "document_idle",
+      "js": [
+        "src/config.js",
+        "src/log.js",
+        "src/mock.js",
+        "src/detect.js",
+        "src/api.js",
+        "src/overlay.js",
+        "src/stages.js",
+        "src/handoff.js",
+        "src/content.js"
+      ]
+    }
+  ]
+}
