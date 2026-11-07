@@ -313,6 +313,9 @@ def call(url, token=None, body=None, budget=None):
                 budget.take(len(chunk))
                 if size > MAX_RESPONSE:
                     raise StatementError("A bank response was larger than expected.")
+            if r.length:  # read1 returns b"" at an early close instead of raising
+                raise StatementError("A bank response was cut short.")
+            budget.timeout()  # a response that finished after the deadline also fails (worst case: deadline + 10 s)
     except StatementError:
         raise
     except urllib.error.HTTPError as e:
@@ -498,6 +501,13 @@ def check_t23(base):
                         self.wfile.write(b" ")
                         self.wfile.flush()
                     return
+                if self.path == "/short":  # promises 20 bytes, sends 7, closes
+                    self.send_response(200)
+                    self.send_header("Content-Length", "20")
+                    self.end_headers()
+                    self.wfile.write(b'{"a":1}')
+                    self.close_connection = True
+                    return
                 if self.path == "/chunked":
                     self.send_response(200)
                     self.send_header("Transfer-Encoding", "chunked")
@@ -531,6 +541,7 @@ def check_t23(base):
         assert "too long" in fails(call, bad + "/drip", budget=Budget(seconds=1)) and time.monotonic() - t0 < 3
         assert "more data" in fails(call, bad + "/deep", budget=Budget(size=1000))
         assert "not JSON" in fails(call, bad + "/deep")  # RecursionError inside json.loads
+        assert "cut short" in fails(call, bad + "/short")
         fails(call, bad + "/chunked")                    # http.client.IncompleteRead
         fails(call, bad + "/a b")                        # http.client.InvalidURL
         msg = fails(call, bad + "/secret")
