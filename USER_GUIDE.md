@@ -1,6 +1,6 @@
 # User guide
 
-Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c) the back end (`affordability.py`, task T07) the affordability figures (`affordability_figures.py`, task T07b) and the spending-forecast backtest (`forecast.py`, task T12). The browser extension front end is being built by Auro (T10) and is not yet in the repository.
+Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c) the back end (`affordability.py`, task T07) the affordability figures (`affordability_figures.py`, task T07b) the spending-forecast backtest (`forecast.py`, task T12) and the market data (`market_data.py`, task T14). The browser extension front end is being built by Auro (T10) and is not yet in the repository.
 
 ## Purpose
 
@@ -51,15 +51,15 @@ If the Hugging Face or ONS files need refreshing, use the URLs in `data/README.m
 
 `affordability.py` (standard library only) reads a statement CSV in the layout above and serves a JSON API for the extension on `127.0.0.1` (default port 8765; CORS allows any origin). Start it with `.venv\Scripts\python -X utf8 affordability.py --serve [--port N]`; stop with Ctrl+C. Self-check: `.venv\Scripts\python -X utf8 affordability.py --check` (all persona CSVs at £50, £300 and £1,200, malformed CSVs, and the HTTP endpoints; prints how many personas can pay now, only with plain pay-in-3, or neither).
 
-Endpoints: `GET /health`; `GET /personas` (id, age, region, household, occupation, tenure); `POST /assess` with `{"persona": "persona079"}` or `{"csv": "<CSV text>"}`, plus `"price"` in GBP (> 0), optional `"merchant"` and `"today"` (YYYY-MM-DD; default the day after the last transaction; must be after it and not after a missed payday). Errors return status 400 and `{"error": "..."}`. Example (Git Bash):
+Endpoints: `GET /health`; `GET /personas` (id, age, region, household, occupation, tenure); `POST /assess` with `{"persona": "persona079"}` or `{"csv": "<CSV text>"}`, plus `"price"` in GBP (> 0), optional `"merchant"`, optional `"product"` (a catalogue id such as `"P02"`, or a product name matched case-insensitively, word for word, against the catalogue names) and `"today"` (YYYY-MM-DD; default the day after the last transaction; must be after it and not after a missed payday). Errors return status 400 and `{"error": "..."}`. Example (Git Bash):
 
 ```
-curl -s -X POST http://127.0.0.1:8765/assess -H "Content-Type: application/json" -d '{"persona": "persona004", "price": 300, "merchant": "Argos", "today": "2026-11-07"}'
+curl -s -X POST http://127.0.0.1:8765/assess -H "Content-Type: application/json" -d '{"persona": "persona004", "price": 229.99, "merchant": "John Lewis", "product": "P02", "today": "2026-11-07"}'
 ```
 
-The response gives the detected salary and next payday, committed payments (direct debits, standing orders, same-amount card payments in three or more months) with due dates, buy-now-pay-later plans (Klarna, Clearpay, PayPal Pay in 3) with remaining instalments, `safeToSpend` (balance minus committed payments and BNPL instalments due before payday; everyday spending not deducted), a monthly view, and four payment options (`payNow`, `bnplPot`, `bnplPlain`, `card0`) with facts only, marking `cheapest` and `mostLeftUntilPayday` without recommending. `saleNote` names the next UK sale event within 60 days; `betterPrice` is null until the price catalogue (T09) is linked. Definitions are returned in the response.
+The response gives the detected salary and next payday, committed payments (direct debits, standing orders, same-amount card payments in three or more months) with due dates, buy-now-pay-later plans (Klarna, Clearpay, PayPal Pay in 3) with remaining instalments, `safeToSpend` (balance minus committed payments and BNPL instalments due before payday; everyday spending not deducted), a monthly view, and four payment options (`payNow`, `bnplPot`, `bnplPlain`, `card0`) with facts only, marking `cheapest` and `mostLeftUntilPayday` without recommending. `bnplPot.potInterest` estimates the interest the pot would earn: simple daily interest (365-day year) on the declining balance over the instalment schedule, at the latest Bank of England Bank Rate on or before `today` (`data/boe_bank_rate_IUDBEDR_2026-11-07.csv`), which stands in for an easy-access savings rate; it does not change the cost or affordability. `saleNote` names the next UK sale event within 60 days. When `product` matches the catalogue (`data/retail_prices_2026-11-07.csv`, prices collected 7 November 2026), `betterPrice` gives the cheapest price among Amazon UK, Argos, Currys, John Lewis, AO and Very, the saving against the given price (null unless that price is lower), `sameAsCurrent`, any cheaper marketplace or third-party seller (`marketplaceCheaper`, flagged separately and never `cheapest`) and caveats; otherwise it is null. `saleNote.priceHistory` gives PriceSpy UK's 3-month lowest and highest prices only when today's cheapest offer and the cheapest mainstream price both lie inside that range (currently P04 only); otherwise a caveat in `betterPrice` says why it is omitted. Definitions are returned in the response.
 
-Limitations: UK bank holidays are ignored in payday prediction; annual debits are treated as monthly; card subscriptions younger than three months are missed; BNPL instalment counts are assumed by provider; there is no card data, so the 0% card option is descriptive only; the sale dates are typed into the code and not yet checked against a source.
+Limitations: UK bank holidays are ignored in payday prediction; annual debits are treated as monthly; card subscriptions younger than three months are missed; BNPL instalment counts are assumed by provider; there is no card data, so the 0% card option is descriptive only. Black Friday and Cyber Monday dates are checked against the calendar in `--check`; the Boxing Day sale start is a convention. The catalogue covers five products on one day, mostly from PriceSpy UK, which may lag retailers; product names are matched only when one name contains the other, so a reworded page title is missed. Pot interest uses Bank Rate as a proxy, with no compounding, tax or rate changes; real easy-access rates vary.
 
 ## Affordability figures
 
@@ -86,4 +86,15 @@ Limitations: safe to spend does not yet deduct everyday spending until payday, s
 The check corrupts October rows and requires every forecast to be unchanged, checks the definitions against `card_spend` and `personas.md`, checks the metrics on a hand example, and checks reproducibility. Outputs: `Analysis/forecast/` (`predictions_october.csv`, `curves_october.csv`, `backtest_summary.md`) and `Figures/forecast/` (`forecast_scatter` and `forecast_errors`, PDF, SVG and `.md`). Needs matplotlib, scipy, the `texformat.pth` link and MiKTeX.
 
 Limitation: the mock statements have independent monthly noise and no persistent habits, so the backtest shows how well the generator's process is recovered, not real behaviour. No model beats the two-month mean detectably (pooled regression minus mean: −£0.38 ± £0.86 per person, p = 0.66).
+
+## Market data
+
+`market_data.py` (task T14) reads the ONS series in `data/` (`ons_mm23_cpi_index_<CDID>.csv` for all-items CPI and the 12 COICOP divisions; `ons_drsi_retail_sales_value_nsa_J5AH.csv`, retail sales value, not seasonally adjusted, Great Britain, all retailers including fuel). It writes `Analysis/market/cpi_uprating_factors.csv`, where `factor` is the September 2026 CPI index divided by the mean index over April 2024 to March 2025 (the Family Spending reference period), for uprating spending to current prices (all items 1.069; housing, water and fuels 1.109; food 1.054). It also writes `Figures/market/retail_sales_seasonality.{pdf,svg,md}`: the index by calendar month, each year scaled to its own mean, 2021 to 2025, with the November and December uplift ((13.7 ± 1.2)% and (19.9 ± 1.1)%).
+
+```
+.venv\Scripts\python -X utf8 market_data.py           # writes everything
+.venv\Scripts\python -X utf8 market_data.py --check   # 13 factors in (0.9, 1.3), equal to a fresh calculation; .md tables match
+```
+
+Limitations: the data are a snapshot (to September 2026); to update, re-download the CSVs from the ONS URLs in `data/README.md` (ONS rate-limits repeated requests) and rerun. The retail index base year is not stated in the file. The years used (2021 to 2025) are fixed in `YEARS`. The bar chart's y axis starts at 80, which exaggerates the seasonal rise visually.
 
