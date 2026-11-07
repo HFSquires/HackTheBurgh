@@ -1,3 +1,5 @@
 openpyxl
 pandas
 odfpy
+matplotlib
+scipy

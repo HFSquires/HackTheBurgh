@@ -1,0 +1,7 @@
+# Analysis/forecast/
+
+Output of `forecast.py` (repository root, task T12): an October 2026 backtest of spending forecasts fitted on August and September of the 100 mock statements. `predictions_october.csv` has one row per persona (actual October discretionary card spending, each model's prediction and error, and total debits); `curves_october.csv` has the cumulative discretionary spending by day of October with the two curve forecasts and the generator-mean reference; `backtest_summary.md` gives total debits, merchant groups and the BNPL schedule check. Written by code; never edit by hand. Regenerate with `.venv\Scripts\python -X utf8 forecast.py`.
+
+## Log
+
+- 2026-11-07 (Claude, T12 sub-agent): first run (seed 20261107, 10 person-level folds). No model beat the naive Aug-Sep mean detectably; the statements' noise is independent each month, so this was expected (see `Figures/forecast/forecast_errors.md`). The generator-mean reference is computed with `mock_statements.spend_model` per persona; the statements were not regenerated (coordinator's instruction).
