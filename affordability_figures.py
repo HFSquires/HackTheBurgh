@@ -5,11 +5,12 @@ Calls affordability.py (parse, assess, personas) for every persona in Analysis/m
     Analysis/affordability/households.csv                 one row per persona
     Figures/affordability/affordability_by_price.{pdf,svg,md}
     Figures/affordability/safe_to_spend_vs_income.{pdf,svg,md}
+    Analysis/value/savings_comparison.csv, Figures/value/savings_comparison.{pdf,svg,md}   (catalogue products; task T15)
 
     python -X utf8 affordability_figures.py           # write everything
     python -X utf8 affordability_figures.py --check   # verify the written outputs against fresh engine calls
 """
-import argparse, hashlib, math, re, subprocess
+import argparse, datetime as dt, hashlib, io, math, re, subprocess
 from pathlib import Path
 
 import pandas as pd
@@ -25,6 +26,11 @@ CAT_LABEL = {"payNow": "Can pay now (or with the BNPL pot)", "bnplPlainOnly": "O
              "neither": "Neither"}
 TENURES = ["Owned outright", "Social rented", "Private rented"]
 F1, F2 = "affordability_by_price", "safe_to_spend_vs_income"
+VALUE_A, VALUE_F, F3 = HERE / "Analysis" / "value", HERE / "Figures" / "value", "savings_comparison"
+SAVE_DAY = dt.date(2026, 11, 7)  # the day the catalogue prices were collected; Bank Rate in force that day
+CASHBACK = 0.01  # assumed cashback rate of a cashback credit card; not from any product in data/
+SAVINGS = {"cheapest_saving": "Buying at the cheapest mainstream price", "cashback": r"1\% cashback card (assumed rate)",
+           "pot": "Pay-in-3 float interest (pot)", "card": "Credit-card float interest"}
 
 
 def outcome(a):
@@ -44,7 +50,8 @@ def build():
         sample = sample or a
         rows.append({"id": p["id"], "tenure": p["tenure"], "region": p["region"], "household": p["household"],
                      "income": a["income"]["monthly"], "nextPayday": a["income"]["nextPayday"],
-                     "balance": a["balance"], "safeToSpend": a["safeToSpend"],
+                     "balance": a["balance"], "safeToSpendBeforeEverydaySpending": a["safeToSpendBeforeEverydaySpending"],
+                     "predictedSpendingMean": a["predictedSpendingUntilPayday"]["mean"], "safeToSpend": a["safeToSpend"],
                      "monthly.leftOver": a["monthly"]["leftOver"],
                      **{f"outcome_{pr}": outcome(out[pr]) for pr in PRICES}})
     sample["asOfRange"] = f"`{min(asofs)}` to `{max(asofs)}`; `today` is the day after each"
@@ -90,7 +97,8 @@ def provenance():
     tfx = hashlib.sha256(Path(tf.__file__).read_bytes()).hexdigest()[:12]
     return (f"The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed "
             f"in commit `{git('log', '-1', '--format=%h', '--', 'Analysis/mock_statements')}`), read by "
-            f"`affordability.py` at commit `{git('log', '-1', '--format=%h', '--', 'affordability.py')}`{dirty}, "
+            f"`affordability.py` at commit `{git('log', '-1', '--format=%h', '--', 'affordability.py')}`{dirty} (with "
+            f"`bayes.py` at commit `{git('log', '-1', '--format=%h', '--', 'bayes.py')}` for everyday spending), "
             f"called by `affordability_figures.py` (commit `{git('log', '-1', '--format=%h', '--', 'affordability_figures.py')}`"
             f" or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via "
             f"`affordability.personas()`. Plot style: `TeXFormat.py` sha256 `{tfx}`.")
@@ -100,17 +108,21 @@ def rules(sample):
     note = next(n for n in next(o for o in sample["options"] if o["kind"] == "bnplPot")["notes"] if "same money" in n)
     return f"""`safeToSpendDefinition`, copied from the engine output: "{sample['safeToSpendDefinition']}"
 
-Everyday spending until payday (food, travel and other card spending) is NOT deducted in the current definition, so
-safe-to-spend is generous: it exceeds what is actually left at payday by whatever is spent on everyday items in
-the meantime. The `bnplPlain` rule below likewise uses `afterCommitted`, which does not deduct everyday spending.
+`predictedSpendingUntilPayday.definition`: "{sample['predictedSpendingUntilPayday']['definition']}"
+
+Since task T15, safe-to-spend deducts the predicted everyday spending until payday (Bayesian posterior predictive mean);
+before T15 it did not, and the earlier counts were correspondingly generous.
+
+`affordableDefinition`, copied from the engine output: "{sample['affordableDefinition']}"
 
 `monthly.definition`, copied from the engine output: "{sample['monthly']['definition']}"
 
 Option rules in `assess()` for a price P (instalments are P/3, rounded to the penny, the first due on `today` and the
-others one and two months later). `payNow` is affordable when `safeToSpend - P >= 0`. `bnplPot` is affordable under the
-same condition; the engine's note reads: "{note}" `bnplPlain` is affordable when `safeToSpend` minus the instalments
-due before `nextPayday` is at least 0 and `monthly.afterCommitted - P/3 >= 0`. The `card0` option has no data and is
-not used here. `today` is the engine default, the day after each statement's last transaction (asOf)."""
+others one and two months later). `payNow` is affordable when `safeToSpend - P >= 0`. `bnplPot` and `cardPaidInFull`
+are affordable under the same condition; the engine's note on the pot reads: "{note}" `bnplPlain` is affordable when
+`safeToSpend` minus the instalments due before `nextPayday` is at least 0 and `monthly.leftOver - P/3 >= 0` (T15; before
+T15 the second test used `monthly.afterCommitted`, which does not deduct everyday spending). The `card0` option has no
+data and is not used here. `today` is the engine default, the day after each statement's last transaction (asOf)."""
 
 
 def write_csv(df):
@@ -189,8 +201,10 @@ None (the engine is deterministic; the mock statements were generated with the s
 ## Interpretation
 
 At GBP {lo:,}, {c[lo][0]} of {len(df)} households can pay now, {c[lo][1]} only with plain pay-in-3 and {c[lo][2]}
-neither. At GBP {hi:,}, the counts are {c[hi][0]}, {c[hi][1]} and {c[hi][2]}. Because everyday spending until payday is
-not deducted from safe-to-spend, these counts overstate how many households could pay without strain.
+neither. At GBP {hi:,}, the counts are {c[hi][0]}, {c[hi][1]} and {c[hi][2]}. Safe-to-spend deducts the predicted
+everyday spending until payday, so a household counted under `payNow` is expected to stay at or above zero until payday
+on average; `shortfallProbability` in the engine output gives the chance that it does not. The mock statements are
+synthetic, so the counts describe the generator's households, not real customers.
 """, encoding="utf-8")
 
 
@@ -278,18 +292,129 @@ None (the engine is deterministic; the mock statements were generated with the s
 
 Median `safeToSpend` is {s.median():.2f} GBP (IQR {s.quantile(.75) - s.quantile(.25):.2f}); {int((s < 0).sum())} of
 {len(df)} households are below 0. Median `monthly.leftOver` is {l.median():.2f} GBP; {int((l < 0).sum())} are below 0.
-The Spearman correlation of `safeToSpend` with income is {stats['safeToSpend'][0]:.3f}. `safeToSpend` is generous
-because everyday spending until payday is not deducted, and the mock end balances are on the high side
-(`Analysis/mock_statements/README.md`).
+The Spearman correlation of `safeToSpend` with income is {stats['safeToSpend'][0]:.3f}. `safeToSpend` deducts the
+predicted everyday spending until payday (median {df.predictedSpendingMean.median():.2f} GBP); the mock end balances
+are still on the high side because several ONS spending items are excluded (`Analysis/mock_statements/README.md`).
 """, encoding="utf-8")
     return stats
 
 
-def save(fig, name):
+def savings():
+    """One row per catalogue product, at its dearest mainstream price D: the money saved [GBP] by the cheapest mainstream
+    price, a CASHBACK card, the pay-in-3 pot's float interest and a credit card cleared in full, all as the engine
+    computes them (af.pay_in_3, af.pot_interest, af.card_interest, af.rate_on) for a purchase on SAVE_DAY."""
+    rate_day, rate = af.rate_on(SAVE_DAY)
+    rows = []
+    for pid in sorted({r["product_id"] for r in af.catalogue()}):
+        main = [r for r in af.catalogue() if r["product_id"] == pid and r["retailer"] in af.MAINSTREAM]
+        hi, lo = max(r["price"] for r in main), min(r["price"] for r in main)
+        rows.append(dict(product_id=pid, product=main[0]["product_name"], n_mainstream_prices=len(main),
+                         dearest_retailers="; ".join(r["retailer"] for r in main if r["price"] == hi), dearest=hi,
+                         cheapest_retailers="; ".join(r["retailer"] for r in main if r["price"] == lo), cheapest=lo,
+                         bank_rate=rate, bank_rate_date=rate_day.isoformat(),
+                         cheapest_saving=af.money(hi - lo), cashback=af.money(CASHBACK * hi),
+                         pot=af.pot_interest(hi, SAVE_DAY, af.pay_in_3(hi, SAVE_DAY), rate), card=af.card_interest(hi, rate)))
+    return pd.DataFrame(rows)
+
+
+def savings_table(sv):
+    return md_table(["Product", "n mainstream prices", "Dearest mainstream [GBP] (retailer)",
+                     "Cheapest mainstream [GBP] (retailer)"] + [f"{SAVINGS[k].replace(chr(92), '')} [GBP]" for k in SAVINGS],
+                    [[f"{r.product_id} {r.product}", r.n_mainstream_prices, f"{r.dearest:.2f} ({r.dearest_retailers})",
+                      f"{r.cheapest:.2f} ({r.cheapest_retailers})"] + [f"{r[k]:.2f}" for k in SAVINGS]
+                     for _, r in sv.iterrows()])
+
+
+def fig_savings(sv):
     import matplotlib.pyplot as plt
-    FIGURES.mkdir(parents=True, exist_ok=True)
+    import TeXFormat as tf
+    VALUE_A.mkdir(parents=True, exist_ok=True)
+    VALUE_F.mkdir(parents=True, exist_ok=True)
+    sv.to_csv(VALUE_A / f"{F3}.csv", index=False, float_format="%.2f", lineterminator="\n")
+    fig, ax = plt.subplots(figsize=(12, 7))
+    w = 0.2
+    for k, key in enumerate(SAVINGS):
+        x = [i + (k - 1.5) * w for i in range(len(sv))]
+        tf.bar(ax, x, sv[key], tf.CYCLE[k], width=w, label=SAVINGS[key])
+        for xi, v in zip(x, sv[key]):
+            ax.text(xi, v + 2, f"{v:.2f}", ha="center", va="bottom", rotation=90, fontsize=tf.fontsizeTiny)
+    ax.set_xticks(range(len(sv)), [f"{r.product_id}\n\\pounds{r.dearest:,.2f}" for _, r in sv.iterrows()])
+    ax.set_xlabel("Product and dearest mainstream price")
+    ax.set_ylabel("Money saved [GBP]")
+    ax.set_ylim(0, sv[list(SAVINGS)].to_numpy().max() * 1.3)
+    ax.legend(frameon=True, fancybox=False, fontsize=tf.fontsizeSmall, loc="upper left")
+    save(fig, F3, VALUE_F)
+    tot = {k: sv[k].sum() for k in SAVINGS}
+    rate = sv.bank_rate.iloc[0]
+    (VALUE_F / f"{F3}.md").write_text(f"""# Money saved on each catalogue product, by source
+
+Files: `{F3}.pdf`, `{F3}.svg` (this file: `{F3}.md`), written by `affordability_figures.py` (task T15).
+
+## Source data
+
+[`data/{af.CATALOGUE.name}`](../../data/{af.CATALOGUE.name}) (retailer prices collected on {SAVE_DAY:%d %B %Y}; mainstream
+retailers: {', '.join(af.MAINSTREAM)}; marketplace and third-party sellers are excluded) and
+[`data/{af.BANK_RATE.name}`](../../data/{af.BANK_RATE.name}) (Bank of England Bank Rate, series IUDBEDR), via
+`affordability.py` at commit `{git('log', '-1', '--format=%h', '--', 'affordability.py')}` and `affordability_figures.py`
+at commit `{git('log', '-1', '--format=%h', '--', 'affordability_figures.py')}` or later. Plotted data:
+[`Analysis/value/{F3}.csv`](../../Analysis/value/{F3}.csv).
+
+## Filters, transformations and units
+
+All five catalogue products (n = {len(sv)}), each at its dearest mainstream price D [GBP] for a purchase on
+{SAVE_DAY.isoformat()}; Bank Rate in force that day: {rate:.2f}% a year (from {sv.bank_rate_date.iloc[0]}). Definitions,
+all in GBP and rounded to pence:
+
+| Bar | Definition |
+|---|---|
+| {SAVINGS['cheapest_saving'].replace(chr(92), '')} | D minus the cheapest mainstream price for the same product (0 when only one mainstream price is listed or all are equal) |
+| {SAVINGS['cashback'].replace(chr(92), '')} | {CASHBACK:.0%} of D. The rate is an assumption for illustration, not taken from any card in `data/` |
+| {SAVINGS['pot']} | Interest the pay-in-3 pot would earn: D goes into an easy-access pot on the purchase day and three instalments of D/3 leave it on that day and one and two months later; simple daily interest at Bank Rate on the declining balance, 365-day year (`affordability.pot_interest`) |
+| {SAVINGS['card']} | Interest on D left in an easy-access account for an assumed {af.CARD_DAYS}-day average interest-free period before the card is cleared in full, at Bank Rate (`affordability.card_interest`) |
+
+Bank Rate stands in for an easy-access savings rate; real rates vary. No tax on interest is deducted. The four sources
+are not mutually exclusive (one could buy at the cheapest price with a cashback card and earn float interest), so the
+bars are not to be added within a product unless a buyer could combine them. Bars are grouped by product; the value of
+each bar is printed above it.
+
+## Plotted data
+
+{savings_table(sv)}
+
+## n
+
+{len(sv)} products; one value per product and source (no replicates). The number of mainstream prices behind the
+dearest and cheapest prices is given per product.
+
+## Descriptive statistics
+
+Totals over the five products [GBP]: {', '.join(f"{SAVINGS[k].replace(chr(92), '')} {tot[k]:.2f}" for k in SAVINGS)}.
+Error bars: not applicable (each value is a single calculation from one collected price).
+
+## Fits and tests
+
+Not applicable.
+
+## Random seed
+
+None.
+
+## Interpretation
+
+Over the five products, buying at the cheapest mainstream price instead of the dearest saves {tot['cheapest_saving']:.2f} GBP
+in total, an assumed {CASHBACK:.0%} cashback {tot['cashback']:.2f} GBP, the pay-in-3 pot's float interest
+{tot['pot']:.2f} GBP and a credit card cleared in full {tot['card']:.2f} GBP, at Bank Rate {rate:.2f}%. For
+{', '.join(sv.product_id[sv.cheapest_saving == 0])} the catalogue lists no price difference between mainstream retailers,
+so only the other three sources save money. The float interest on a few hundred pounds over one to two months is a
+few pounds at most. These are facts about five products on one day, not a recommendation.
+""", encoding="utf-8")
+
+
+def save(fig, name, folder=FIGURES):
+    import matplotlib.pyplot as plt
+    folder.mkdir(parents=True, exist_ok=True)
     for ext in ("pdf", "svg"):
-        fig.savefig(FIGURES / f"{name}.{ext}", bbox_inches="tight",  # no dates: SVG reruns identical
+        fig.savefig(folder / f"{name}.{ext}", bbox_inches="tight",  # no dates: SVG reruns identical
                     metadata={"pdf": {"CreationDate": None}, "svg": {"Date": None}}[ext])
     plt.close(fig)
 
@@ -317,9 +442,14 @@ def check():
         assert tenure_table(df, col) in m2, col
         assert f"| `{col}` | {spearman(df.income, df[col])[0]:.3f} |" in m2, col
     assert all((FIGURES / f"{n}.{e}").stat().st_size > 0 for n in (F1, F2) for e in ("pdf", "svg"))
-    assert re.search(r"Everyday spending until payday .*NOT deducted", m1 + m2)
+    assert "deducts the predicted everyday spending" in m1 and "predictedSpendingUntilPayday.definition" in m1 + m2
+    assert (df.safeToSpend <= df.safeToSpendBeforeEverydaySpending).all()
+    sv = pd.read_csv(VALUE_A / f"{F3}.csv")
+    pd.testing.assert_frame_equal(sv, pd.read_csv(io.StringIO(savings().to_csv(index=False, float_format="%.2f"))))
+    assert savings_table(sv) in (VALUE_F / f"{F3}.md").read_text(encoding="utf-8")
+    assert all((VALUE_F / f"{F3}.{e}").stat().st_size > 0 for e in ("pdf", "svg"))
     print(f"Check passed: {len(df)} households, counts sum to {len(df)} at every price, 4 personas spot-checked, "
-          ".md tables match the CSV.")
+          f".md tables match the CSV; savings comparison ({len(sv)} products) matches a fresh calculation.")
 
 
 def main():
@@ -331,6 +461,9 @@ def main():
     write_csv(df)
     fig_price(df, sample)
     stats = fig_income(df, sample)
+    sv = savings()
+    fig_savings(sv)
+    print(sv.to_string(index=False))
     print(f"Wrote {CSV.relative_to(HERE)} and Figures/affordability/{F1}.*, {F2}.*")
     print("Price [GBP] | " + " | ".join(CATS))
     for pr, v in counts(df).items():

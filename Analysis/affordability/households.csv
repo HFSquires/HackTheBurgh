@@ -1,101 +1,101 @@
-id,tenure,region,household,income,nextPayday,balance,safeToSpend,monthly.leftOver,outcome_50,outcome_100,outcome_200,outcome_300,outcome_500,outcome_750,outcome_1000,outcome_1500
-persona001,Private rented,North East,"Lives alone, under 65/66",2315.16,2026-11-27,3245.56,1863.27,323.63,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona002,Private rented,North West,"Lives alone, under 65/66",1927.17,2026-11-27,1908.02,520.69,-8.11,payNow,payNow,payNow,payNow,payNow,bnplPlainOnly,bnplPlainOnly,bnplPlainOnly
-persona003,Owned outright,Yorkshire and The Humber,"Lives alone, under 65/66",3450.92,2026-11-27,9704.21,9188.43,2082.08,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona004,Private rented,East Midlands,"Lives alone, under 65/66",1721.54,2026-11-27,1413.15,25.10,-104.23,bnplPlainOnly,neither,neither,neither,neither,neither,neither,neither
-persona005,Social rented,West Midlands,"Lives alone, under 65/66",5054.23,2026-11-27,14404.65,13501.39,3121.18,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona006,Private rented,East of England,"Lives alone, under 65/66",2241.32,2026-11-27,2056.25,601.42,-66.93,payNow,payNow,payNow,payNow,payNow,bnplPlainOnly,bnplPlainOnly,bnplPlainOnly
-persona007,Private rented,London,"Lives alone, under 65/66",3068.32,2026-11-27,5540.04,4058.18,840.56,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona008,Social rented,South East,"Lives alone, under 65/66",3450.92,2026-11-27,7750.45,6765.41,1440.10,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona009,Private rented,South West,"Lives alone, under 65/66",2538.98,2026-11-27,3393.82,1962.13,288.01,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona010,Social rented,Wales,"Married or civil partnership couple, no children",2797.98,2026-11-27,7618.74,7152.31,1618.84,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona011,Owned outright,Scotland,"Lives alone, under 65/66",3034.62,2026-11-27,8830.60,8357.72,1930.26,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona012,Owned outright,Northern Ireland,"Lives alone, under 65/66",2848.11,2026-11-27,7689.31,7259.93,1602.91,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona013,Private rented,North East,"Cohabiting couple, no children",3116.41,2026-11-27,8407.66,7688.48,1773.74,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona014,Private rented,North West,"Married or civil partnership couple, no children",3333.46,2026-11-27,8723.49,7985.29,1796.84,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona015,Private rented,Yorkshire and The Humber,"Married or civil partnership couple, no children",1842.79,2026-11-27,3540.68,2821.56,569.70,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona016,Owned outright,East Midlands,"Married or civil partnership couple, no children",1721.54,2026-11-27,4791.89,4527.02,1027.18,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona017,Social rented,West Midlands,"Married or civil partnership couple, no children",1898.16,2026-11-27,4565.36,4106.31,887.50,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona018,Social rented,East of England,"Married or civil partnership couple, no children",1706.96,2026-11-27,3839.78,3372.42,714.29,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona019,Private rented,London,"Married or civil partnership couple, no children",3127.56,2026-11-27,7950.50,7155.18,1597.29,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona020,Social rented,South East,"Married or civil partnership couple, no children",2629.50,2026-11-27,6429.65,5904.28,1261.83,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona021,Private rented,South West,"Cohabiting couple, no children",2538.98,2026-11-27,5496.74,4747.44,986.74,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona022,Social rented,Wales,"Cohabiting couple, no children",2341.84,2026-11-27,5866.48,5399.83,1205.84,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona023,Social rented,Scotland,"Married or civil partnership couple, no children",2257.81,2026-11-27,5799.35,5353.90,1174.54,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona024,Social rented,Northern Ireland,"Married or civil partnership couple, no children",1868.62,2026-11-27,4397.41,3979.46,849.77,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona025,Private rented,North East,"Lone parent, dependent children",1898.16,2026-11-27,1687.32,257.80,-84.83,payNow,payNow,payNow,bnplPlainOnly,bnplPlainOnly,bnplPlainOnly,neither,neither
-persona026,Social rented,North West,"Lone parent, dependent children",1183.65,2026-11-27,1037.69,189.77,-42.75,payNow,payNow,bnplPlainOnly,bnplPlainOnly,bnplPlainOnly,neither,neither,neither
-persona027,Private rented,Yorkshire and The Humber,"Lone parent, dependent children",2359.10,2026-11-27,2721.17,1282.76,123.69,payNow,payNow,payNow,payNow,payNow,payNow,payNow,bnplPlainOnly
-persona028,Owned outright,East Midlands,"Married or civil partnership couple, dependent children",956.98,2026-11-27,1994.39,1732.40,352.31,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona029,Private rented,West Midlands,"Lone parent, dependent children",1183.65,2026-11-27,-613.23,-2015.94,-601.72,neither,neither,neither,neither,neither,neither,neither,neither
-persona030,Private rented,East of England,"Lone parent, dependent children",1943.59,2026-11-27,1063.11,-411.41,-297.90,neither,neither,neither,neither,neither,neither,neither,neither
-persona031,Private rented,London,"Lone parent, dependent children",3677.81,2026-11-27,7184.81,5649.65,1211.47,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona032,Private rented,South East,"Lone parent, dependent children",1706.96,2026-11-27,398.96,-1112.51,-440.66,neither,neither,neither,neither,neither,neither,neither,neither
-persona033,Social rented,South West,"Married or civil partnership couple, dependent children",4228.35,2026-11-27,11697.38,11186.28,2492.26,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona034,Private rented,Wales,"Married or civil partnership couple, dependent children",1950.99,2026-11-27,3724.27,2992.05,598.60,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona035,Owned outright,Scotland,"Lone parent, dependent children",1777.97,2026-11-27,3872.62,3384.32,712.52,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona036,Private rented,Northern Ireland,"Married or civil partnership couple, dependent children",2876.34,2026-11-27,6742.50,6033.65,1307.51,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona037,Social rented,North East,"Married or civil partnership couple, dependent children",3333.46,2026-11-27,9495.93,9026.14,2068.82,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona038,Owned outright,North West,"Married or civil partnership couple, dependent children",5054.23,2026-11-27,15910.18,15594.17,3638.36,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona039,Private rented,Yorkshire and The Humber,"Married or civil partnership couple, dependent children",3450.92,2026-11-27,8731.03,7977.55,1761.17,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona040,Social rented,East Midlands,"Married or civil partnership couple, dependent children",2523.78,2026-11-27,6461.80,5983.90,1330.83,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona041,Private rented,West Midlands,"Married or civil partnership couple, dependent children",2181.03,2026-11-27,4624.04,3886.64,818.62,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona042,Private rented,East of England,"Married or civil partnership couple, dependent children",3333.46,2026-11-27,7578.33,6788.43,1414.72,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona043,Social rented,London,"Cohabiting couple, dependent children",3450.92,2026-11-27,9389.72,8860.98,1973.79,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona044,Private rented,South East,"Married or civil partnership couple, dependent children",2722.67,2026-11-27,5635.75,4828.47,965.16,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona045,Owned outright,South West,"Married or civil partnership couple, dependent children",956.98,2026-11-27,1641.10,1346.99,233.00,payNow,payNow,payNow,payNow,payNow,payNow,payNow,bnplPlainOnly
-persona046,Owned outright,Wales,"Married or civil partnership couple, dependent children",1842.79,2026-11-27,4622.60,4332.81,968.92,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona047,Private rented,Scotland,"Cohabiting couple, dependent children",2312.34,2026-11-27,4950.35,4225.03,885.20,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona048,Social rented,Northern Ireland,"Married or civil partnership couple, dependent children",2523.78,2026-11-27,6195.21,5754.86,1223.10,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona049,Social rented,North East,"Cohabiting couple, no children",1060.50,2026-11-27,2104.42,1684.05,363.94,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona050,Private rented,North West,"Lives alone, under 65/66",2241.32,2026-11-27,2665.72,1264.72,147.35,payNow,payNow,payNow,payNow,payNow,payNow,payNow,bnplPlainOnly
-persona051,Private rented,Yorkshire and The Humber,"Lives alone, under 65/66",2341.84,2026-11-27,3018.76,1617.95,222.99,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona052,Owned outright,East Midlands,"Lives alone, under 65/66",2797.98,2026-11-27,7583.09,7066.99,1616.36,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona053,Owned outright,West Midlands,"Lives alone, under 65/66",2315.16,2026-11-27,5646.71,5121.72,1114.97,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona054,Private rented,East of England,"Lives alone, under 65/66",1927.17,2026-11-27,1419.89,-18.89,-169.62,neither,neither,neither,neither,neither,neither,neither,neither
-persona055,Social rented,London,"Lives alone, under 65/66",1721.54,2026-11-27,2665.30,1747.05,320.96,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona056,Social rented,South East,"Lives alone, under 65/66",2320.05,2026-11-27,3761.22,2785.45,483.05,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona057,Private rented,South West,"Lives alone, under 65/66",2797.98,2026-11-27,4374.22,2942.67,533.03,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona058,Private rented,Wales,"Cohabiting couple, no children",2358.15,2026-11-27,5132.45,4397.14,929.98,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona059,Owned outright,Scotland,"Lives alone, under 65/66",2239.53,2026-11-27,5652.56,5179.61,1138.89,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona060,Private rented,Northern Ireland,"Lives alone, under 65/66",1060.50,2026-11-27,-846.12,-2155.85,-638.48,neither,neither,neither,neither,neither,neither,neither,neither
-persona061,Private rented,North East,"Cohabiting couple, no children",1198.45,2026-11-27,1860.90,1171.86,223.26,payNow,payNow,payNow,payNow,payNow,payNow,payNow,bnplPlainOnly
-persona062,Private rented,North West,"Married or civil partnership couple, no children",2358.15,2026-11-27,5214.97,4484.39,956.83,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona063,Private rented,Yorkshire and The Humber,"Cohabiting couple, no children",2523.78,2026-11-27,5762.56,5030.54,1073.94,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona064,Private rented,East Midlands,"Cohabiting couple, no children",3104.14,2026-11-27,8149.96,7399.40,1676.10,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona065,Owned outright,West Midlands,"Married or civil partnership couple, no children",2341.84,2026-11-27,6408.44,6114.89,1356.95,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona066,Owned outright,East of England,"Married or civil partnership couple, no children",1842.79,2026-11-27,4408.23,4087.40,853.17,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona067,Private rented,London,"Cohabiting couple, no children",1706.96,2026-11-27,3182.72,2433.80,500.65,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona068,Social rented,South East,"Married or civil partnership couple, no children",3116.41,2026-11-27,8321.33,7796.35,1746.00,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona069,Private rented,South West,"Married or civil partnership couple, no children",2848.11,2026-11-27,6587.90,5835.13,1248.64,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona070,Private rented,Wales,"Cohabiting couple, dependent children",2341.84,2026-11-27,4793.67,4042.58,815.72,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona071,Private rented,Scotland,"Cohabiting couple, no children",2788.46,2026-11-27,7121.38,6407.48,1441.78,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona072,Owned outright,Northern Ireland,"Married or civil partnership couple, no children",2629.50,2026-11-27,7499.72,7257.61,1621.30,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona073,Social rented,North East,"Cohabiting couple, dependent children",2297.93,2026-11-27,5698.07,5236.47,1157.51,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona074,Social rented,North West,"Lone parent, dependent children",1495.90,2026-11-27,1822.92,961.03,109.36,payNow,payNow,payNow,payNow,payNow,payNow,bnplPlainOnly,bnplPlainOnly
-persona075,Social rented,Yorkshire and The Humber,"Lone parent, dependent children",2014.14,2026-11-27,3428.47,2548.36,476.68,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona076,Social rented,East Midlands,"Married or civil partnership couple, dependent children",3333.46,2026-11-27,9176.79,8689.89,1967.98,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona077,Owned outright,West Midlands,"Lone parent, dependent children",2538.98,2026-11-27,6095.76,5533.52,1195.43,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona078,Social rented,East of England,"Cohabiting couple, dependent children",2694.47,2026-11-27,6472.35,5962.69,1254.01,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona079,Private rented,London,"Married or civil partnership couple, dependent children",1060.50,2026-11-27,853.99,109.14,-58.16,payNow,payNow,bnplPlainOnly,bnplPlainOnly,neither,neither,neither,neither
-persona080,Private rented,South East,"Lone parent, dependent children",2629.50,2026-11-27,2852.95,1295.78,66.09,payNow,payNow,payNow,payNow,payNow,payNow,payNow,bnplPlainOnly
-persona081,Private rented,South West,"Cohabiting couple, dependent children",2341.84,2026-11-27,4312.50,3550.79,655.69,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona082,Private rented,Wales,"Married or civil partnership couple, dependent children",2848.11,2026-11-27,6819.41,6072.71,1338.85,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona083,Social rented,Scotland,"Lone parent, dependent children",4064.39,2026-11-27,10753.12,9864.40,2237.29,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona084,Social rented,Northern Ireland,"Married or civil partnership couple, dependent children",2992.08,2026-11-27,7981.78,7541.59,1659.51,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona085,Private rented,North East,"Cohabiting couple, dependent children",2341.84,2026-11-27,5106.72,4376.45,940.69,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona086,Private rented,North West,"Married or civil partnership couple, dependent children",1183.65,2026-11-27,1548.65,844.28,122.97,payNow,payNow,payNow,payNow,payNow,payNow,bnplPlainOnly,neither
-persona087,Owned outright,Yorkshire and The Humber,"Cohabiting couple, dependent children",1814.40,2026-11-27,4556.05,4273.58,908.50,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona088,Owned outright,East Midlands,"Married or civil partnership couple, dependent children",2241.32,2026-11-27,5803.61,5503.38,1208.83,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona089,Private rented,West Midlands,"Cohabiting couple, dependent children",2393.18,2026-11-27,4998.75,4246.34,871.20,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona090,Owned outright,East of England,"Cohabiting couple, dependent children",2694.47,2026-11-27,6931.98,6582.44,1405.08,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona091,Owned outright,London,"Married or civil partnership couple, dependent children",3677.81,2026-11-27,10769.50,10404.99,2376.95,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona092,Social rented,South East,"Married or civil partnership couple, dependent children",1859.08,2026-11-27,3648.89,3127.38,594.49,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona093,Social rented,South West,"Cohabiting couple, dependent children",4228.35,2026-11-27,11596.95,11085.85,2471.02,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona094,Private rented,Wales,"Cohabiting couple, dependent children",1842.79,2026-11-27,3295.71,2563.49,490.14,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona095,Private rented,Scotland,"Married or civil partnership couple, dependent children",2615.04,2026-11-27,6186.89,5461.57,1194.56,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona096,Social rented,Northern Ireland,"Lives alone, under 65/66",2026.29,2026-11-27,3817.60,3026.38,601.97,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona097,Owned outright,North East,"Married or civil partnership couple, no children",1950.99,2026-11-27,5564.48,5313.41,1202.89,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona098,Private rented,North West,"Lives alone, under 65/66",1943.59,2026-11-27,1954.76,567.43,5.74,payNow,payNow,payNow,payNow,payNow,bnplPlainOnly,bnplPlainOnly,bnplPlainOnly
-persona099,Owned outright,Yorkshire and The Humber,"Lives alone, under 65/66",2597.49,2026-11-27,6785.15,6277.01,1394.92,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
-persona100,Private rented,East Midlands,"Lives alone, under 65/66",1060.50,2026-11-27,-862.41,-2236.75,-636.60,neither,neither,neither,neither,neither,neither,neither,neither
+id,tenure,region,household,income,nextPayday,balance,safeToSpendBeforeEverydaySpending,predictedSpendingMean,safeToSpend,monthly.leftOver,outcome_50,outcome_100,outcome_200,outcome_300,outcome_500,outcome_750,outcome_1000,outcome_1500
+persona001,Private rented,North East,"Lives alone, under 65/66",2315.16,2026-11-27,2689.16,1156.65,564.94,591.71,138.29,payNow,payNow,payNow,payNow,payNow,neither,neither,neither
+persona002,Private rented,North West,"Lives alone, under 65/66",1927.17,2026-11-27,1365.23,-172.97,499.98,-672.95,-189.13,neither,neither,neither,neither,neither,neither,neither,neither
+persona003,Owned outright,Yorkshire and The Humber,"Lives alone, under 65/66",3450.92,2026-11-27,9390.78,8820.10,790.66,8029.44,1977.73,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona004,Private rented,East Midlands,"Lives alone, under 65/66",1721.54,2026-11-27,886.59,-652.43,401.83,-1054.26,-280.09,neither,neither,neither,neither,neither,neither,neither,neither
+persona005,Social rented,West Midlands,"Lives alone, under 65/66",5054.23,2026-11-27,13926.04,12925.81,953.02,11972.79,2961.53,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona006,Private rented,East of England,"Lives alone, under 65/66",2241.32,2026-11-27,1436.46,-175.97,775.85,-951.82,-273.91,neither,neither,neither,neither,neither,neither,neither,neither
+persona007,Private rented,London,"Lives alone, under 65/66",3068.32,2026-11-27,4917.04,3274.49,687.10,2587.39,633.74,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona008,Social rented,South East,"Lives alone, under 65/66",3450.92,2026-11-27,7242.01,6151.17,949.21,5201.96,1270.59,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona009,Private rented,South West,"Lives alone, under 65/66",2538.98,2026-11-27,2784.38,1197.44,797.25,400.19,85.17,payNow,payNow,payNow,payNow,neither,neither,neither,neither
+persona010,Social rented,Wales,"Married or civil partnership couple, no children",2797.98,2026-11-27,7339.25,6823.21,652.63,6170.58,1525.07,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona011,Owned outright,Scotland,"Lives alone, under 65/66",3037.27,2026-11-27,8578.26,8054.74,594.33,7460.41,1845.32,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona012,Owned outright,Northern Ireland,"Lives alone, under 65/66",2848.11,2026-11-27,7410.78,6935.34,738.38,6196.96,1509.94,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona013,Private rented,North East,"Cohabiting couple, no children",3116.41,2026-11-27,8064.48,7267.85,577.17,6690.68,1659.47,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona014,Private rented,North West,"Married or civil partnership couple, no children",3333.46,2026-11-27,8346.21,7528.94,733.77,6795.17,1670.89,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona015,Private rented,Yorkshire and The Humber,"Married or civil partnership couple, no children",1842.79,2026-11-27,3214.29,2417.75,510.69,1907.06,461.13,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona016,Owned outright,East Midlands,"Married or civil partnership couple, no children",1721.54,2026-11-27,4633.18,4340.16,396.02,3944.14,974.55,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona017,Social rented,West Midlands,"Married or civil partnership couple, no children",1898.16,2026-11-27,4323.98,3815.89,504.52,3311.37,807.14,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona018,Social rented,East of England,"Married or civil partnership couple, no children",1706.96,2026-11-27,3599.27,3081.90,484.42,2597.48,634.17,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona019,Private rented,London,"Married or civil partnership couple, no children",3127.56,2026-11-27,7564.21,6684.83,674.58,6010.25,1467.51,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona020,Social rented,South East,"Married or civil partnership couple, no children",2629.50,2026-11-27,6111.16,5530.31,768.96,4761.35,1155.08,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona021,Private rented,South West,"Cohabiting couple, no children",2538.98,2026-11-27,5114.56,4284.98,754.24,3530.74,859.84,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona022,Social rented,Wales,"Cohabiting couple, no children",2341.84,2026-11-27,5594.23,5077.96,610.58,4467.38,1116.58,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona023,Social rented,Scotland,"Married or civil partnership couple, no children",2260.45,2026-11-27,5555.74,5062.91,580.06,4482.85,1092.15,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona024,Social rented,Northern Ireland,"Married or civil partnership couple, no children",1868.62,2026-11-27,4159.80,3697.05,536.91,3160.14,771.28,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona025,Private rented,North East,"Lone parent, dependent children",1898.16,2026-11-27,1143.31,-439.34,507.13,-946.47,-267.26,neither,neither,neither,neither,neither,neither,neither,neither
+persona026,Social rented,North West,"Lone parent, dependent children",1183.65,2026-11-27,701.69,-238.25,350.83,-589.08,-154.61,neither,neither,neither,neither,neither,neither,neither,neither
+persona027,Private rented,Yorkshire and The Humber,"Lone parent, dependent children",2359.10,2026-11-27,2125.43,531.88,729.75,-197.87,-75.00,neither,neither,neither,neither,neither,neither,neither,neither
+persona028,Owned outright,East Midlands,"Married or civil partnership couple, dependent children",956.98,2026-11-27,1853.67,1563.62,308.13,1255.49,305.94,payNow,payNow,payNow,payNow,payNow,payNow,payNow,neither
+persona029,Private rented,West Midlands,"Lone parent, dependent children",1183.65,2026-11-27,-1132.78,-2688.17,347.14,-3035.31,-775.25,neither,neither,neither,neither,neither,neither,neither,neither
+persona030,Private rented,East of England,"Lone parent, dependent children",1943.59,2026-11-27,462.84,-1170.77,694.87,-1865.64,-498.16,neither,neither,neither,neither,neither,neither,neither,neither
+persona031,Private rented,London,"Lone parent, dependent children",3677.81,2026-11-27,6519.72,4819.76,859.47,3960.29,992.20,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona032,Private rented,South East,"Lone parent, dependent children",1706.96,2026-11-27,-198.63,-1873.80,577.21,-2451.01,-640.01,neither,neither,neither,neither,neither,neither,neither,neither
+persona033,Social rented,South West,"Married or civil partnership couple, dependent children",4228.35,2026-11-27,11321.01,10756.52,1124.79,9631.73,2367.29,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona034,Private rented,Wales,"Married or civil partnership couple, dependent children",1950.99,2026-11-27,3383.74,2572.76,570.71,2002.05,485.88,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona035,Owned outright,Scotland,"Lone parent, dependent children",1778.92,2026-11-27,3624.87,3084.71,566.72,2517.99,630.26,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona036,Private rented,Northern Ireland,"Married or civil partnership couple, dependent children",2876.34,2026-11-27,6361.98,5576.87,805.22,4771.65,1181.79,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona037,Social rented,North East,"Married or civil partnership couple, dependent children",3333.46,2026-11-27,9211.40,8691.99,730.10,7961.89,1974.89,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona038,Owned outright,North West,"Married or civil partnership couple, dependent children",5054.23,2026-11-27,15618.13,15270.12,1028.26,14241.86,3542.14,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona039,Private rented,Yorkshire and The Humber,"Married or civil partnership couple, dependent children",3450.92,2026-11-27,8327.43,7493.71,879.79,6613.92,1626.71,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona040,Social rented,East Midlands,"Married or civil partnership couple, dependent children",2523.78,2026-11-27,6184.94,5656.39,663.72,4992.67,1238.79,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona041,Private rented,West Midlands,"Married or civil partnership couple, dependent children",2181.03,2026-11-27,4280.56,3463.82,576.25,2887.57,704.24,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona042,Private rented,East of England,"Married or civil partnership couple, dependent children",3333.46,2026-11-27,7128.37,6254.77,1033.46,5221.31,1264.21,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona043,Social rented,London,"Cohabiting couple, dependent children",3450.92,2026-11-27,9054.18,8470.15,861.19,7608.96,1861.74,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona044,Private rented,South East,"Married or civil partnership couple, dependent children",2722.67,2026-11-27,5206.98,4313.66,865.93,3447.73,821.86,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona045,Owned outright,South West,"Married or civil partnership couple, dependent children",956.98,2026-11-27,1475.77,1150.21,395.00,755.21,178.13,payNow,payNow,payNow,payNow,payNow,payNow,neither,neither
+persona046,Owned outright,Wales,"Married or civil partnership couple, dependent children",1842.79,2026-11-27,4428.00,4107.86,539.52,3568.34,906.29,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona047,Private rented,Scotland,"Cohabiting couple, dependent children",2314.99,2026-11-27,4605.64,3802.52,648.27,3154.25,769.25,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona048,Social rented,Northern Ireland,"Married or civil partnership couple, dependent children",2523.78,2026-11-27,5907.45,5420.26,786.33,4633.93,1126.90,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona049,Social rented,North East,"Cohabiting couple, no children",1060.50,2026-11-27,1920.29,1454.40,258.44,1195.96,303.42,payNow,payNow,payNow,payNow,payNow,payNow,payNow,neither
+persona050,Private rented,North West,"Lives alone, under 65/66",2241.32,2026-11-27,2090.53,537.38,639.65,-102.27,-44.07,neither,neither,neither,neither,neither,neither,neither,neither
+persona051,Private rented,Yorkshire and The Humber,"Lives alone, under 65/66",2341.84,2026-11-27,2441.39,888.61,654.75,233.86,29.64,payNow,payNow,payNow,neither,neither,neither,neither,neither
+persona052,Owned outright,East Midlands,"Lives alone, under 65/66",2797.98,2026-11-27,7297.97,6726.54,622.20,6104.34,1522.06,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona053,Owned outright,West Midlands,"Lives alone, under 65/66",2315.16,2026-11-27,5358.80,4777.53,630.05,4147.48,1019.35,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona054,Private rented,East of England,"Lives alone, under 65/66",1927.17,2026-11-27,840.75,-754.17,627.59,-1381.76,-363.07,neither,neither,neither,neither,neither,neither,neither,neither
+persona055,Social rented,London,"Lives alone, under 65/66",1721.54,2026-11-27,2280.38,1262.52,442.68,819.84,192.98,payNow,payNow,payNow,payNow,payNow,payNow,neither,neither
+persona056,Social rented,South East,"Lives alone, under 65/66",2320.05,2026-11-27,3288.93,2208.02,792.53,1415.49,325.48,payNow,payNow,payNow,payNow,payNow,payNow,payNow,neither
+persona057,Private rented,South West,"Lives alone, under 65/66",2797.98,2026-11-27,3758.67,2171.87,771.99,1399.88,328.51,payNow,payNow,payNow,payNow,payNow,payNow,payNow,neither
+persona058,Private rented,Wales,"Cohabiting couple, no children",2358.15,2026-11-27,4773.09,3958.76,633.47,3325.29,809.97,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona059,Owned outright,Scotland,"Lives alone, under 65/66",2242.18,2026-11-27,5401.98,4878.39,584.28,4294.11,1054.59,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona060,Private rented,Northern Ireland,"Lives alone, under 65/66",1060.50,2026-11-27,-1338.08,-2790.73,357.20,-3147.93,-802.69,neither,neither,neither,neither,neither,neither,neither,neither
+persona061,Private rented,North East,"Cohabiting couple, no children",1198.45,2026-11-27,1589.19,825.24,261.71,563.53,132.99,payNow,payNow,payNow,payNow,payNow,neither,neither,neither
+persona062,Private rented,North West,"Married or civil partnership couple, no children",2358.15,2026-11-27,4863.02,4053.91,619.07,3434.84,839.43,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona063,Private rented,Yorkshire and The Humber,"Cohabiting couple, no children",2523.78,2026-11-27,5403.01,4592.45,653.33,3939.12,954.11,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona064,Private rented,East Midlands,"Cohabiting couple, no children",3104.14,2026-11-27,7788.87,6959.12,638.66,6320.46,1555.17,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona065,Owned outright,West Midlands,"Married or civil partnership couple, no children",2341.84,2026-11-27,6193.57,5869.33,635.79,5233.54,1284.93,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona066,Owned outright,East of England,"Married or civil partnership couple, no children",1842.79,2026-11-27,4194.48,3840.08,609.61,3230.47,781.57,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona067,Private rented,London,"Cohabiting couple, no children",1706.96,2026-11-27,2858.22,2028.42,422.37,1606.05,392.20,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona068,Social rented,South East,"Married or civil partnership couple, no children",3116.41,2026-11-27,7995.35,7414.89,788.35,6626.54,1638.06,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona069,Private rented,South West,"Married or civil partnership couple, no children",2848.11,2026-11-27,6193.29,5364.00,782.81,4581.19,1117.17,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona070,Private rented,Wales,"Cohabiting couple, dependent children",2341.84,2026-11-27,4420.23,3588.81,719.43,2869.38,691.53,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona071,Private rented,Scotland,"Cohabiting couple, no children",2791.11,2026-11-27,6787.67,5996.99,592.65,5404.34,1329.52,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona072,Owned outright,Northern Ireland,"Married or civil partnership couple, no children",2629.50,2026-11-27,7289.48,7022.04,700.97,6321.07,1551.58,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona073,Social rented,North East,"Cohabiting couple, dependent children",2297.93,2026-11-27,5433.80,4923.14,624.10,4299.04,1069.69,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona074,Social rented,North West,"Lone parent, dependent children",1495.90,2026-11-27,1459.63,504.60,478.92,25.68,-11.76,neither,neither,neither,neither,neither,neither,neither,neither
+persona075,Social rented,Yorkshire and The Humber,"Lone parent, dependent children",2014.14,2026-11-27,3039.19,2064.58,604.04,1460.54,347.32,payNow,payNow,payNow,payNow,payNow,payNow,payNow,neither
+persona076,Social rented,East Midlands,"Married or civil partnership couple, dependent children",3333.46,2026-11-27,8866.90,8328.72,812.47,7516.25,1864.41,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona077,Owned outright,West Midlands,"Lone parent, dependent children",2538.98,2026-11-27,5785.25,5163.55,723.63,4439.92,1091.99,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona078,Social rented,East of England,"Cohabiting couple, dependent children",2694.47,2026-11-27,6153.08,5589.88,846.51,4743.37,1147.80,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona079,Private rented,London,"Married or civil partnership couple, dependent children",1060.50,2026-11-27,547.25,-278.31,346.85,-625.16,-160.43,neither,neither,neither,neither,neither,neither,neither,neither
+persona080,Private rented,South East,"Lone parent, dependent children",2629.50,2026-11-27,2178.05,453.36,950.35,-496.99,-159.64,neither,neither,neither,neither,neither,neither,neither,neither
+persona081,Private rented,South West,"Cohabiting couple, dependent children",2341.84,2026-11-27,3908.84,3065.75,843.71,2222.04,520.64,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona082,Private rented,Wales,"Married or civil partnership couple, dependent children",2848.11,2026-11-27,6442.91,5616.16,704.05,4912.11,1213.73,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona083,Social rented,Scotland,"Lone parent, dependent children",4067.04,2026-11-27,10320.18,9336.76,867.24,8469.52,2092.51,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona084,Social rented,Northern Ireland,"Married or civil partnership couple, dependent children",2992.08,2026-11-27,7686.55,7199.50,814.30,6385.20,1560.63,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona085,Private rented,North East,"Cohabiting couple, dependent children",2341.84,2026-11-27,4756.84,3948.12,621.36,3326.76,824.50,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona086,Private rented,North West,"Married or civil partnership couple, dependent children",1183.65,2026-11-27,1262.34,481.53,326.86,154.67,27.65,payNow,payNow,neither,neither,neither,neither,neither,neither
+persona087,Owned outright,Yorkshire and The Humber,"Cohabiting couple, dependent children",1814.40,2026-11-27,4365.87,4053.94,564.68,3489.26,845.09,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona088,Owned outright,East Midlands,"Married or civil partnership couple, dependent children",2241.32,2026-11-27,5581.94,5250.49,679.78,4570.71,1135.62,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona089,Private rented,West Midlands,"Cohabiting couple, dependent children",2393.18,2026-11-27,4622.27,3789.20,707.46,3081.74,745.70,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona090,Owned outright,East of England,"Cohabiting couple, dependent children",2694.47,2026-11-27,6664.54,6278.97,852.65,5426.32,1315.91,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona091,Owned outright,London,"Married or civil partnership couple, dependent children",3677.81,2026-11-27,10489.01,10087.18,861.65,9225.53,2283.00,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona092,Social rented,South East,"Married or civil partnership couple, dependent children",1859.08,2026-11-27,3355.64,2778.94,677.29,2101.65,496.49,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona093,Social rented,South West,"Cohabiting couple, dependent children",4228.35,2026-11-27,11214.88,10650.39,1155.31,9495.08,2344.99,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona094,Private rented,Wales,"Cohabiting couple, dependent children",1842.79,2026-11-27,2955.19,2144.21,588.02,1556.19,376.33,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona095,Private rented,Scotland,"Married or civil partnership couple, dependent children",2617.69,2026-11-27,5843.05,5039.93,641.55,4398.38,1079.06,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona096,Social rented,Northern Ireland,"Lives alone, under 65/66",2026.29,2026-11-27,3453.94,2576.89,583.37,1993.52,480.78,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona097,Owned outright,North East,"Married or civil partnership couple, no children",1950.99,2026-11-27,5403.66,5126.21,454.65,4671.56,1149.23,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona098,Private rented,North West,"Lives alone, under 65/66",1943.59,2026-11-27,1410.42,-127.78,505.81,-633.59,-175.45,neither,neither,neither,neither,neither,neither,neither,neither
+persona099,Owned outright,Yorkshire and The Humber,"Lives alone, under 65/66",2597.49,2026-11-27,6503.66,5941.20,635.79,5305.41,1301.58,payNow,payNow,payNow,payNow,payNow,payNow,payNow,payNow
+persona100,Private rented,East Midlands,"Lives alone, under 65/66",1060.50,2026-11-27,-1365.58,-2889.83,291.82,-3181.65,-804.00,neither,neither,neither,neither,neither,neither,neither,neither

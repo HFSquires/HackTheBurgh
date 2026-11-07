@@ -3,7 +3,9 @@
 Personas: Nemotron-Personas-UK rows (data/personas_rows_offset*.json), N of them (default 100) from any UK region.
 Salary:   ONS ASHE Table 14.7a (annual gross pay, 2025 revised), 3-digit SOC 2020 median.
 Spending: ONS Family Spending FYE 2025, workbooks 2 and 3 (each persona's own region, workbook 3), scaled by the gross
-          income decile of the persona's salary (workbook 2, Table A4).
+          income decile of the persona's salary (workbook 2, Table A4), uprated to September 2026 prices by CPI division
+          (Analysis/market/cpi_uprating_factors.csv, written by market_data.py).
+Net pay:  2026/27 income tax and employee NI (bands below, from gov.uk).
 Tenure:   English Housing Survey 2024-25 live table FA1201 (England), by age of household reference person.
 Output:   Analysis/mock_statements/<persona>.csv and personas.md.
 
@@ -71,9 +73,26 @@ A4_BOUND_ROW, A4_TOTAL_ROW, A4_DEC0 = 11, 58, 4
 # EHS FA1201, 0-based rows of "percentages within age group" and age columns (header row asserted)
 EHS_ROWS = {"Owned outright": 29, "Mortgage": 30, "Social rented": 35, "Private rented": 37}
 EHS_BANDS = [(16, 24), (25, 34), (35, 44), (45, 54), (55, 64)]  # columns 1 to 5; personas are aged 21 to 64
-# 2025/26 Scottish income tax bands (https://www.gov.uk/scottish-rate-income-tax/2025-to-2026-tax-year, read 7 November 2026):
-# (upper limit of gross income, rate). Personal allowance 12,570 at 0%. Rest-of-UK bands are in net_monthly.
-SCOT_BANDS = [(12570, 0.0), (15397, 0.19), (27491, 0.20), (43662, 0.21), (75000, 0.42), (125140, 0.45), (float("inf"), 0.48)]
+# 2026/27 income tax bands, (upper limit of gross income, rate); the statements (August to October 2026) fall in 2026/27.
+# Scotland: https://www.gov.uk/scottish-rate-income-tax (read 7 November 2026; table headed 2026 to 2027).
+# Rest of UK: https://www.gov.uk/income-tax-rates (read 7 November 2026; 6 April 2026 to 5 April 2027).
+# Personal allowance 12,570 at 0% in both; its taper above 100,000 is not modelled (see net_monthly).
+SCOT_BANDS = [(12570, 0.0), (16537, 0.19), (29526, 0.20), (43662, 0.21), (75000, 0.42), (125140, 0.45), (float("inf"), 0.48)]
+RUK_BANDS = [(12570, 0.0), (50270, 0.20), (125140, 0.40), (float("inf"), 0.45)]
+# Employee Class 1 NI, category A, 2026/27 (https://www.gov.uk/national-insurance-rates-letters, read 7 November 2026):
+# 8% between 1,048 and 4,189 GBP a month, 2% above; the annual thresholds 12,570 and 50,270 are used here.
+NI_BANDS = [(12570, 0.0), (50270, 0.08), (float("inf"), 0.02)]
+# CPI uprating from Family Spending prices (April 2024 to March 2025) to September 2026 prices, by COICOP division
+# (Analysis/market/cpi_uprating_factors.csv, written by market_data.py). Family Spending categories 1 to 12 are the COICOP
+# divisions 01 to 12; the label asserted for each is the start of the ONS division title.
+F_CPI = ROOT / "Analysis" / "market" / "cpi_uprating_factors.csv"
+CAT_DIV = {1: "01 Food", 2: "02 Alcoholic", 3: "03 Clothing", 4: "04 Housing", 5: "05 Furniture", 6: "06 Health",
+           7: "07 Transport", 8: "08 Communication", 9: "09 Recreation", 10: "10 Education", 11: "11 Hotels",
+           12: "12 Miscellaneous"}
+# Regular debits -> category whose division factor applies. ponytail: rent, energy and water, and council tax all take
+# division 04 (housing, water and fuels), the best-matched series in data/; 04 mixes actual rents with energy prices, and
+# council tax is not in CPI at all (it is in CPIH, not downloaded). Upgrade: CPIH 04.1 (rents) and the council-tax index.
+REG_CAT = {"rent": 4, "energy": 4, "council_tax": 4, "phone": 8, "tv": 9, "sports": 9}
 
 
 def num(x):
@@ -122,7 +141,23 @@ def load_ons():
     assert a4[A4_BOUND_ROW - 1][0].startswith("Lower boundary") and a4[A4_TOTAL_ROW - 1][0] == "Total expenditure"
     for c, r in CAT_A4.items():
         assert str(c) == str(a4[r - 1][0]), (c, r)
+    ons["cpi"] = cpi_factors(ons)
     return ons
+
+
+def cpi_factors(ons):
+    """Category (1 to 12) -> CPI factor of its COICOP division; every mapping asserted against both files."""
+    rows = {r["division"][:2]: r for r in csv.DictReader(open(F_CPI, encoding="utf-8"))}
+    assert set(CAT_DIV) == set(range(1, 13)) and set(REG_CAT.values()) <= set(CAT_DIV)
+    out = {}
+    for c, name in CAT_DIV.items():
+        r = rows[f"{c:02d}"]
+        assert r["division"].startswith(name), (c, r["division"])
+        assert label(ons["a33"][CAT_A33[c] - 1]).startswith(f"{c} "), (c, label(ons["a33"][CAT_A33[c] - 1]))
+        assert r["latest_month"] == "2026-09", "CPI factors are not to September 2026; update the docs"
+        out[c] = float(r["factor"])
+        assert 0.9 < out[c] < 1.3, (c, out[c])
+    return out
 
 
 # ---- Personas ----
@@ -182,20 +217,20 @@ def choose_personas(ons, n):
     return chosen, skipped, usable
 
 
+def banded(gross, bands):
+    lo, out = 0, 0.0
+    for hi, rate in bands:
+        out += rate * max(0, min(gross, hi) - lo)
+        lo = hi
+    return out
+
+
 def net_monthly(gross, region="England"):
-    # ponytail: 2025/26 income tax (Scottish bands for region Scotland, else rest-of-UK) and UK-wide employee NI; no pension,
-    # student loan, tax code or personal-allowance taper. The statements fall in 2026/27, whose Scottish starter and basic
-    # thresholds are higher. Ceiling: a payslip. Upgrade: per-persona tax code and the 2026/27 table.
-    pa, basic = 12570, 50270
-    if region == "Scotland":
-        lo, tax = 0, 0.0
-        for hi, rate in SCOT_BANDS:
-            tax += rate * max(0, min(gross, hi) - lo)
-            lo = hi
-    else:
-        tax = 0.2 * max(0, min(gross, basic) - pa) + 0.4 * max(0, min(gross, 125140) - basic)
-    ni = 0.08 * max(0, min(gross, basic) - pa) + 0.02 * max(0, gross - basic)
-    return round((gross - tax - ni) / 12, 2)
+    # ponytail: 2026/27 income tax (Scottish bands for region Scotland, else rest-of-UK) and UK-wide employee NI, on
+    # annual figures; no pension, student loan, tax code or personal-allowance taper above 100,000 GBP. Ceiling: a payslip.
+    # Upgrade: per-persona tax code and the taper.
+    tax = banded(gross, SCOT_BANDS if region == "Scotland" else RUK_BANDS)
+    return round((gross - tax - banded(gross, NI_BANDS)) / 12, 2)
 
 
 def decile(gross, ons):
@@ -248,6 +283,7 @@ def spend_model(key, tenure, region, ons, dec):
     # Ceiling: averages, not this person. Rent, energy and water, and council tax are not decile-scaled.
     share = 1 / adults
     dr = decile_ratio(dec, ons)
+    u = ons["cpi"]  # CPI factor by category: every amount below is uprated by its own COICOP division
     f = lambda c: cat[c][1] * dr[c]
     reg = {"energy": (d("energy") + d("water")) * share,
            # ponytail: ONS 13.1 pools council tax with mortgage interest, averaged over all households in the region
@@ -259,10 +295,11 @@ def spend_model(key, tenure, region, ons, dec):
         # mixes UK and regional figures. Mortgagors are not modelled: ONS excludes mortgage interest from category 4 and pools
         # it with council tax in 13.1, so a payment cannot be separated from the regional council-tax figure without inventing one.
         reg["rent"] = max(0.0, num(ons["a32"][A32_ROW - 1][A32_TENURE[tenure]]) - d("maint") - d("water") - d("energy")) * share
-    pool = {c: cat[c][0] * f(c) * share for c in range(1, 13)}
+    reg = {k: v * u[REG_CAT[k]] for k, v in reg.items()}
+    pool = {c: cat[c][0] * f(c) * share * u[c] for c in range(1, 13)}
     pool[8] = max(0.0, pool[8] - reg["phone"])
     pool[9] = max(0.0, pool[9] - reg["tv"] - reg["sports"])  # package holidays (9.6) stay excluded: lumpy
-    pool[7] = max(0.0, pool[7] - d("veh_purchase") * f(7) * share)  # vehicle purchases (7.1) excluded: lumpy
+    pool[7] = max(0.0, pool[7] - d("veh_purchase") * f(7) * share * u[7])  # vehicle purchases (7.1) excluded: lumpy
     pool[12] += pool.pop(10) + pool.pop(8)  # education and leftover communications fold into miscellaneous
     return pool, reg
 
@@ -381,9 +418,13 @@ def generate(out, n=100):
                  f"{usable} usable rows of the 500 downloaded, stratified over the 12 regions and four household types; rows skipped: "
                  + ", ".join(f"{v} ({k})" for k, v in skipped.items()) + ". Salary: ONS ASHE Table 14.7a, 2025 revised, "
                  "sheet `All`, median annual gross pay (UK, all employee jobs) for the persona's 3-digit SOC 2020 code; the net monthly "
-                 "credit follows a simple income-tax (Scottish bands for Scotland) and NI rule (see the `ponytail` comment in the code). "
+                 "credit follows a simple 2026/27 income-tax (Scottish bands for Scotland) and NI rule (see the `ponytail` comment in "
+                 "the code); pay is not uprated (ASHE is April 2025). "
                  "Spending: ONS Family Spending, April 2024 to March 2025, workbook 3 column of the persona's own region, scaled by the "
-                 "household-type ratio (A23) and the gross-income-decile ratio (A4; decile from the persona's salary alone). Tenure is "
+                 "household-type ratio (A23) and the gross-income-decile ratio (A4; decile from the persona's salary alone), then "
+                 "uprated to September 2026 prices by the CPI factor of each category's COICOP division "
+                 "(`Analysis/market/cpi_uprating_factors.csv`; rent, energy and water, and council tax use division 04): "
+                 + ", ".join(f"{c} {ons['cpi'][c]:.4f}" for c in sorted(ons["cpi"])) + ". Tenure is "
                  "sampled from English Housing Survey 2024-25 table FA1201 by age band (mortgagors excluded, shares renormalised) and "
                  f"is not in the persona data. Merchant names and BNPL plans are synthetic.{NL}{NL}"
                  "| No. | uuid8 | Age | Region | Household type | Occupation | Tenure (sampled) | Gross salary [GBP/yr] | "
@@ -410,6 +451,17 @@ def end_balance(path):
 
 
 def check(n=100):
+    # 2026/27 net pay by hand at 30,000 GBP. Scotland: tax 0.19 x 3,967 + 0.20 x 12,989 + 0.21 x 474 = 3,451.07;
+    # rest of UK: 0.20 x 17,430 = 3,486.00; NI 0.08 x 17,430 = 1,394.40 in both.
+    assert net_monthly(30000, "Scotland") == 2096.21 and net_monthly(30000) == 2093.30
+    assert net_monthly(200000) == round((200000 - 0.2 * 37700 - 0.4 * 74870 - 0.45 * 74860 - 3016 - 0.02 * 149730) / 12, 2)
+    # CPI uprating: each amount equals the un-uprated amount times its division's factor.
+    ons = load_ons()
+    flat = ons | {"cpi": {c: 1.0 for c in ons["cpi"]}}
+    for key, ten, reg in (("alone", "Private rented", "Scotland"), ("couple_kids", "Owned outright", "London")):
+        (p1, r1), (p0, r0) = spend_model(key, ten, reg, ons, 5), spend_model(key, ten, reg, flat, 5)
+        assert all(abs(p1[c] - p0[c] * ons["cpi"][c]) < 1e-9 for c in (1, 2, 3, 5, 6, 7, 11)), key
+        assert all(abs(r1[k] - r0[k] * ons["cpi"][REG_CAT[k]]) < 1e-9 for k in r1), key
     with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
         names, summ = generate(Path(a), n)
         generate(Path(b), n)

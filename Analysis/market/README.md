@@ -5,3 +5,4 @@ Derived market tables, written by `market_data.py` from the ONS series in `data/
 ## Log
 
 - 2026-11-07 (Claude, T14 sub-agent): created; latest CPI month 2026-09 (ONS release 21 October 2026).
+- 2026-11-07 (Claude, T15 sub-agent): `cpi_uprating_factors.csv` is now used by `mock_statements.py` to uprate the mock statements (category c takes division c; rent, energy and water, and council tax take division 04). File unchanged by the rerun.

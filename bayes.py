@@ -61,8 +61,13 @@ import pandas as pd
 from scipy import linalg, stats
 
 import affordability as af
-import forecast as fc
 import mock_statements as ms
+
+
+def _fc():
+    """forecast.py, imported late: it loads matplotlib and TeXFormat, which the API (affordability.py) does not need."""
+    import forecast
+    return forecast
 
 HERE = Path(__file__).resolve().parent
 ANA, FIG = HERE / "Analysis" / "bayes", HERE / "Figures" / "bayes"
@@ -204,21 +209,31 @@ def shortfall_probability(tx, price, today=None, payday=None, pay_in_3=False, hy
     buy = ([(dt.date.fromisoformat(s["due"]), s["amount"]) for s in plan if dt.date.fromisoformat(s["due"]) < payday]
            if pay_in_3 else [(today, float(price))])
     cushion = a["balance"] - out - sum(x for _, x in buy)
-    h = hyper or population()
-    blk = blocks(tx)
     first, last = as_of + dt.timedelta(days=1), payday - dt.timedelta(days=1)
     res = dict(probability=float(cushion < 0), cushion=af.money(cushion), spendMean=0.0, spend80=[0.0, 0.0],
                firstDay=first, lastDay=last, payday=payday, purchaseDue=buy, committedAndBnplDue=af.money(out))
-    if last < first:  # no day left before payday
+    F = spending_until(tx, payday, hyper)
+    if F is None:  # no day left before payday
         return res
-    F = predictive(posterior(prior(h, af.detect_income(tx)["monthly"]), blk, h["phi"]), blk, h["phi"], days(first, last))
     return res | dict(probability=float(F.sf(cushion)), spendMean=float(F.mean()), spend80=list(F.interval(0.8)))
+
+
+def spending_until(tx, payday, hyper=None):
+    """Student-t predictive of discretionary spending from the day after the statement's last transaction to the day
+    before payday, or None when no such day is left. Used by shortfall_probability and affordability.assess."""
+    first, last = tx[-1]["date"] + dt.timedelta(days=1), payday - dt.timedelta(days=1)
+    if last < first:
+        return None
+    h = hyper or population()
+    blk = blocks(tx)
+    return predictive(posterior(prior(h, af.detect_income(tx)["monthly"]), blk, h["phi"]), blk, h["phi"], days(first, last))
 
 
 # ---------------------------------------------------------------- October backtest
 def fit(st):
     """Fit on the rows up to 30 September only, with person-level cross-validation (forecast.py's folds): each
     person's prior comes from the other folds. Returns per-person results, hyperparameters by fold, folds."""
+    fc = _fc()
     pids = sorted(st)
     tx9 = {p: [t for t in st[p] if t["date"] <= ORIGIN] for p in pids}
     blk = {p: blocks(tx9[p], ORIGIN, START) for p in pids}
@@ -254,6 +269,7 @@ def binom(k, n):
 
 
 def run():
+    fc = _fc()
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -342,7 +358,8 @@ def run():
            "BNPL instalments nor committed payments), committed payments detected on the rows up to 30 September 2026. "
            "Every model is fitted on the rows up to 30 September only (August and September); each person's prior "
            f"comes from a fit on the other persons, by person-level {fc.FOLDS}-fold cross-validation with forecast.py's "
-           f"folds (seed {fc.SEED}). October is used only to score.\n")
+           f"folds (seed {fc.SEED}). October is used only to score. "
+           + fc.commits("bayes.py", "forecast.py", "affordability.py") + "\n")
     model_txt = ("Model (full derivation in the docstring of `bayes.py`): daily discretionary spending, Gaussian on the "
                  "raw scale; within a calendar month of D days each day has mean beta / D (beta: the person's monthly "
                  "budget) and variance sigma^2, and two days of the same month have correlation (phi - 1) / (D - 1), so "
@@ -528,6 +545,7 @@ def batch(nig, blk, phi):
 
 
 def check():
+    fc = _fc()
     st, info = fc.load()
     T = fc.table(st, info)[0]
     h = population()

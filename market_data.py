@@ -109,18 +109,22 @@ def figure(rel, head):
     import TeXFormat as tf
     plt.rcParams["svg.hashsalt"] = "t14"  # stable SVG ids
     ms = [mean_se([rel[y][m] for y in YEARS]) for m in range(12)]
-    fig, ax = plt.subplots(figsize=(10, 6))
-    for m in range(12):
-        peak = m in (10, 11)
-        tf.bar(ax, [m], [ms[m][0]], tf.CYCLE[1] if peak else tf.CYCLE[0], width=0.7, yerr=[ms[m][1]], capsize=3,
-               label={0: "Other months", 10: "November and December"}.get(m))
+    # Points with error bars joined by a line, not bars: the values are an index around 100, so a bar from 0 would hide
+    # the seasonal swing and a bar from any other baseline would misstate its length (T15).
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax.axhline(100, color="0.5", lw=1, ls="--", label="Annual mean (100)")
     for y in YEARS:
-        ax.scatter(range(12), rel[y], s=14, color="black", zorder=3,
+        ax.scatter(range(12), rel[y], s=14, color="0.55", zorder=2,
                    label=f"Single years ({YEARS[0]} to {YEARS[-1]})" if y == YEARS[0] else None)
+    ax.plot(range(12), [v for v, _ in ms], color=tf.CYCLE[0], lw=1.5, zorder=3)
+    for idx, col, lab in ((list(range(10)), tf.CYCLE[0], "Mean over years, other months"),
+                          ([10, 11], tf.CYCLE[1], "Mean over years, November and December")):
+        ax.errorbar(idx, [ms[m][0] for m in idx], yerr=[ms[m][1] for m in idx], fmt="o", ms=7, color=col, capsize=3,
+                    zorder=4, label=lab)
     ax.set_xticks(range(12), [x.title() for x in MONTHS])
-    ax.set_ylim(80, max(max(v) for v in rel.values()) + 6)
+    ax.set_ylim(min(min(v) for v in rel.values()) - 4, max(max(v) for v in rel.values()) + 12)
     ax.set_xlabel("Month")
-    ax.set_ylabel("Retail sales index [annual mean = 100]")
+    ax.set_ylabel("Sales index [annual mean = 100]")
     ax.legend(frameon=True, fancybox=False, fontsize=tf.fontsizeSmall, loc="upper left")
     FIGURES.mkdir(parents=True, exist_ok=True)
     for ext in ("pdf", "svg"):
@@ -148,9 +152,11 @@ percentage changes), so only the total is used.
 
 Monthly values for the complete calendar years {YEARS[0]} to {YEARS[-1]} (n = {len(YEARS)} years; 2026 is partial and
 excluded). Within each year the 12 monthly values are divided by that year's mean and multiplied by 100, so every year
-has mean 100 (this removes year-to-year growth in the level); the raw index values are in the data file. Bars: mean over
-years of the scaled value; error bars: standard error of the mean over years (sample standard deviation divided by
-sqrt(n)). Black points: single years. The {YEARS[0]} data include the early-2021 lockdown closures, which depress
+has mean 100 (this removes year-to-year growth in the level); the raw index values are in the data file. Large points:
+mean over years of the scaled value; error bars: standard error of the mean over years (sample standard deviation divided by
+sqrt(n)), joined by a line; points with error bars rather than bars because the values are an index around 100, so a
+bar drawn from 0 would hide the seasonal swing and a bar from any other baseline (an earlier version started at 80)
+would misstate its length. The y axis does not start at 0. Grey points: single years. Dashed line: the annual mean, 100. The {YEARS[0]} data include the early-2021 lockdown closures, which depress
 January to April and so raise the other months relative to that year's mean.
 
 ## Plotted data

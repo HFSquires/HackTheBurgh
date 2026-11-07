@@ -5,3 +5,4 @@ Plots written by `bayes.py` (task T17), each as PDF and SVG with a companion sta
 ## Log
 
 - 2026-11-07 (Claude, T17 sub-agent): created. The example personas are chosen by rule (prior closest to and furthest from the posterior after 30 September): persona073 and persona061.
+- 2026-11-07 (Claude, T15 sub-agent): rerun on the regenerated statements; companion files now name the statement and code commits. Example personas unchanged (persona073, persona061).

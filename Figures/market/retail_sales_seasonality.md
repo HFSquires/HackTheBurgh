@@ -1,6 +1,6 @@
 # UK retail sales seasonality (non-seasonally adjusted)
 
-Files: `retail_sales_seasonality.pdf`, `retail_sales_seasonality.svg` (this file: `retail_sales_seasonality.md`), written by `market_data.py` (commit `36311b5` or later).
+Files: `retail_sales_seasonality.pdf`, `retail_sales_seasonality.svg` (this file: `retail_sales_seasonality.md`), written by `market_data.py` (commit `bf13fa1` or later).
 
 ## Source data
 
@@ -15,9 +15,11 @@ percentage changes), so only the total is used.
 
 Monthly values for the complete calendar years 2021 to 2025 (n = 5 years; 2026 is partial and
 excluded). Within each year the 12 monthly values are divided by that year's mean and multiplied by 100, so every year
-has mean 100 (this removes year-to-year growth in the level); the raw index values are in the data file. Bars: mean over
-years of the scaled value; error bars: standard error of the mean over years (sample standard deviation divided by
-sqrt(n)). Black points: single years. The 2021 data include the early-2021 lockdown closures, which depress
+has mean 100 (this removes year-to-year growth in the level); the raw index values are in the data file. Large points:
+mean over years of the scaled value; error bars: standard error of the mean over years (sample standard deviation divided by
+sqrt(n)), joined by a line; points with error bars rather than bars because the values are an index around 100, so a
+bar drawn from 0 would hide the seasonal swing and a bar from any other baseline (an earlier version started at 80)
+would misstate its length. The y axis does not start at 0. Grey points: single years. Dashed line: the annual mean, 100. The 2021 data include the early-2021 lockdown closures, which depress
 January to April and so raise the other months relative to that year's mean.
 
 ## Plotted data

@@ -4,7 +4,7 @@ Files: `affordability_by_price.pdf`, `affordability_by_price.svg` (this file: `a
 
 ## Source data
 
-The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `d7ad54d`), read by `affordability.py` at commit `3e4d094`, called by `affordability_figures.py` (commit `5848aa0` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
+The 100 statement CSVs in [`Analysis/mock_statements/`](../../Analysis/mock_statements/) (last changed in commit `e01f34f`), read by `affordability.py` at commit `2c5e080` (with `bayes.py` at commit `22804b4` for everyday spending), called by `affordability_figures.py` (commit `2c5e080` or later). Tenure, region and household type from `Analysis/mock_statements/personas.md` via `affordability.personas()`. Plot style: `TeXFormat.py` sha256 `a33ce9f67e0a`.
 
 ## Filters, transformations and units
 
@@ -16,32 +16,36 @@ households out of 100. Counts of 4 or more are printed on the bars. asOf ranges 
 
 ## Definitions
 
-`safeToSpendDefinition`, copied from the engine output: "safeToSpend = balance (after the statement's last transaction, on asOf) minus every committed payment (recurring direct debit, standing order or same-amount card payment) and every BNPL instalment predicted after asOf and before nextPayday. Everyday spending such as food, and any card spending between asOf and today, is not deducted."
+`safeToSpendDefinition`, copied from the engine output: "safeToSpendBeforeEverydaySpending = balance (after the statement's last transaction, on asOf) minus every committed payment (recurring direct debit, standing order or same-amount card payment) and every BNPL instalment predicted after asOf and before nextPayday. safeToSpend = safeToSpendBeforeEverydaySpending minus predictedSpendingUntilPayday.mean, the Bayesian model's (bayes.py) expected everyday card spending from the day after asOf to the day before nextPayday; card spending between asOf and today is part of that prediction."
 
-Everyday spending until payday (food, travel and other card spending) is NOT deducted in the current definition, so
-safe-to-spend is generous: it exceeds what is actually left at payday by whatever is spent on everyday items in
-the meantime. The `bnplPlain` rule below likewise uses `afterCommitted`, which does not deduct everyday spending.
+`predictedSpendingUntilPayday.definition`: "Everyday (discretionary) card spending predicted from the day after asOf to the day before nextPayday by bayes.py (population prior from net pay, updated with this statement's daily card spending): posterior predictive mean and central 80% interval, lower end floored at 0."
+
+Since task T15, safe-to-spend deducts the predicted everyday spending until payday (Bayesian posterior predictive mean);
+before T15 it did not, and the earlier counts were correspondingly generous.
+
+`affordableDefinition`, copied from the engine output: "An option is affordable when safeToSpend minus what it takes from the account before nextPayday is at least 0 (payNow, bnplPot, cardPaidInFull: the full price; bnplPlain: the instalments due before payday), and, for bnplPlain, a month's income less committed payments, existing BNPL and typical everyday spending (monthly.leftOver) is at least one later instalment. leftAfter = safeToSpend minus what the option takes before nextPayday."
 
 `monthly.definition`, copied from the engine output: "afterCommitted = income (latest salary credit) - committed (one month of recurring payments) - bnpl (existing BNPL instalments due in the month after asOf); leftOver = afterCommitted - typicalCardSpending (median monthly everyday card spending over the full months in the statement, excluding BNPL and committed card payments)."
 
 Option rules in `assess()` for a price P (instalments are P/3, rounded to the penny, the first due on `today` and the
-others one and two months later). `payNow` is affordable when `safeToSpend - P >= 0`. `bnplPot` is affordable under the
-same condition; the engine's note reads: "The pot takes the same money as paying now, so it is affordable exactly when paying now is." `bnplPlain` is affordable when `safeToSpend` minus the instalments
-due before `nextPayday` is at least 0 and `monthly.afterCommitted - P/3 >= 0`. The `card0` option has no data and is
-not used here. `today` is the engine default, the day after each statement's last transaction (asOf).
+others one and two months later). `payNow` is affordable when `safeToSpend - P >= 0`. `bnplPot` and `cardPaidInFull`
+are affordable under the same condition; the engine's note on the pot reads: "The pot takes the same money as paying now, so it is affordable exactly when paying now is." `bnplPlain` is affordable when
+`safeToSpend` minus the instalments due before `nextPayday` is at least 0 and `monthly.leftOver - P/3 >= 0` (T15; before
+T15 the second test used `monthly.afterCommitted`, which does not deduct everyday spending). The `card0` option has no
+data and is not used here. `today` is the engine default, the day after each statement's last transaction (asOf).
 
 ## Plotted data
 
 | Price [GBP] | Can pay now (or with the BNPL pot) (`payNow`) | Only with plain pay-in-3 (`bnplPlainOnly`) | Neither (`neither`) | Total |
 |---|---|---|---|---|
-| 50 | 93 | 1 | 6 | 100 |
-| 100 | 93 | 0 | 7 | 100 |
-| 200 | 91 | 2 | 7 | 100 |
-| 300 | 90 | 3 | 7 | 100 |
-| 500 | 90 | 2 | 8 | 100 |
-| 750 | 87 | 4 | 9 | 100 |
-| 1,000 | 85 | 5 | 10 | 100 |
-| 1,500 | 80 | 9 | 11 | 100 |
+| 50 | 83 | 0 | 17 | 100 |
+| 100 | 83 | 0 | 17 | 100 |
+| 200 | 82 | 0 | 18 | 100 |
+| 300 | 81 | 0 | 19 | 100 |
+| 500 | 80 | 0 | 20 | 100 |
+| 750 | 78 | 0 | 22 | 100 |
+| 1,000 | 76 | 0 | 24 | 100 |
+| 1,500 | 71 | 0 | 29 | 100 |
 
 Per-persona categories: [`Analysis/affordability/households.csv`](../../Analysis/affordability/households.csv)
 (columns `outcome_<price>`).
@@ -65,6 +69,8 @@ None (the engine is deterministic; the mock statements were generated with the s
 
 ## Interpretation
 
-At GBP 50, 93 of 100 households can pay now, 1 only with plain pay-in-3 and 6
-neither. At GBP 1,500, the counts are 80, 9 and 11. Because everyday spending until payday is
-not deducted from safe-to-spend, these counts overstate how many households could pay without strain.
+At GBP 50, 83 of 100 households can pay now, 0 only with plain pay-in-3 and 17
+neither. At GBP 1,500, the counts are 71, 0 and 29. Safe-to-spend deducts the predicted
+everyday spending until payday, so a household counted under `payNow` is expected to stay at or above zero until payday
+on average; `shortfallProbability` in the engine output gives the chance that it does not. The mock statements are
+synthetic, so the counts describe the generator's households, not real customers.
