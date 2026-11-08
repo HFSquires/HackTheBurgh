@@ -3,18 +3,101 @@
 Chrome extension (Manifest V3). When the user lands on a checkout page, a glowing border animates around the
 browser edge while the AI analyses the purchase, then a panel shows a verdict, a short message and action buttons.
 
-## Try it
+## Get started
 
-**Without installing** — serve the folder and open the demo checkout:
+You need Chrome (or another Chromium browser such as Edge or Brave), Git, and Python 3.11 or later. Node 18 or later is
+only needed for the optional AI check in step 6. The repository is private, so ask Harrison for access first.
+
+### 1. Download the code
+
+```bash
+git clone https://github.com/HFSquires/HackTheBurgh.git
+cd HackTheBurgh
+git checkout frontend-extension
+```
+
+Without Git: on GitHub, switch the branch menu to `frontend-extension`, then **Code → Download ZIP** and unzip it.
+
+### 2. Add it to Chrome
+
+1. Open `chrome://extensions`.
+2. Turn on **Developer mode** (top right).
+3. Click **Load unpacked** and choose the `extension` folder inside the repository (the one with `manifest.json`).
+4. Pin it: click the puzzle-piece icon in the toolbar, then the pin next to **Second Thought**.
+
+### 3. Add your details
+
+Right-click the Second Thought icon → **Options**, fill in what you want, then click **Save** at the bottom.
+
+| Section | What to enter | What it's for |
+| --- | --- | --- |
+| **OpenAI or ELM API key** | Your OpenAI key, or a University of Edinburgh ELM key (starts with `elm-`). Click **Test key**. Leave the model as it is. | Searching other shops for a cheaper price, and filling in forms on the cheaper shop |
+| **Your delivery details** | Name, email, phone, address, postcode | Typed into the cheaper shop's checkout for you |
+| **Avoid overdrafts and build your savings** | **Connect a sample bank:** choose **Sample customer 029**; savings goal optional | The overdraft and savings check (needs step 4). Left on "Not connected", it's switched off |
+| **Manual shopping budget** | Monthly budget and spent so far | Only used when no sample bank is connected |
+| **Demo shopper** | Click **Use demo details** instead of typing your own | Fills everything with a made-up shopper, handy for recording a demo |
+
+Your key and details are kept in this browser only. The key is sent only to OpenAI or ELM. The AI never sees your
+details: when it fills a form it gets the field labels only, and the extension types the values. Card details are
+never stored or filled in.
+
+### 4. Start the bank forecast (for the overdraft and savings check)
+
+The bank is a mock that serves synthetic customers in the UK Open Banking format; no real bank is connected. From the
+repository root, in two terminals (standard library only, nothing to install):
+
+```bash
+python3 -X utf8 mock_bank.py --serve --source v2
+```
+
+```bash
+python3 -X utf8 model.py --serve
+```
+
+Leave both running. Without them, a connected sample bank shows "Your bank forecast is unavailable". On Windows use
+`py -3` instead of `python3`.
+
+### 5. Try it
+
+- **On the demo shop:** run `python3 -m http.server 5173 --directory extension` from the repository root, open
+  http://localhost:5173/demo/product.html, click **Add to basket**, then go to the basket and checkout.
+- **On a real shop:** add something to your basket and go to checkout. The panel appears by itself; clicking the
+  toolbar icon forces it on any page.
+
+### 6. Check the AI works (optional)
+
+```bash
+OPENAI_API_KEY=<your key> node extension/live-check.cjs
+```
+
+Makes the two real AI calls the extension makes (a price search, and matching a checkout form's fields) and prints the
+answers. It costs a few pence and writes nothing. See "Checking the AI with a real key" below.
+
+### Updating
+
+```bash
+git pull
+```
+
+Then click the reload arrow on the Second Thought card in `chrome://extensions` and refresh any open shop tabs.
+
+### If something doesn't work
+
+| What you see | What to do |
+| --- | --- |
+| Nothing appears on a shop | Closing the panel keeps it quiet on that shop until Chrome restarts: open a new window. On a page that isn't recognised as a checkout, click the toolbar icon |
+| "Couldn't search other stores (…)" | The reason is in brackets, usually the API key: check it in Options with **Test key** |
+| "Your bank forecast is unavailable" | Start the two servers in step 4 |
+| Anything else | **Options → Activity log → Copy** shows every step and why |
+
+### Demo checkout without installing
 
 ```bash
 python3 -m http.server 5173 --directory extension
 ```
 
-Then open http://localhost:5173/demo/checkout.html. The black box on the left switches between mock verdicts.
-
-**As an extension** — `chrome://extensions` → Developer mode → Load unpacked → pick the `extension/` folder.
-It runs automatically on pages that look like a checkout; clicking the toolbar icon forces it on any page.
+Then open http://localhost:5173/demo/checkout.html. The black box on the left switches between sample banks and mock
+verdicts.
 
 A page counts as a checkout when it has a checkout signal (a URL like `/checkout`, `/gp/buy/`, `/payment`, a host like
 `pay.` / `checkout.`, or a visible "Place order" / "Pay now" / "Complete purchase" button) **and** a price on the page.
