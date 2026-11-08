@@ -49,6 +49,8 @@
     .demo b { display: block; margin: 0 4px 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #aaa; }
     .demo button { display: block; width: 100%; text-align: left; margin: 2px 0; padding: 7px 9px; border: 0; border-radius: 7px; background: transparent; color: #ddd; font: inherit; cursor: pointer; }
     .demo button:hover { background: #222; }
+    .demo label { color: #ddd; margin-top: 8px; }
+    .demo select, .demo input { width: 100%; padding: 5px; border-radius: 6px; }
     .demo button.on { background: #2a2a2a; color: #fff; }
     @media (max-width: 860px) { .demo { top: auto; bottom: 16px; left: 16px; width: 160px; } }
   </style>
@@ -119,7 +121,14 @@
   </main>
 
   <div class="demo" aria-label="Demo controls">
-    <b>Demo · mock verdict</b>
+    <b>Demo · sample bank forecast</b>
+    <label for="demo-bank">Sample bank</label><select id="demo-bank">
+      <option value="persona029">Sample 029</option><option value="persona001">Sample 001</option>
+      <option value="persona100">Sample 100</option><option value="">Manual demo budget</option>
+    </select>
+    <label for="demo-savings">Monthly savings goal (£)</label><input id="demo-savings" type="number" min="0" max="1000000" step="1" value="0" />
+    <p>Synthetic bank data. Start the local bank and model services.</p>
+    <b>Mock price-search verdict</b>
     <button data-s="">Auto (by total)</button>
     <button data-s="good">Good (fits, but cheaper elsewhere)</button>
     <button data-s="caution">Caution</button>
@@ -161,6 +170,13 @@
   <script src="../src/handoff.js"></script>
   <script src="../src/content.js"></script>
   <script>
+    for (const id of ["demo-bank", "demo-savings"]) document.getElementById(id).addEventListener("change", () => {
+      const goal = document.getElementById("demo-savings");
+      if (!goal.reportValidity()) return;
+      ST.config.MOCK_BUDGET = { ...(ST.config.MOCK_BUDGET || {}),
+        bankPersona: document.getElementById("demo-bank").value, monthlySavings: Number(goal.value) };
+      ST.run({ force: true });
+    });
     const buttons = document.querySelectorAll(".demo button");
     const mark = (s) => buttons.forEach((b) => b.classList.toggle("on", b.dataset.s === (s || "")));
     mark(null);

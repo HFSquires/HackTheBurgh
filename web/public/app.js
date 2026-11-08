@@ -29,7 +29,7 @@
 
   async function request(method, body) {
     if (!configured) {
-      if (method === "GET") return JSON.parse(localStorage.getItem(DEMO_KEY) || "null") || { profile: {}, payment: { preferred: null, cards: [] }, budget: { monthly: 0, spent: 0, currency: "GBP" } };
+      if (method === "GET") return JSON.parse(localStorage.getItem(DEMO_KEY) || "null") || { profile: {}, payment: { preferred: null, cards: [] }, budget: { monthly: 0, spent: 0, monthlySavings: 0, currency: "GBP" } };
       if (method === "DELETE") return localStorage.removeItem(DEMO_KEY), { deleted: true };
       if (/(?:\d[ -]?){12,}/.test(JSON.stringify(body))) throw new Error("That looks like a card number. We never store card numbers: only a nickname and the last 4 digits.");
       const saved = { ...body, updatedAt: new Date().toISOString() };

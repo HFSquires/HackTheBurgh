@@ -83,6 +83,7 @@ globalThis.ST = globalThis.ST || {};
       profile: data.profile || {},
       budget: Number(data.budget?.monthly) || 0,
       spent: Number(data.budget?.spent) || 0,
+      monthlySavings: Number(data.budget?.monthlySavings) || 0,
       paymentPreference: { preferred: data.payment?.preferred || null, cards: data.payment?.cards || [] },
       [KEY]: { ...a, syncedAt: Date.now() },
     });

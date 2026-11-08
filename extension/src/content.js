@@ -116,12 +116,31 @@
       priceOutlook: normalizeOutlook(r?.priceOutlook, payload),
       fromEarlierCheck: !!r?.fromEarlierCheck,
       budgetInfo: r?.budgetInfo && Number.isFinite(Number(r.budgetInfo.left)) ? { ...r.budgetInfo, left: Number(r.budgetInfo.left) } : null,
+      risk: ["overdraft", "savings", "none", "unknown"].includes(r?.risk) ? r.risk : null,
+      forecastNote: str(r?.forecastNote),
+      financeAction: ["pay_now", "pay_in_3"].includes(r?.financeAction?.id) ? { id: r.financeAction.id, label: str(r.financeAction.label) } : null,
+      comparison: r?.comparison ? Object.fromEntries(["payNow", "payIn3", "horizon", "schedule", "note"].map(k => [k, str(r.comparison[k])])) : null,
       chart: r?.chart && Number.isFinite(r.chart.start) && Number.isFinite(r.chart.goal) ? r.chart : null,
       sessionId: r?.sessionId ?? null,
     };
   }
 
   async function handleAction(action) {
+    if (["pay_now", "pay_in_3"].includes(action.id)) {
+      if (search) search.stopped = true; // A late price-search result must not overwrite this comparison.
+      const payload = { ...(ST.detect.isCheckout() ? ST.detect.scrape() : lastPayload), paymentPlan: action.id };
+      overlay.showAnalysing([action.id === "pay_in_3" ? "Checking all three payments" : "Checking pay now"]);
+      try {
+        const finance = await ST.api.afford(payload);
+        if (!finance) throw new Error("Connect a sample bank to compare payment plans.");
+        lastPayload = payload;
+        lastResult = normalize({ ...lastResult, ...finance, searching: false }, payload);
+        pausedOnce = false;
+        return overlay.showResult(lastResult, handleAction);
+      } catch (e) {
+        return overlay.showError(e.message, handleAction);
+      }
+    }
     if (action.id === "retry") return run({ force: true });
     if (action.id === "alternative") return switchStore(action);
     // Stop the cheaper-price search (its answer is ignored; it may still finish and be reused at checkout).
@@ -262,7 +281,7 @@
       // The outlook request shares its search with the full check (same request, cached in the background).
       outlook = ST.api.outlook(payload).then((o) => normalizeOutlook(o, payload), () => null);
       const a = await Promise.race([fullDone, ST.api.afford(payload).catch(() => null)]);
-      if (a !== FULL && a?.verdict === "reconsider") afford = a;
+      if (a !== FULL && (a?.risk || a?.verdict === "reconsider")) afford = a;
       else {
         const o = await Promise.race([fullDone, outlook]);
         if (o !== FULL && o) outlookNow = o;

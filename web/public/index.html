@@ -41,7 +41,7 @@
       <p class="fine">Sign-in is handled by Auth0. We never store card numbers or security codes.</p>
     </section>
     <section class="points">
-      <div class="point"><h3>Budget-aware checkout</h3><p>"This puts you £18 over budget": one pause at Place order, only when it matters.</p></div>
+      <div class="point"><h3>See the risk before you buy</h3><p>A clear warning if your usual spending could leave you overdrawn, and a gentler nudge if your savings goal is at risk.</p></div>
       <div class="point"><h3>Cheaper elsewhere</h3><p>Same item for less at another store, with your basket and details carried over.</p></div>
       <div class="point"><h3>Your details stay yours</h3><p>Only what you save here. Delete it all with one click, any time.</p></div>
     </section>
@@ -83,8 +83,12 @@
       </section>
 
       <section class="card">
-        <h2>Monthly budget</h2>
-        <p class="hint">Lets the extension tell you whether a purchase fits your plan.</p>
+        <h2>Avoid overdrafts. Save a little each month.</h2>
+        <p class="hint">How much would you like to save each month? Start with 0 if your priority is staying out of your overdraft.</p>
+        <label>Monthly savings goal (£)<input name="budget.monthlySavings" type="number" min="0" max="1000000" step="0.01" inputmode="decimal" placeholder="150" /></label>
+        <p class="hint">Your goal is used with the bank forecast in the extension. Usual spending stays unchanged in the forecast until your habits change. This demo connects sample bank data in extension settings.</p>
+        <h3>Manual shopping budget</h3>
+        <p class="hint">Used when no bank is connected. This alone cannot tell us whether you will go overdrawn.</p>
         <div class="grid three">
           <label>Monthly budget<input name="budget.monthly" type="number" min="0" step="1" inputmode="decimal" placeholder="400" /></label>
           <label>Spent so far this month<input name="budget.spent" type="number" min="0" step="1" inputmode="decimal" placeholder="0" /></label>

@@ -17,8 +17,8 @@
     h2 { font-size: 15px; margin: 0 0 4px; }
     .hint { font-size: 13px; color: var(--muted); margin: 0 0 14px; }
     label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
-    input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font: inherit; background: var(--bg); color: var(--ink); }
-    input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    input, select { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font: inherit; background: var(--bg); color: var(--ink); }
+    input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .bar { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
     button { padding: 10px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: 600 14px inherit; cursor: pointer; }
@@ -109,7 +109,21 @@
     </section>
 
     <section>
-      <h2>Your budget (optional)</h2>
+      <h2>Avoid overdrafts and build your savings</h2>
+      <p class="hint">Check purchases against your usual spending and upcoming bills. An overdraft warning takes priority over your savings goal.</p>
+      <div class="row">
+        <div><label for="monthlySavings">How much would you like to save each month? (£)</label><input id="monthlySavings" type="number" min="0" max="1000000" step="0.01" value="0" /></div>
+        <div><label for="bankPersona">Connect a sample bank</label><select id="bankPersona">
+          <option value="">Not connected</option>
+          <option value="persona001">Sample customer 001</option>
+          <option value="persona029">Sample customer 029</option>
+          <option value="persona072">Sample customer 072</option>
+          <option value="persona082">Sample customer 082</option>
+          <option value="persona100">Sample customer 100</option>
+        </select></div>
+      </div>
+      <p class="hint">Demo only: uses historical synthetic bank data and the local model. No real bank is connected. £0 focuses on avoiding overdrafts. A savings target changes your suggested budget, not the spending we predict.</p>
+      <h3>Manual shopping budget (without a bank connection)</h3>
       <p class="hint">Lets the verdict say whether a purchase fits your plan. Leave blank to judge on price only.</p>
       <div class="row">
         <div><label for="budget">Monthly shopping budget</label><input id="budget" type="number" min="0" step="1" placeholder="400" /></div>

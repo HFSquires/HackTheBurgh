@@ -30,3 +30,5 @@ Note: ONS also lists ASHE 2025 provisional and a 2026 provisional edition on the
 - 2026-11-07 (Claude, T16 sub-agent): downloaded the Bank of England Bank Rate series (IUDBEDR) above. The T16 back end reads the two retail price files; it shows the 3-month history only where the cheapest current offer and the cheapest mainstream price both lie inside the 3-month range (true for P04 only; P02 and P03 fail, P01 and P05 have no 3-month figures).
 - 2026-11-07 (Claude, T15b sub-agent): downloaded the AWE series KAI7 above; `mock_statements.py` uses it to uprate ASHE April 2025 pay to August 2026 earnings.
 - 2026-11-07 (Claude, T20 sub-agent): downloaded the FCA Financial Lives 2024 data tables, volumes 3 and 5, above, for account-holding probabilities in `ob_generator.py`; gitignored because of the FCA's reuse terms.
+
+- 2026-11-08 (Codex, T34): Included the existing Family Spending workbook from main, needed by the current synthetic-data generator; original file unchanged.

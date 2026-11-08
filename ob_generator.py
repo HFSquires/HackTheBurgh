@@ -12,8 +12,8 @@ with known ground truth, saved so that task T22 can test whether models recover 
 Sources. Personas, salaries (ASHE, uprated by AWE), net pay (2026/27 tax and NI), tenure (EHS) and spending (Family
 Spending, uprated by CPI) come from mock_statements.py, imported and not changed. Seasonality is the ONS retail-sales
 profile (J5AH) from market_data.seasonality(). The annual motor-insurance direct debit and the package holiday are the
-persona's own Family Spending amounts (workbook 3, A35 rows 366 and 298), taken out of the monthly pools so that totals
-are unchanged. Holding probabilities for savings accounts, cash ISAs, credit cards and a second current-account provider
+persona's own Family Spending amounts (workbook 3, A35 rows 366 and 298); motor insurance is taken out of the monthly
+pool so that totals are unchanged, and the package holiday is added (mock_statements.py excludes it from everyday spending). Holding probabilities for savings accounts, cash ISAs, credit cards and a second current-account provider
 come from the FCA Financial Lives 2024 survey tables (data/financial-lives-survey-2024-tables-volume-{3,5}-*.xlsx; see
 HOLDINGS). Savings interest follows Bank Rate (data/boe_bank_rate_*.csv) less a synthetic margin. Every number in the
 SYNTHETIC block below is an assumption, not from a source.
@@ -43,9 +43,9 @@ from zoneinfo import ZoneInfo
 import openpyxl
 
 import market_data as md
-import mock_bank as mb  # BankTransactionCode names and the OB amount shape (imports affordability, standard library only)
+import mock_bank as mb  # BankTransactionCode names and the OB amount shape (imports statements, standard library only)
 import mock_statements as ms
-import affordability as af
+import statements as af
 
 OUT = ms.ROOT / "Analysis" / "open_banking"
 SEED = ms.SEED
@@ -142,8 +142,10 @@ MERCHANT_MCC = {"TESCO STORES": 5411, "SAINSBURYS S/MKTS": 5411, "ASDA SUPERSTOR
                 **{r: 4111 if r == "TFL TRAVEL CHARGE" else 4112 for r in ms.RAIL.values()}}
 TICKET_MCC = 7941
 assert set(MERCHANT_MCC.values()) | {TICKET_MCC} <= set(MCC)
-# ONS Family Spending detail rows (workbook 3, A35) carved out of the monthly pools into annual or one-off payments.
+# ONS Family Spending detail rows (workbook 3, A35) paid as annual or one-off payments. Motor insurance is carved out of the
+# monthly pool 12 here; package holidays are already excluded from pool 9 by ms.spend_model, so they are only added.
 CARVE = {"holiday": (298, "9.6 Package holidays", 9), "motor": (366, "12.4.3 Vehicle insurance", 12)}
+assert CARVE["holiday"][0] == ms.A35["pkg_hol"][0]
 
 # Accounts: key -> (OB AccountSubType, provider, nickname, sort code or None for a card). Providers are fictional.
 ACCOUNTS = {"ca": ("CurrentAccount", "MockBank", "Current account", "000000"),
@@ -246,7 +248,7 @@ def carved(key, region, dec, ons, row, c):
 
 
 class Rates:
-    """Bank Rate in force on a date (data/boe_bank_rate_*.csv via affordability.bank_rate)."""
+    """Bank Rate in force on a date (data/boe_bank_rate_*.csv via statements.bank_rate)."""
     def __init__(self):
         rows = af.bank_rate()
         self.d, self.v = [r[0] for r in rows], [r[1] for r in rows]
@@ -341,8 +343,9 @@ def build(idx, key, p, tenure, ons, rates, seas, rates_fls):
     for k, (row, lab, c) in CARVE.items():
         assert lab.split()[0] in ms.label(ons["a35"][row - 1]), (k, ms.label(ons["a35"][row - 1]))
         w = carved(key, region, dec, ons, row, c)
-        assert 0 <= w <= pool[c], (pid, k, w, pool[c])
-        pool[c] -= w
+        if k != "holiday":  # package holidays are already out of pool 9 (see CARVE)
+            assert 0 <= w <= pool[c], (pid, k, w, pool[c])
+            pool[c] -= w
         annual[k] = pence(w * 52)
     od_gbp, cl_gbp = band(net)
     h = habits(idx, key, p, ashe_gross, net, cl_gbp, rates_fls)
@@ -799,7 +802,7 @@ def summary(results, seas, rates_fls):
     held = [r["h"]["held"] for r in results]
     ncards = [sum(k in CARDS for k in x) for x in held]
     ends = sorted(r["B"]["ca"].bal / 100 for r in results)
-    q = lambda xs, f: xs[min(len(xs) - 1, int(f * len(xs)))]
+    q = lambda xs, f: st.quantiles(xs, n=4, method="inclusive")[round(4 * f) - 1]  # median = the mean of the middle two
     dist = Counter(len(x) for x in held)
     fl = {"sv": "savings", "isa": "cash_isa", "ca2": "second_current"}
     lines = ["# Open Banking synthetic data: summary", "",

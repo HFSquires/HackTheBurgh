@@ -1,30 +1,49 @@
-"""Mock bank and Open Banking client (task T18).
+"""Mock bank and Open Banking client (tasks T18 and T21).
 
-The mock bank serves the persona statements in Analysis/mock_statements/ through UK Open Banking Read/Write API v3.1
-account-information (AISP) endpoints. The client (`fetch`) reads one current account from such an endpoint and converts
-it into exactly the transaction list that affordability.parse gives for a statement CSV.
+The mock bank serves synthetic persona data through UK Open Banking Read/Write API v3.1 account-information (AISP)
+endpoints, from one of two sources (--source):
 
-MOCK ONLY. POST /mock/consent hands out a bearer token for any persona without authenticating anyone: it shows the data
-flow, not secure banking. Real account access needs an FCA-authorised account information service provider (AISP) and
-the customer's explicit consent, given to their own bank through the Open Banking (OAuth 2.0 / FAPI) redirect flow.
+  v1 (default): the statement CSVs in Analysis/mock_statements/, one current account per persona, under
+      /open-banking/v3.1/aisp. The client `fetch` reads that one current account and converts it into exactly the
+      transaction list that statements.parse gives for the CSV.
+  v2: the generation-2 data in Analysis/open_banking/*.json (ob_generator.py, task T20): 1 to 7 accounts per persona
+      at the fictional providers MockBank, MockDigital and MockCards, each provider's API under
+      /providers/{Provider}/open-banking/v3.1/aisp, as an aggregator presents several banks. The generator's objects
+      are served as they are. The client `fetch_customer` reads every account at every provider into a customer
+      picture (account types, balances and credit lines, product rates, mandates, scheduled and pending payments, and
+      booked transactions in statements.parse's format); `from_request` validates a request's "bank" object and
+      fetches accordingly (the old engine's POST /assess was archived on 7 November 2026, task T29).
 
-    python mock_bank.py --serve [--port 8766]   # mock bank on 127.0.0.1
-    python mock_bank.py --check                 # self-check
+MOCK ONLY. POST /mock/consent hands out bearer tokens for any persona without authenticating anyone: it shows the data
+flow, not secure banking. Each token covers one persona at one provider (v2: one token per provider, as each bank
+authorises access to its own accounts). Real account access needs an FCA-authorised account information service
+provider (AISP) and the customer's explicit consent, given to each bank through the Open Banking (OAuth 2.0 / FAPI)
+redirect flow.
+
+    python mock_bank.py --serve [--port 8766] [--source v1|v2]   # mock bank on 127.0.0.1
+    python mock_bank.py --check [--source v1|v2]                 # self-check (default: both sources)
 """
-import argparse, datetime as dt, functools, http.client, json, os, re, secrets, statistics, sys, threading, time
+import argparse, csv, datetime as dt, functools, http.client, json, os, re, secrets, statistics, sys, threading, time
 import urllib.error, urllib.parse, urllib.request
 from decimal import Decimal
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import affordability as af
-from affordability import StatementError
+import statements as af
+from statements import StatementError
 
 API = "/open-banking/v3.1/aisp"
+OB_DIR = af.HERE / "Analysis" / "open_banking"  # v2 data, written by ob_generator.py
+PROVIDERS = ("MockBank", "MockDigital", "MockCards")  # v2's fictional providers (ob_generator.ACCOUNTS)
+ROUTE = re.compile(r"(?:/providers/([^/]+))?" + re.escape(API) + r"/accounts(?:/([^/]+)(?:/([a-z-]+))?)?")
+RESOURCES = {"balances": "Balance", "transactions": "Transaction", "direct-debits": "DirectDebit",
+             "standing-orders": "StandingOrder", "scheduled-payments": "ScheduledPayment", "product": "Product"}
+V1_RESOURCES = {"balances", "transactions", "direct-debits", "standing-orders"}
 PAGE = 100  # transactions per page
 TOKEN_LIFE = 3600  # seconds
 MAX_RESPONSE = 5_000_000  # bytes the client reads from one bank response
 FETCH_SECONDS, FETCH_BYTES, MAX_PAGES = 30, 20_000_000, 200  # limits on one whole fetch (all requests together)
+MAX_PROVIDERS = 10  # providers in one customer fetch
 DEFAULT_BANKS = ("http://127.0.0.1:8766", "http://localhost:8766")  # the mock bank's default --serve port
 # ponytail: descriptive ISO 20022 BankTransactionCode names for the four statement types, not checked against the OB
 # code list; the client trusts ProprietaryBankTransactionCode first. Upgrade with the bank's own code mapping.
@@ -33,6 +52,11 @@ ISO = {"BGC": ("ReceivedCreditTransfers", "DomesticCreditTransfer"), "DD": ("Iss
 ISO_TYPE = {v: k for k, v in ISO.items()}
 PARAMS = {"fromBookingDateTime", "toBookingDateTime", "page"}
 AMOUNT = re.compile(r"\d{1,13}(\.\d{1,5})?")
+PERSONA = re.compile(r"persona\d{3}")
+PROVIDER = re.compile(r"[A-Za-z][A-Za-z0-9]{0,39}")  # a provider name the client may put in a URL path
+TOKEN = re.compile(r"[\x21-\x7e]{1,4096}")
+NOTE = ("Mock consent: no customer authentication. Real access needs an FCA-authorised AISP and the customer's consent "
+        "through their bank.")
 
 
 def amount(x):
@@ -47,7 +71,7 @@ def stamp(d):
 @functools.cache
 def statement(pid):
     """(AccountId, sort code and account number, transactions) for a persona. Raises StatementError for an id not of
-    the form persona000 or without exactly one statement (affordability.load_persona), so no path is built from input."""
+    the form persona000 or without exactly one statement (statements.load_persona), so no path is built from input."""
     text = af.load_persona(pid)
     fields = text.lstrip("﻿").splitlines()[1].split(",")
     acc = next(af.STATEMENTS.glob(f"{pid}_*.csv")).stem[11:]  # the file's uuid8 is the AccountId
@@ -107,6 +131,36 @@ def when(v, name):
     return d if d.tzinfo else d.replace(tzinfo=dt.timezone.utc)
 
 
+@functools.cache
+def v1_data(pid):
+    """v1 source: ({None: OB Data}, Meta) for a persona's statement CSV: one current account at one unnamed provider,
+    with its balance, direct debits and standing orders derived from the statement."""
+    acc, ident, tx = statement(pid)
+    b = tx[-1]["balance"]
+    data = {"Account": [{"AccountId": acc, "Status": "Enabled", "Currency": "GBP", "AccountType": "Personal",
+                         "AccountSubType": "CurrentAccount", "Nickname": f"Mock current account ({pid})",
+                         "Account": [{"SchemeName": "UK.OBIE.SortCodeAccountNumber", "Identification": ident,
+                                      "Name": pid}]}],
+            "Balance": [{"AccountId": acc, "Amount": amount(b), "CreditDebitIndicator": "Credit" if b >= 0 else "Debit",
+                         "Type": "InterimBooked", "DateTime": stamp(tx[-1]["date"])}],
+            "DirectDebit": mandates(acc, tx, "DD"), "StandingOrder": mandates(acc, tx, "SO"),
+            "Transaction": [ob_transaction(acc, i, t) for i, t in enumerate(tx, start=1)]}
+    return {None: data}, {"FirstAvailableDateTime": stamp(tx[0]["date"]), "LastAvailableDateTime": stamp(tx[-1]["date"])}
+
+
+@functools.lru_cache(maxsize=16)  # about 0.5 MB of JSON per persona
+def v2_data(pid):
+    """v2 source: ({provider: OB Data}, Meta) for a persona, exactly as ob_generator.py wrote them. Raises StatementError
+    for an id not of the form persona000 or without exactly one file, so no path is built from input."""
+    if not isinstance(pid, str) or not PERSONA.fullmatch(pid):
+        raise StatementError("persona must look like 'persona079'.")
+    files = list(OB_DIR.glob(f"{pid}_*.json"))
+    if len(files) != 1:
+        raise StatementError(f"No Open Banking data for {pid}.")
+    doc = json.loads(files[0].read_text(encoding="utf-8"))
+    return {b["Provider"]: b["Data"] for b in doc["Providers"]}, doc["Meta"]
+
+
 class Handler(BaseHTTPRequestHandler):
     def send(self, code, obj, extra=()):
         body = json.dumps(obj, indent=1).encode()
@@ -147,56 +201,66 @@ class Handler(BaseHTTPRequestHandler):
                 req = json.loads(self.rfile.read(size))
             except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
                 raise StatementError("The body is not valid JSON.") from None
-            if not isinstance(req, dict) or set(req) != {"persona"}:
-                raise StatementError('Send {"persona": "persona050"}.')
-            acc = statement(req["persona"])[0]
+            v2 = self.server.v2
+            if not isinstance(req, dict) or "persona" not in req or not set(req) <= {"persona", *(["provider"] if v2 else [])}:
+                raise StatementError('Send {"persona": "persona050"}' + (', optionally with "provider".' if v2 else "."))
+            pid = req["persona"]
+            if not isinstance(pid, str) or not PERSONA.fullmatch(pid):
+                raise StatementError("persona must look like 'persona079'.")
+            held = self.server.data(pid)[0]  # {provider: OB Data}; v1: {None: ...}
+            chosen = list(held)
+            if "provider" in req:
+                if not isinstance(req["provider"], str) or req["provider"] not in held:
+                    raise StatementError(f"{pid} holds accounts only at {', '.join(held)}.")
+                chosen = [req["provider"]]
         except StatementError as e:
             return self.fail(400, "UK.OBIE.Field.Invalid", str(e))
-        token, now = secrets.token_urlsafe(32), time.time()
+        now = time.time()
+        issued = [(p, secrets.token_urlsafe(32)) for p in chosen]
         with self.server.lock:
-            self.server.tokens = {k: v for k, v in self.server.tokens.items() if v[1] > now}
-            self.server.tokens[token] = (req["persona"], now + TOKEN_LIFE)
-        self.send(201, {"access_token": token, "token_type": "Bearer", "expires_in": TOKEN_LIFE, "accountId": acc,
-                        "note": "Mock consent: no customer authentication. Real access needs an FCA-authorised AISP "
-                                "and the customer's consent through their bank."})
+            self.server.tokens = {k: v for k, v in self.server.tokens.items() if v[2] > now}
+            self.server.tokens.update((t, (pid, p, now + TOKEN_LIFE)) for p, t in issued)
+        if not v2:
+            return self.send(201, {"access_token": issued[0][1], "token_type": "Bearer", "expires_in": TOKEN_LIFE,
+                                   "accountId": held[None]["Account"][0]["AccountId"], "note": NOTE})
+        self.send(201, {"consents": [{"provider": p, "access_token": t, "token_type": "Bearer", "expires_in": TOKEN_LIFE,
+                                      "accountIds": [a["AccountId"] for a in held[p]["Account"]]} for p, t in issued],
+                        "note": NOTE + " One token per provider: each bank authorises access to its own accounts."})
 
     def do_GET(self):
-        url = urllib.parse.urlsplit(self.path)
-        m = re.fullmatch(re.escape(API) + r"/accounts(?:/([^/]+)(?:/(balances|transactions|direct-debits|standing-orders))?)?",
-                         url.path)
-        if not m:
-            return self.fail(404, "UK.OBIE.Resource.NotFound", f"Unknown path; use {API}/accounts[/{{AccountId}}[/...]].")
+        url, srv = urllib.parse.urlsplit(self.path), self.server
+        m = ROUTE.fullmatch(url.path)  # (provider, AccountId, resource); v1 has no provider prefix, v2 needs one
+        if not m or (m[1] is not None) != srv.v2 or (m[3] is not None and m[3] not in srv.resources):
+            return self.fail(404, "UK.OBIE.Resource.NotFound", "Unknown path; use " + "/providers/{Provider}" * srv.v2 +
+                             f"{API}/accounts[/{{AccountId}}[/{'|'.join(sorted(srv.resources))}]].")
+        if srv.v2 and m[1] not in PROVIDERS:
+            return self.fail(404, "UK.OBIE.Resource.NotFound", f"Unknown provider; use one of {', '.join(PROVIDERS)}.")
         auth = self.headers.get("Authorization")
         tok = re.fullmatch(r"Bearer ([A-Za-z0-9_-]{20,100})", auth or "")
-        with self.server.lock:
-            entry = self.server.tokens.get(tok[1]) if tok else None
-        if not entry or entry[1] <= time.time():
+        with srv.lock:
+            entry = srv.tokens.get(tok[1]) if tok else None  # (persona, provider, expiry)
+        if not entry or entry[2] <= time.time() or entry[1] != m[1]:  # a token works only where it was issued
             return self.fail(401, "UK.OBIE.Header.Missing" if auth is None else "UK.OBIE.Header.Invalid",
-                             "Send Authorization: Bearer <token> from POST /mock/consent (tokens expire after an hour).")
-        acc, ident, tx = statement(entry[0])
-        if m[1] is not None and m[1] != acc:
-            if not re.fullmatch(r"[0-9a-f]{8}", m[1]):
+                             "Send Authorization: Bearer <token> from POST /mock/consent (tokens expire after an hour "
+                             "and work only at the provider that issued them).")
+        held, info = srv.data(entry[0])
+        data = held[entry[1]]
+        accounts = {a["AccountId"]: a for a in data["Account"]}
+        if m[2] is not None and m[2] not in accounts:
+            if not re.fullmatch(r"[0-9a-f]{8}", m[2]):
                 return self.fail(400, "UK.OBIE.Field.Invalid", "AccountId must be 8 lower-case hexadecimal characters.")
             return self.fail(403, "UK.OBIE.Resource.ConsentMismatch", "This token does not cover that account.")
-        if url.query and m[2] != "transactions":
+        if url.query and m[3] != "transactions":
             return self.fail(400, "UK.OBIE.Field.Unexpected", "This endpoint takes no query parameters.")
         host = self.headers.get("Host", "")
         if not re.fullmatch(r"(127\.0\.0\.1|localhost)(:\d{1,5})?", host):
-            host = f"127.0.0.1:{self.server.server_port}"
+            host = f"127.0.0.1:{srv.server_port}"
         links, meta = {"Self": f"http://{host}{self.path}"}, {"TotalPages": 1}
-        if m[2] is None:
-            data = {"Account": [{"AccountId": acc, "Status": "Enabled", "Currency": "GBP", "AccountType": "Personal",
-                                 "AccountSubType": "CurrentAccount", "Nickname": f"Mock current account ({entry[0]})",
-                                 "Account": [{"SchemeName": "UK.OBIE.SortCodeAccountNumber", "Identification": ident,
-                                              "Name": entry[0]}]}]}
-        elif m[2] == "balances":
-            b = tx[-1]["balance"]
-            data = {"Balance": [{"AccountId": acc, "Amount": amount(b), "CreditDebitIndicator": "Credit" if b >= 0 else
-                                 "Debit", "Type": "InterimBooked", "DateTime": stamp(tx[-1]["date"])}]}
-        elif m[2] == "direct-debits":
-            data = {"DirectDebit": mandates(acc, tx, "DD")}
-        elif m[2] == "standing-orders":
-            data = {"StandingOrder": mandates(acc, tx, "SO")}
+        if m[3] is None:
+            data = {"Account": list(accounts.values()) if m[2] is None else [accounts[m[2]]]}
+        elif m[3] != "transactions":
+            kind = RESOURCES[m[3]]
+            data = {kind: [x for x in data.get(kind, []) if x["AccountId"] == m[2]]}
         else:
             try:
                 q = urllib.parse.parse_qs(url.query, keep_blank_values=True, max_num_fields=10)
@@ -207,9 +271,9 @@ class Handler(BaseHTTPRequestHandler):
                 hi = when(q["toBookingDateTime"], "toBookingDateTime") if "toBookingDateTime" in q else None
                 if lo and hi and lo > hi:
                     raise StatementError("fromBookingDateTime is after toBookingDateTime.")
-                rows = [ob_transaction(acc, i, t) for i, t in enumerate(tx, start=1)]
-                rows = [r for r in reversed(rows)  # newest first, as many banks return them
-                        if (not lo or lo <= dt.datetime.fromisoformat(r["BookingDateTime"]))
+                rows = [r for r in reversed(data["Transaction"])  # newest first, as many banks return them
+                        if r["AccountId"] == m[2]
+                        and (not lo or lo <= dt.datetime.fromisoformat(r["BookingDateTime"]))
                         and (not hi or dt.datetime.fromisoformat(r["BookingDateTime"]) <= hi)]
                 pages = max(1, -(-len(rows) // PAGE))
                 page = q.get("page", "1")
@@ -222,20 +286,29 @@ class Handler(BaseHTTPRequestHandler):
             link = lambda p: f"http://{host}{url.path}?" + urllib.parse.urlencode({**q, "page": p})
             links = {"Self": link(page), "First": link(1), "Last": link(pages),
                      **({"Prev": link(page - 1)} if page > 1 else {}), **({"Next": link(page + 1)} if page < pages else {})}
-            meta = {"TotalPages": pages, "FirstAvailableDateTime": stamp(tx[0]["date"]),
-                    "LastAvailableDateTime": stamp(tx[-1]["date"])}
+            meta = {"TotalPages": pages, "FirstAvailableDateTime": info["FirstAvailableDateTime"],
+                    "LastAvailableDateTime": info["LastAvailableDateTime"]}
         self.send(200, {"Data": data, "Links": links, "Meta": meta})
 
     def log_message(self, *a):
         pass
 
 
-def serve(port, quiet=False):
+def serve(port, quiet=False, source="v1"):
+    """The mock bank on 127.0.0.1:`port` (0: any free port), serving `source` "v1" or "v2" (module docstring)."""
+    if source not in ("v1", "v2"):
+        raise ValueError("source must be 'v1' or 'v2'")
+    n = len(list(OB_DIR.glob("persona[0-9][0-9][0-9]_*.json"))) if source == "v2" else None
+    if n == 0:
+        raise SystemExit(f"No Open Banking data in {OB_DIR}: run ob_generator.py first (see USER_GUIDE.md).")
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    srv.tokens, srv.lock = {}, threading.Lock()  # token -> (persona, expiry); in memory, lost on restart
+    srv.tokens, srv.lock = {}, threading.Lock()  # token -> (persona, provider (v1: None), expiry); lost on restart
+    srv.v2, srv.data = source == "v2", v2_data if source == "v2" else v1_data
+    srv.resources = set(RESOURCES) if srv.v2 else V1_RESOURCES
     if not quiet:
-        print(f"Mock bank (Open Banking v3.1 AISP shapes, NOT a real bank) on http://127.0.0.1:{srv.server_port}"
-              f"{API} (Ctrl+C to stop)")
+        where = f"/providers/{{{'|'.join(PROVIDERS)}}}{API} ({n} personas)" if srv.v2 else API
+        print(f"Mock bank {source} (Open Banking v3.1 AISP shapes, NOT a real bank) on "
+              f"http://127.0.0.1:{srv.server_port}{where} (Ctrl+C to stop)")
     return srv
 
 
@@ -280,9 +353,9 @@ def bank_url(base):
 
 
 class Budget:
-    """Time and bytes left for one whole fetch, shared by all its requests."""
-    def __init__(self, seconds=FETCH_SECONDS, size=FETCH_BYTES):
-        self.end, self.left = time.monotonic() + seconds, size
+    """Time, bytes and transaction pages left for one whole fetch, shared by all its requests."""
+    def __init__(self, seconds=FETCH_SECONDS, size=FETCH_BYTES, pages=MAX_PAGES):
+        self.end, self.left, self.pages = time.monotonic() + seconds, size, pages
 
     def timeout(self):
         """Seconds for the next socket operation (at most 10); raises once the fetch has run out of time."""
@@ -342,72 +415,85 @@ def signed(b):
     return pennies(b["Amount"]["Amount"]) * (-1 if b["CreditDebitIndicator"] == "Debit" else 1)
 
 
+def read_pages(url, token, base, budget):
+    """Every row of one transactions resource: follows Links.Next only to the origin `base` (from bank_url), never to
+    a page already read, and reads at most budget.pages pages in the whole fetch."""
+    rows, seen = [], set()
+    while url:
+        if url in seen:
+            raise StatementError("The bank's transaction pages link back to a page already read.")
+        if budget.pages <= 0:
+            raise StatementError("Too many transaction pages.")
+        budget.pages -= 1
+        seen.add(url)
+        page = call(url, token, budget=budget)
+        rows += page["Data"].get("Transaction", [])
+        url = (page.get("Links") or {}).get("Next")
+        if url and (origin(url) or [None])[0] != base:
+            raise StatementError("A transactions page linked outside the bank's base URL.")
+    return rows
+
+
 def read_account(base, token, budget=None):
-    """(transactions, balances, direct debits, standing orders) of the token's one current account; follows Links.Next
-    across at most MAX_PAGES transaction pages, only to the origin `base` (from bank_url) and never to a page already
-    read, all within one Budget."""
+    """(transactions, balances, direct debits, standing orders) of the token's one current account (v1 layout), all
+    within one Budget."""
     budget, api = budget or Budget(), base + API
     accounts = [a for a in call(api + "/accounts", token, budget=budget)["Data"]["Account"]
                 if a.get("AccountSubType") == "CurrentAccount"]
     if len(accounts) != 1:  # ponytail: one current account per consent; upgrade by letting the user pick an AccountId
         raise StatementError(f"Expected one current account, found {len(accounts)}.")
     acc = f"{api}/accounts/{urllib.parse.quote(str(accounts[0]['AccountId']), safe='')}"
-    rows, url, seen = [], acc + "/transactions", set()
-    for _ in range(MAX_PAGES):
-        seen.add(url)
-        page = call(url, token, budget=budget)
-        rows += page["Data"].get("Transaction", [])
-        url = (page.get("Links") or {}).get("Next")
-        if not url:
-            break
-        if (origin(url) or [None])[0] != base:
-            raise StatementError("A transactions page linked outside the bank's base URL.")
-        if url in seen:
-            raise StatementError("The bank's transaction pages link back to a page already read.")
-    else:
-        raise StatementError("Too many transaction pages.")
-    return (rows, call(acc + "/balances", token, budget=budget)["Data"]["Balance"],
+    return (read_pages(acc + "/transactions", token, base, budget),
+            call(acc + "/balances", token, budget=budget)["Data"]["Balance"],
             call(acc + "/direct-debits", token, budget=budget)["Data"].get("DirectDebit", []),
             call(acc + "/standing-orders", token, budget=budget)["Data"].get("StandingOrder", []))
 
 
-def to_transactions(rows, balances, direct_debits=(), standing_orders=()):
-    """Booked OB transactions -> the affordability.parse transaction list (date, type, desc, debit, credit, balance),
-    oldest first. type = ProprietaryBankTransactionCode.Code, else the statement type of the ISO BankTransactionCode,
-    else DD or SO when the description names a direct debit or standing order, else DEB for a debit and BGC for a
-    credit. Running balances are rebuilt backwards from the InterimBooked (else ClosingBooked) balance; any balance the
-    bank gives per transaction must agree to the penny. Order: a list whose first row is dated after its last is
-    reversed; when every row has the same date, the order (newest first, as the mock bank sends it, or as given) that
-    reconciles with the per-transaction balances is used, newest first when there are none. ponytail: pending
-    transactions are ignored, and same-day order is otherwise the bank's; upgrade with the provider's own ordering key."""
+def mandate_names(direct_debits, standing_orders):
+    return {d["Name"]: "DD" for d in direct_debits} | {s["Reference"]: "SO" for s in standing_orders if "Reference" in s}
+
+
+def ob_row(r, names):
+    """One OB transaction -> dict(date, type, desc, debit, credit, balance [pence] or None, change [pence]).
+    type = ProprietaryBankTransactionCode.Code, else the statement type of the ISO BankTransactionCode, else DD or SO
+    when the description is in `names` (mandate_names), else DEB for a debit and BGC for a credit. Raises KeyError,
+    TypeError, ValueError or AttributeError for a malformed row."""
+    if r["CreditDebitIndicator"] not in ("Credit", "Debit"):
+        raise ValueError("bad CreditDebitIndicator")
+    p, debit = pennies(r["Amount"]["Amount"]), r["CreditDebitIndicator"] == "Debit"
+    desc = str(r.get("TransactionInformation", "")).strip()
+    code = ((r.get("ProprietaryBankTransactionCode") or {}).get("Code")
+            or ISO_TYPE.get(tuple((r.get("BankTransactionCode") or {}).get(k) for k in ("Code", "SubCode")))
+            or (names.get(desc) if debit else None) or ("DEB" if debit else "BGC"))
+    return dict(date=dt.datetime.fromisoformat(r["BookingDateTime"]).date(), type=str(code).strip().upper(), desc=desc,
+                debit=p / 100 if debit else 0.0, credit=0.0 if debit else p / 100,
+                balance=signed(r["Balance"]) if r.get("Balance") else None, change=-p if debit else p)
+
+
+def to_transactions(rows, balances, direct_debits=(), standing_orders=(), keep=False):
+    """Booked OB transactions -> the statements.parse transaction list (date, type, desc, debit, credit, balance),
+    oldest first; types as in ob_row. Running balances are rebuilt backwards from the InterimBooked (else ClosingBooked)
+    balance; any balance the bank gives per transaction must agree to the penny. Order: a list whose first row is
+    dated after its last is reversed; when every row has the same date, the order (newest first, as the mock bank sends
+    it, or as given) that reconciles with the per-transaction balances is used, newest first when there are none.
+    keep=True adds each source OB row under "row". ponytail: pending transactions are ignored, and same-day order is
+    otherwise the bank's; upgrade with the provider's own ordering key."""
     try:
-        names = {d["Name"]: "DD" for d in direct_debits} | {s["Reference"]: "SO" for s in standing_orders if "Reference" in s}
+        names = mandate_names(direct_debits, standing_orders)
         closing = next((b for kind in ("InterimBooked", "ClosingBooked") for b in balances if b["Type"] == kind), None)
         if closing is None:
             raise StatementError("The bank gave no InterimBooked or ClosingBooked balance.")
-        tx = []
-        for r in rows:
-            if r["Status"] != "Booked":
-                continue
-            p, debit = pennies(r["Amount"]["Amount"]), r["CreditDebitIndicator"] == "Debit"
-            if r["CreditDebitIndicator"] not in ("Credit", "Debit"):
-                raise ValueError("bad CreditDebitIndicator")
-            desc = str(r.get("TransactionInformation", "")).strip()
-            code = ((r.get("ProprietaryBankTransactionCode") or {}).get("Code")
-                    or ISO_TYPE.get(tuple((r.get("BankTransactionCode") or {}).get(k) for k in ("Code", "SubCode")))
-                    or (names.get(desc) if debit else None) or ("DEB" if debit else "BGC"))
-            tx.append(dict(date=dt.datetime.fromisoformat(r["BookingDateTime"]).date(), type=str(code).strip().upper(),
-                           desc=desc, debit=p / 100 if debit else 0.0, credit=0.0 if debit else p / 100,
-                           balance=signed(r["Balance"]) if r.get("Balance") else None, change=-p if debit else p))
+        tx = [ob_row(r, names) | {"row": r} for r in rows if r["Status"] == "Booked"]
         bal = signed(closing)
-    except (KeyError, TypeError, ValueError, AttributeError) as e:
-        raise StatementError(f"The bank's data are not in the expected Open Banking shape ({e}).") from None
+    except (KeyError, TypeError, ValueError, AttributeError):  # no text from the bank (e.g. a bad amount) in the message
+        raise StatementError("The bank's data are not in the expected Open Banking shape.") from None
     if not tx:
         raise StatementError("The bank returned no booked transactions.")
     first, last = tx[0]["date"], tx[-1]["date"]
     for order in [tx[::-1]] if first > last else [tx] if first < last else [tx[::-1], tx]:
         try:
-            return rebuild(order, bal)
+            out = rebuild(order, bal)
+            return out if keep else [{k: v for k, v in t.items() if k != "row"} for t in out]
         except StatementError as e:
             err = e
     raise err
@@ -428,7 +514,7 @@ def rebuild(tx, bal):
 
 def fetch(base_url, token=None, persona=None):
     """Transactions of the one current account behind `token`, or behind a mock consent for `persona`, from the Open
-    Banking AISP API at `base_url`, as affordability.parse would give them from the CSV."""
+    Banking AISP API at `base_url`, as statements.parse would give them from the CSV."""
     base, budget = bank_url(base_url), Budget()
     if (token is None) == (persona is None):
         raise StatementError('bank needs "baseUrl" and exactly one of "token" or "persona".')
@@ -446,16 +532,198 @@ def fetch(base_url, token=None, persona=None):
     return to_transactions(*account)
 
 
+# ---------------------------------------------------------------- client: every account at every provider (v2, T21)
+KINDS = {"CurrentAccount": "current", "Savings": "savings", "CreditCard": "creditCard"}
+RATES = {"OverdraftEAR": "overdraftEAR", "InterestRateAER": "interestAER", "PurchaseAPR": "purchaseAPR"}  # per cent
+
+
+def text(x):
+    return x if isinstance(x, str) else None
+
+
+def day(s):
+    return dt.datetime.fromisoformat(s).date()
+
+
+def gbp(a):
+    return pennies(a["Amount"]) / 100
+
+
+def opt(o, k, f):
+    return f(o[k]) if o.get(k) is not None else None
+
+
+def rate(s):
+    """A rate string such as "39.90" [per cent] -> float; raises ValueError for anything else (no NaN or infinity)."""
+    if not isinstance(s, str) or not AMOUNT.fullmatch(s):
+        raise ValueError("bad rate")
+    return float(s)
+
+
+def whole(x, lo, hi):
+    return x if isinstance(x, int) and not isinstance(x, bool) and lo <= x <= hi else None
+
+
+def detail(r):
+    """What the engine's transaction format drops: the OB id and time and the merchant (name, ISO 18245 code)."""
+    md = r.get("MerchantDetails") or {}
+    mcc = md.get("MerchantCategoryCode")
+    return {"id": text(r.get("TransactionId")), "time": r["BookingDateTime"], "merchant": text(md.get("MerchantName")),
+            "mcc": mcc if isinstance(mcc, str) and re.fullmatch(r"\d{4}", mcc) else None}
+
+
+def account_picture(provider, api, token, a, base, budget):
+    """One account of the customer picture, from every resource its provider's API serves for it."""
+    acc = str(a["AccountId"])
+    url = f"{api}/accounts/{urllib.parse.quote(acc, safe='')}"
+    get = lambda res, key: call(f"{url}/{res}", token, budget=budget)["Data"].get(key, [])
+    rows, bal = read_pages(url + "/transactions", token, base, budget), get("balances", "Balance")
+    dds, sos = get("direct-debits", "DirectDebit"), get("standing-orders", "StandingOrder")
+    sps, prod = get("scheduled-payments", "ScheduledPayment"), (get("product", "Product") or [{}])[0]
+    sd = prod.get("SupplementaryData") or {}
+    kind = KINDS.get(a.get("AccountSubType"), "other")
+    # ponytail: joint and ISA come from the mock's product data (SupplementaryData.JointAccount, OtherProductType);
+    # a real provider shows joint holders through /accounts/{id}/parties (PartyType "Joint") and its own product codes.
+    if kind == "current" and sd.get("JointAccount") is True:
+        kind = "jointCurrent"
+    if kind == "savings" and (prod.get("OtherProductType") or {}).get("Name") == "CashISA":
+        kind = "cashIsa"
+    b = {x["Type"]: x for x in bal}
+    booked = b.get("InterimBooked") or b.get("ClosingBooked")
+    if booked is None:
+        raise StatementError("The bank gave no InterimBooked or ClosingBooked balance.")
+    gbp_of = lambda kind: signed(b[kind]) / 100 if kind in b else None
+    tx = to_transactions(rows, bal, dds, sos, keep=True) if any(r["Status"] == "Booked" for r in rows) else []
+    names = mandate_names(dds, sos)
+    pending = sorted(({k: v for k, v in ob_row(r, names).items() if k not in ("balance", "change")} | detail(r)
+                      for r in rows if r["Status"] == "Pending"), key=lambda t: dt.datetime.fromisoformat(t["time"]))
+    return {"provider": provider, "accountId": acc, "type": kind, "subType": text(a.get("AccountSubType")),
+            "nickname": text(a.get("Nickname")), "identification": text((a.get("Account") or [{}])[0].get("Identification")),
+            "balances": {"booked": signed(booked) / 100, "available": gbp_of("InterimAvailable"),
+                         "opening": gbp_of("OpeningBooked"), "asOf": dt.datetime.fromisoformat(booked["DateTime"])},
+            "creditLines": [{"type": text(c.get("Type")), "amount": gbp(c["Amount"]), "included": c.get("Included") is True}
+                            for c in booked.get("CreditLine") or []],
+            "product": {"id": text(prod.get("ProductId")), "name": text(prod.get("ProductName")),
+                        "type": text((prod.get("OtherProductType") or {}).get("Name") or prod.get("ProductType")),
+                        "rates": {v: rate(sd[k]) for k, v in RATES.items() if k in sd},
+                        "statementDay": whole(sd.get("StatementDay"), 1, 31),
+                        "paymentDueDays": whole(sd.get("PaymentDueDaysAfterStatement"), 0, 60)} if prod else None,
+            "directDebits": [{"name": text(d.get("Name")), "status": text(d.get("DirectDebitStatusCode")),
+                              "frequency": text(d.get("Frequency")), "lastDate": opt(d, "PreviousPaymentDateTime", day),
+                              "lastAmount": opt(d, "PreviousPaymentAmount", gbp)} for d in dds],
+            "standingOrders": [{"reference": text(s.get("Reference")), "status": text(s.get("StandingOrderStatusCode")),
+                                "frequency": text(s.get("Frequency")),
+                                **{f"{w.lower()}Date": opt(s, f"{w}PaymentDateTime", day) for w in ("First", "Next", "Last", "Final")},
+                                **{f"{w.lower()}Amount": opt(s, f"{w}PaymentAmount", gbp) for w in ("First", "Next", "Last", "Final")},
+                                "toAccount": text((s.get("CreditorAccount") or {}).get("Identification"))} for s in sos],
+            "scheduledPayments": [{"date": day(p["ScheduledPaymentDateTime"]), "reference": text(p.get("Reference")),
+                                   "amount": gbp(p["InstructedAmount"]),
+                                   "instalment": text((p.get("SupplementaryData") or {}).get("Instalment"))} for p in sps],
+            "pending": pending,
+            "transactions": [{k: v for k, v in t.items() if k != "row"} for t in tx],
+            "transactionDetails": [detail(t["row"]) for t in tx]}
+
+
+def fetch_customer(base_url, persona=None, tokens=None):
+    """The customer picture across providers, from a --source v2 mock bank (or any API with one Open Banking v3.1 AISP
+    API per provider under /providers/{provider}): with `tokens` ({provider: bearer token}, one consent per provider),
+    or with a mock consent for `persona`. Returns {"providers", "mainAccountId", "accounts"}; each account has its
+    provider, AccountId, type (current, jointCurrent, savings, cashIsa, creditCard or other), balances (booked,
+    available, opening [GBP, negative = owed], asOf), creditLines (arranged overdraft or card limit), product (rates in
+    per cent), directDebits, standingOrders (toOwnAccountId when paid to one of these accounts), scheduledPayments,
+    pending (engine fields without balance, plus detail), transactions (booked, exactly the engine's format, oldest
+    first) and transactionDetails (aligned with transactions: id, time, merchant, mcc). Dates are datetime.date.
+    mainAccountId: the sole-name current account with the largest regular income (statements.detect_income); ties
+    and no income: the first. Same allow-list and limits as fetch; one Budget covers the whole customer."""
+    base, budget = bank_url(base_url), Budget()
+    if (persona is None) == (tokens is None):
+        raise StatementError('bank needs "baseUrl" and exactly one of "persona" or "tokens" ({provider: bearer token}).')
+    if persona is not None:
+        if not isinstance(persona, str) or not PERSONA.fullmatch(persona):
+            raise StatementError("bank.persona must look like 'persona079'.")
+        consent = call(base + "/mock/consent", body=json.dumps({"persona": persona}).encode(), budget=budget)
+        try:
+            tokens = {c["provider"]: c["access_token"] for c in consent["consents"]}
+        except (KeyError, TypeError, AttributeError):
+            raise StatementError("The bank's consent response is not in the expected shape.") from None
+    if not (isinstance(tokens, dict) and 0 < len(tokens) <= MAX_PROVIDERS and all(
+            isinstance(p, str) and PROVIDER.fullmatch(p) and isinstance(t, str) and TOKEN.fullmatch(t)
+            for p, t in tokens.items())):
+        raise StatementError(f"bank.tokens must map 1 to {MAX_PROVIDERS} provider names (a letter, then letters or "
+                             "digits) to printable bearer tokens.")
+    try:
+        accounts = [account_picture(p, f"{base}/providers/{p}{API}", t, a, base, budget) for p, t in tokens.items()
+                    for a in call(f"{base}/providers/{p}{API}/accounts", t, budget=budget)["Data"]["Account"]]
+        ids = [a["accountId"] for a in accounts]
+        if len(set(ids)) != len(ids):  # ponytail: ids are unique within a provider only; upgrade: key on (provider, id)
+            raise StatementError("Two of the customer's accounts share an AccountId.")
+        own = {a["identification"]: a["accountId"] for a in accounts if a["identification"]}
+        for a in accounts:
+            for s in a["standingOrders"]:
+                s["toOwnAccountId"] = own.get(s["toAccount"])
+        income = lambda a: (af.detect_income(a["transactions"]) or {}).get("monthly", 0)
+        main = max((a for a in accounts if a["type"] == "current"), key=income, default=None)
+    except StatementError:
+        raise
+    except (KeyError, TypeError, ValueError, AttributeError, IndexError):
+        raise StatementError("The bank's data are not in the expected Open Banking shape.") from None
+    return {"providers": list(tokens), "mainAccountId": main and main["accountId"], "accounts": accounts}
+
+
+def main_account(customer):
+    """The main current account's entry in a fetch_customer picture, or None."""
+    return next((a for a in customer["accounts"] if a["accountId"] == customer["mainAccountId"]), None)
+
+
+def customer_json(customer):
+    """The picture as JSON-ready data for an API response: booked transaction lists replaced by their count."""
+    slim = customer | {"accounts": [{k: v for k, v in a.items() if k not in ("transactions", "transactionDetails")}
+                                    | {"bookedTransactions": len(a["transactions"])} for a in customer["accounts"]]}
+    return json.loads(json.dumps(slim, allow_nan=False, default=lambda d: d.isoformat()))
+
+
+def from_request(bank):
+    """A request's "bank" object (untrusted; the shape the archived POST /assess took) -> (main-account transactions,
+    customer picture or None).
+    {"baseUrl", "token" | "persona"}: the one current account (fetch, v1 layout). With "allAccounts": true and
+    "persona" | "tokens": every account at every provider (fetch_customer); the main current account is assessed."""
+    if not isinstance(bank, dict) or not set(bank) <= {"baseUrl", "token", "persona", "tokens", "allAccounts"}:
+        raise StatementError('bank must be {"baseUrl": ..., "token": ...} or {"baseUrl": ..., "persona": ...}, or '
+                             'with "allAccounts": true, {"baseUrl": ..., "persona" or "tokens": {provider: token}}.')
+    every = bank.get("allAccounts", False)
+    if not isinstance(every, bool) or ("tokens" in bank) > every or ("token" in bank and every):
+        raise StatementError('bank.allAccounts must be true or false; true takes "persona" or "tokens", false '
+                             '"persona" or "token".')
+    if not every:
+        return fetch(bank.get("baseUrl"), bank.get("token"), bank.get("persona")), None
+    customer = fetch_customer(bank.get("baseUrl"), bank.get("persona"), bank.get("tokens"))
+    main = main_account(customer)
+    if main is None:
+        raise StatementError("The bank showed no current account in the customer's sole name.")
+    return main["transactions"], customer_json(customer)
+
+
 # ---------------------------------------------------------------- self-check
+def fails(f, *a, **k):
+    """The StatementError message of f(*a, **k); AssertionError when it succeeds."""
+    try:
+        f(*a, **k)
+    except StatementError as e:
+        return str(e)
+    raise AssertionError(f"{f.__name__} accepted {a} {k}")
+
+
+def http_status(url, token=None, body=None):
+    """HTTP status of one request through the client (200 on success), or the client's message when there is none."""
+    try:
+        call(url, token, body)
+    except StatementError as e:
+        return int(re.search(r"returned HTTP (\d+)", str(e))[1]) if "returned" in str(e) else str(e)
+    return 200
+
+
 def check_t23(base):
     """T23 review regressions, against the running mock bank at `base` and a misbehaving local server."""
-    def fails(f, *a, **k):
-        try:
-            f(*a, **k)
-        except StatementError as e:
-            return str(e)
-        raise AssertionError(f"{f.__name__} accepted {a} {k}")
-
     # Exact allow-listed origins only (default: the mock bank on 8766), normalised; no path, no other port.
     env = os.environ.pop("BANK_ALLOWED_HOSTS")
     try:
@@ -546,24 +814,21 @@ def check_t23(base):
         fails(call, bad + "/a b")                        # http.client.InvalidURL
         msg = fails(call, bad + "/secret")
         assert msg == "The bank returned HTTP 403." and "SECRET" not in msg
+        row = {"Status": "Booked", "CreditDebitIndicator": "Debit", "Amount": {"Amount": "SECRET-banner"},
+               "BookingDateTime": "2026-01-01T00:00:00+00:00"}  # T27: a malformed field's text stays out of the message
+        assert "SECRET" not in fails(to_transactions, [row], [{"Type": "InterimBooked", "CreditDebitIndicator": "Credit",
+                                                                 "Amount": {"Amount": "1.00"}}])
         assert fails(call, "http://127.0.0.1:1/x") == "Could not read a response from the bank."
     finally:
         bad_srv.shutdown()
 
 
-def check():
+def check_v1():
     srv = serve(0, quiet=True)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{srv.server_port}"
     os.environ["BANK_ALLOWED_HOSTS"] = f"{base},http://localhost:{srv.server_port}"  # the check's ephemeral port
-
-    def status(path, token=None, body=None):
-        try:
-            call(base + path, token, body)
-        except StatementError as e:
-            return int(re.search(r"returned HTTP (\d+)", str(e))[1]) if "returned" in str(e) else str(e)
-        return 200
-
+    status = lambda path, token=None, body=None: http_status(base + path, token, body)
     try:
         check_t23(base)
         pids = [p["id"] for p in af.personas()]
@@ -595,7 +860,7 @@ def check():
         assert [x["AccountId"] for x in accounts["Data"]["Account"]] == [acc] and accounts["Meta"]["TotalPages"] == 1
         so = call(f"{base}{API}/accounts/{acc}/standing-orders", tok)["Data"]["StandingOrder"]
         assert [(s["Reference"], s["Frequency"], s["NextPaymentDateTime"][:10], s["NextPaymentAmount"]["Amount"])
-                for s in so] == [("RENT LETTING AGENT", "IntrvlMnthDay:01:01", "2026-11-01", "1001.86")], so
+                for s in so] == [("RENT LETTING AGENT", "IntrvlMnthDay:01:01", "2026-11-01", "781.17")], so
         dd = call(f"{base}{API}/accounts/{acc}/direct-debits", tok)["Data"]["DirectDebit"]
         assert {d["Name"] for d in dd} == {t["desc"] for t in statement("persona050")[2] if t["type"] == "DD"}
         assert all(d["DirectDebitStatusCode"] == "Active" and d["PreviousPaymentDateTime"].startswith("2026-10") for d in dd)
@@ -618,7 +883,7 @@ def check():
         assert status(f"{API}/accounts/{acc_b}", tok) == 403 == status(f"{API}/accounts/{acc_b}/transactions", tok)
         assert [x["AccountId"] for x in call(f"{base}{API}/accounts", b["access_token"])["Data"]["Account"]] == [acc_b]
         with srv.lock:
-            srv.tokens[tok] = (srv.tokens[tok][0], time.time() - 1)  # expire persona050's token
+            srv.tokens[tok] = srv.tokens[tok][:2] + (time.time() - 1,)  # expire persona050's token
         assert status(path, tok) == 401
         tok = call(base + "/mock/consent", body=b'{"persona": "persona050"}')["access_token"]
         req = urllib.request.Request(base + path, headers={"Authorization": f"Basic {tok}"})
@@ -632,12 +897,16 @@ def check():
             raise AssertionError("accepted a Basic token")
         for body in (b'{"persona": "persona05"}', b'{"persona": "../persona050"}', b'{"persona": "persona999"}',
                      b'{"persona": "persona050/../persona051"}', b'{"persona": 50}', b"not json",
-                     b'{"persona": "persona050", "x": 1}', b'{"persona": "persona*"}'):
+                     b'{"persona": "persona050", "x": 1}', b'{"persona": "persona*"}', b'{"persona": ["persona050"]}',
+                     b'{"persona": "persona050", "provider": "MockBank"}'):
             assert status("/mock/consent", body=body) == 400, body
         for p in (f"{API}/accounts/../../../../etc/passwd", f"{API}/accounts/%2e%2e%2f{acc_b}",
                   f"{API}/accounts/{acc}/../{acc_b}/transactions", f"{API}/accounts/{acc}/transactions/../../{acc_b}",
                   f"{API}/accounts/{acc}/", "/../Analysis/mock_statements/personas.md", f"{API}/accounts/ABCDEF12"):
             assert status(p, tok) in (400, 403, 404), p
+        for p in (f"/providers/MockBank{API}/accounts", f"{API}/accounts/{acc}/product",
+                  f"{API}/accounts/{acc}/scheduled-payments"):  # v2 paths and resources only
+            assert status(p, tok) == 404, p
         for q in ("fromBookingDateTime=2026-13-01", "page=0", "page=9", "toBookingDateTime=x", "foo=1",
                   "page=1&page=2", "fromBookingDateTime=2026-10-01&toBookingDateTime=2026-09-01"):
             assert status(f"{path}?{q}", tok) == 400, q
@@ -661,21 +930,173 @@ def check():
         assert fetch(base.replace("127.0.0.1", "localhost"), token=tok) == af.parse(af.load_persona("persona050"))
     finally:
         srv.shutdown()
-    print(f"Mock bank self-check passed: {len(pids)} personas read through the Open Banking API match their CSVs.")
+    print(f"Mock bank v1 self-check passed: {len(pids)} personas read through the Open Banking API match their CSVs.")
+
+
+def check_v2():
+    """v2: every persona's customer picture, read through the API, against the JSON files, ground_truth.csv and the
+    main-account CSVs; token scope, consent, paths, limits and the allAccounts flag."""
+    from collections import Counter
+    import ob_generator as og  # ACCOUNTS: account key -> (AccountSubType, provider, ...)
+    kind_of = {"ca": "current", "ca2": "current", "joint": "jointCurrent", "sv": "savings", "isa": "cashIsa",
+               "cc1": "creditCard", "cc2": "creditCard"}
+    with open(OB_DIR / "ground_truth.csv", encoding="utf-8", newline="") as fh:
+        truth = list(csv.DictReader(fh))
+    found = len(list(OB_DIR.glob("persona[0-9][0-9][0-9]_*.json")))
+    if found != len(truth):
+        raise SystemExit(f"The v2 check needs all {len(truth)} persona JSON files in {OB_DIR} (found {found}): "
+                         "run ob_generator.py first.")
+    srv = serve(0, quiet=True, source="v2")
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_port}"
+    os.environ["BANK_ALLOWED_HOSTS"] = base  # the check's ephemeral port
+    P = lambda provider: f"{base}/providers/{provider}{API}"
+    csv_text = lambda pid: next((OB_DIR / "csv").glob(f"{pid}_*.csv")).read_text(encoding="utf-8")
+    n = Counter()
+    try:
+        for row in truth:  # every persona, every provider, every account
+            pid, uid = row["persona"], row["uuid8"]
+            c = fetch_customer(base, persona=pid)
+            doc = json.loads(next(OB_DIR.glob(f"{pid}_*.json")).read_text(encoding="utf-8"))
+            keys = row["account_keys"].split(";")
+            assert sorted((a["provider"], a["type"]) for a in c["accounts"]) == sorted(
+                (og.ACCOUNTS[k][1], kind_of[k]) for k in keys) and len(keys) == int(row["n_accounts"]), pid
+            assert c["providers"] == [b["Provider"] for b in doc["Providers"]] and c["mainAccountId"] == uid, pid
+            assert main_account(c)["transactions"] == af.parse(csv_text(pid)), pid
+            got = {a["accountId"]: a for a in c["accounts"]}
+            own = {x["Account"][0]["Identification"]: x["AccountId"] for b in doc["Providers"] for x in b["Data"]["Account"]}
+            for blk in doc["Providers"]:
+                D = blk["Data"]
+                for acc in (x["AccountId"] for x in D["Account"]):
+                    a, mine = got[acc], lambda k: [x for x in D[k] if x["AccountId"] == acc]
+                    bal = {x["Type"]: x for x in mine("Balance")}
+                    booked = [x for x in mine("Transaction") if x["Status"] == "Booked"]
+                    pend = sorted((x for x in mine("Transaction") if x["Status"] == "Pending"),
+                                  key=lambda x: dt.datetime.fromisoformat(x["BookingDateTime"]))
+                    assert a["provider"] == blk["Provider"], acc
+                    assert [a["balances"][k] for k in ("booked", "available", "opening")] == [
+                        signed(bal[t]) / 100 for t in ("InterimBooked", "InterimAvailable", "OpeningBooked")], acc
+                    assert [(x["type"], x["amount"]) for x in a["creditLines"]] == [
+                        (x["Type"], gbp(x["Amount"])) for x in bal["InterimBooked"].get("CreditLine", [])], acc
+                    assert [(t["id"], t["credit"] - t["debit"], t["merchant"], t["date"]) for t in a["pending"]] == [
+                        (x["TransactionId"], signed(x) / 100, (x.get("MerchantDetails") or {}).get("MerchantName"), day(x["BookingDateTime"]))
+                        for x in pend], acc
+                    assert [(d["id"], d["mcc"]) for d in a["transactionDetails"]] == [
+                        (x["TransactionId"], (x.get("MerchantDetails") or {}).get("MerchantCategoryCode")) for x in booked], acc
+                    assert len(a["transactions"]) == len(booked) and (
+                        not booked or a["transactions"][-1]["balance"] == a["balances"]["booked"]), acc
+                    prod = mine("Product")
+                    assert len(prod) == 1 and a["product"]["id"] == prod[0]["ProductId"] and a["product"]["rates"] == {
+                        v: float(prod[0]["SupplementaryData"][k]) for k, v in RATES.items() if k in prod[0]["SupplementaryData"]}, acc
+                    assert [(s["date"], s["amount"], s["reference"]) for s in a["scheduledPayments"]] == [
+                        (day(x["ScheduledPaymentDateTime"]), gbp(x["InstructedAmount"]), x["Reference"])
+                        for x in mine("ScheduledPayment")], acc
+                    assert [d["name"] for d in a["directDebits"]] == [x["Name"] for x in mine("DirectDebit")], acc
+                    assert [(s["reference"], s["toOwnAccountId"]) for s in a["standingOrders"]] == [
+                        (x["Reference"], own.get((x.get("CreditorAccount") or {}).get("Identification")))
+                        for x in mine("StandingOrder")], acc
+                    n.update(accounts=1, pending=len(pend), scheduled=len(a["scheduledPayments"]), products=1,
+                             credit_lines=len(a["creditLines"]), to_own=sum(s["toOwnAccountId"] is not None
+                                                                            for s in a["standingOrders"]))
+            n.update(personas=1, consents=len(c["providers"]), with_scheduled=any(a["scheduledPayments"] for a in c["accounts"]))
+        assert n["personas"] == len(truth) and min(n["pending"], n["scheduled"], n["with_scheduled"], n["to_own"]) > 0, n
+
+        # One token per persona per provider; a token works only at its provider and only for that persona's accounts.
+        consent = lambda body: call(base + "/mock/consent", body=json.dumps(body).encode())["consents"]
+        c72, c01 = consent({"persona": "persona072"}), consent({"persona": "persona001"})
+        t72, t01 = ({x["provider"]: x["access_token"] for x in c} for c in (c72, c01))
+        ids72 = {x["provider"]: x["accountIds"] for x in c72}
+        assert sorted(t72) == sorted(PROVIDERS) and list(t01) == ["MockBank"] and len(sum(ids72.values(), [])) == 7
+        for provider, tok in t72.items():
+            assert [x["AccountId"] for x in call(P(provider) + "/accounts", tok)["Data"]["Account"]] == ids72[provider]
+        main72, card72, main01 = "05a4396f", ids72["MockCards"][0], c01[0]["accountIds"][0]
+        assert http_status(P("MockCards") + "/accounts", t72["MockBank"]) == 401
+        assert http_status(P("MockBank") + f"/accounts/{main72}", t72["MockDigital"]) == 401
+        assert http_status(P("MockBank") + f"/accounts/{card72}/transactions", t72["MockBank"]) == 403
+        assert http_status(P("MockCards") + f"/accounts/{main72}/balances", t72["MockCards"]) == 403
+        assert http_status(P("MockBank") + f"/accounts/{main01}", t72["MockBank"]) == 403
+        assert http_status(P("MockBank") + f"/accounts/{main72}/product", t01["MockBank"]) == 403
+        assert http_status(P("MockBank") + "/accounts") == 401 and http_status(P("MockBank") + "/accounts", "x" * 40) == 401
+        assert [x["provider"] for x in consent({"persona": "persona072", "provider": "MockCards"})] == ["MockCards"]
+        for body in (b'{"persona": "persona029", "provider": "MockCards"}', b'{"persona": "persona072", "provider": "Evil"}',
+                     b'{"persona": "persona072", "provider": ["MockBank"]}', b'{"persona": ["persona072"]}',
+                     b'{"persona": "persona072", "provider": "MockBank", "x": 1}', b'{"provider": "MockBank"}',
+                     b'{"persona": "persona999"}', b'{"persona": "../persona072"}'):
+            assert http_status(base + "/mock/consent", body=body) == 400, body
+        tok = t72["MockBank"]
+        for p in (f"{base}{API}/accounts", f"{base}/providers/Evil{API}/accounts", f"{base}/providers/MockBank/x{API}/accounts",
+                  P("MockBank") + f"/accounts/{main72}/products", P("MockBank") + f"/accounts/{main72}/",
+                  f"{base}/providers/{API}/accounts", f"{base}/providers/..%2fMockBank{API}/accounts"):
+            assert http_status(p, tok) == 404, p
+        assert http_status(P("MockBank") + f"/accounts/{main72}/product?x=1", tok) == 400
+        assert http_status(P("MockBank") + "/accounts/..%2f..%2fx/balances", tok) == 400
+
+        # Date filters and paging on v2 (September 2026, British Summer Time; + encoded as %2B).
+        csv72 = af.parse(csv_text("persona072"))
+        sept = call(P("MockBank") + f"/accounts/{main72}/transactions?fromBookingDateTime=2026-09-01T00:00:00%2B01:00"
+                    "&toBookingDateTime=2026-09-30T23:59:59%2B01:00", tok)
+        assert len(sept["Data"]["Transaction"]) == sum((t["date"].year, t["date"].month) == (2026, 9) for t in csv72) > 0
+        assert "Next" not in sept["Links"] and call(P("MockBank") + f"/accounts/{main72}/transactions", tok)["Meta"]["TotalPages"] > 1
+
+        # Tokens per provider give the same picture as the mock consent; the v1 client cannot read a v2 bank.
+        assert fetch_customer(base, tokens=t72) == fetch_customer(base, persona="persona072")
+        fails(fetch, base, persona="persona072")
+        # The main account is the one paid the salary, not the first listed (MockDigital's current account first here).
+        rev = fetch_customer(base, tokens=dict(reversed(t72.items())))
+        assert next(a for a in rev["accounts"] if a["type"] == "current")["provider"] == "MockDigital"
+        assert rev["mainAccountId"] == main72
+
+        # Limits and the exact-origin allow-list still apply.
+        url = P("MockBank") + f"/accounts/{main72}/transactions"
+        assert "Too many" in fails(read_pages, url, tok, base, Budget(pages=1))
+        assert "more data" in fails(read_pages, url, tok, base, Budget(size=1000))
+        for u in ("http://example.com", base + "/providers/MockBank", "http://127.0.0.1:1", base + API, None):
+            fails(fetch_customer, u, persona="persona072")
+        for kw in (dict(), dict(persona="persona072", tokens=t72), dict(persona="x"), dict(tokens={}), dict(tokens=[tok]),
+                   dict(tokens={"../MockBank": tok}), dict(tokens={"MockBank": "bad token"}), dict(tokens={"Mock Bank": tok}),
+                   dict(tokens={f"P{i}": tok for i in range(MAX_PROVIDERS + 1)}), dict(tokens={"MockCards": tok}),
+                   dict(tokens={"MockBank": t01["MockBank"], "MockCards": t72["MockBank"]})):
+            fails(fetch_customer, base, **kw)
+
+        # A request's "bank" object with "allAccounts": the main account's transactions equal its CSV, plus the picture.
+        tx, picture = from_request({"baseUrl": base, "persona": "persona072", "allAccounts": True})
+        assert tx == csv72 and picture["mainAccountId"] == main72 and len(picture["accounts"]) == 7
+        assert sum(a["bookedTransactions"] for a in picture["accounts"]) == sum(
+            len(a["transactions"]) for a in fetch_customer(base, persona="persona072")["accounts"])
+        json.dumps(picture, allow_nan=False)
+        for bad in ({"baseUrl": base, "persona": "persona072", "allAccounts": "yes"}, {"baseUrl": base, "tokens": t72},
+                    {"baseUrl": base, "token": tok, "allAccounts": True}, {"baseUrl": base, "tokens": t72, "allAccounts": False},
+                    {"baseUrl": base, "persona": "persona072", "allAccounts": True, "x": 1}, ["x"]):
+            fails(from_request, bad)
+    finally:
+        srv.shutdown()
+    print(f"Mock bank v2 self-check passed: {n['personas']} personas, {n['consents']} provider consents, {n['accounts']} "
+          f"accounts ({n['credit_lines']} credit lines, {n['products']} products, {n['pending']} pending transactions, "
+          f"{n['scheduled']} scheduled payments for {n['with_scheduled']} personas, {n['to_own']} standing orders to own "
+          "accounts) match the JSON, ground truth and main-account CSVs.")
+
+
+def check(source=None):
+    if source in (None, "v1"):
+        check_v1()
+    if source in (None, "v2"):
+        check_v2()
 
 
 if __name__ == "__main__":
-    sys.modules["mock_bank"] = sys.modules[__name__]  # affordability imports mock_bank; keep one copy
+    sys.modules["mock_bank"] = sys.modules[__name__]  # ob_generator imports mock_bank; keep one copy
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--serve", action="store_true", help="run the mock bank on 127.0.0.1")
     ap.add_argument("--port", type=int, default=8766, help="port for --serve (default 8766)")
+    ap.add_argument("--source", choices=("v1", "v2"), help="--serve: the data to serve (default v1: Analysis/"
+                    "mock_statements; v2: Analysis/open_banking); --check: check only that source (default both)")
     ap.add_argument("--check", action="store_true", help="run the self-check")
     args = ap.parse_args()
     if args.check:
-        check()
+        check(args.source)
     elif args.serve:
         try:
-            serve(args.port).serve_forever()
+            serve(args.port, source=args.source or "v1").serve_forever()
         except KeyboardInterrupt:
             pass
     else:

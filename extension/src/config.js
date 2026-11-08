@@ -12,7 +12,7 @@ ST.config = {
   // Steps shown while the backend is working. They advance on a timer (the analysis is one AI call), and the last one
   // stays on screen until the answer arrives, so it must name the slow part: the web search. Only list real work.
   // The budget step is left out when no budget is saved (content.js).
-  // "Checking your accounts" is for the demo: no bank connection yet, it's shown but nothing is fetched.
+  // With MODEL configured, the bank check reads historical synthetic sample data.
   ANALYSIS_STEPS: [
     "Reading your basket",
     "Checking your accounts",
@@ -40,7 +40,7 @@ ST.config = {
 
   // The team's affordability model (model.py on main, `--serve`, POST /decide), reading the customer's accounts
   // through the mock Open Banking bank (`mock_bank.py --serve --source v2`). When it answers, its verdict replaces the
-  // saved-budget one; when it's off or unreachable, the saved budget is used. url "" = never ask it.
+  // saved-budget one; an unreachable model gives an explicit unavailable warning. url "" = never ask it.
   MODEL: { url: "http://127.0.0.1:8765", bankUrl: "http://127.0.0.1:8766", persona: "persona029" },
 
   // Demo page only: overrides the demo shopper's budget from persona.js (e.g. { budget: 400, spent: 240 }).

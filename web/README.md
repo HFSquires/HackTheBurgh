@@ -92,3 +92,5 @@ All requests need `Authorization: Bearer <Auth0 ID token>`.
 | `GET /api/profile` | | `{ profile, payment: { preferred, cards[] }, budget: { monthly, spent, currency }, updatedAt, email }` |
 | `PUT /api/profile` | same shape (without `updatedAt`, `email`) | the saved account, or `400 { error }` |
 | `DELETE /api/profile` | | `{ deleted: true }` |
+
+- 2026-11-08 (Codex, T34): Ported the savings/overdraft UI and explicit pay-in-3 comparison onto frontend-extension; setup is in the root USER_GUIDE.md.

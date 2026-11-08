@@ -53,6 +53,7 @@ globalThis.ST = globalThis.ST || {};
 .panel {
   position: fixed; right: 24px; bottom: 24px; z-index: 2147483647;
   width: 372px; max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 48px); overflow-y: auto;
   padding: 18px;
   color: #f4f4f7; font-size: 14px; line-height: 1.45;
   background: rgba(15, 15, 21, .9);
@@ -398,6 +399,7 @@ globalThis.ST = globalThis.ST || {};
     const short = c.goal - withIt[n];
 
     return h("div", { class: "chart" },
+      h("div", { text: "This month’s net worth · includes outstanding debt" }),
       h("div", { class: "chart-title", text: `Your money across all your accounts, to ${fmt(dateAt(n))}` }),
       svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `With this purchase you'd end the month at ${gbp(withIt[n])}, ${short > 0 ? `${gbp(short)} below` : `${gbp(-short)} above`} your savings goal of ${gbp(c.goal)}. Without it, ${gbp(without[n])}.` },
         svg("line", { x1: L, x2: W - R, y1: y(c.goal), y2: y(c.goal), class: "c-goal" }),
@@ -605,7 +607,7 @@ globalThis.ST = globalThis.ST || {};
     // "cheaper elsewhere". "I still want to buy it" moves on (or, once a cheaper price is found, "Found it … →" jumps to it).
     decisions(result) {
       return [
-        result.verdict === "reconsider" && "budget",
+        (result.risk || result.verdict === "reconsider") && "budget",
         result.priceOutlook && "wait",
         result.alternatives[0] && "switch",
       ].filter(Boolean);
@@ -631,12 +633,26 @@ globalThis.ST = globalThis.ST || {};
       const best = result.alternatives[0];
       const view = {
         budget: () => ({
-          tone: "reconsider",
-          badge: VERDICT_LABEL.reconsider,
+          tone: result.verdict,
+          badge: ({ overdraft: "Overdraft warning", savings: "Savings goal at risk", none: "On track", unknown: "Bank check unavailable" })[result.risk] || VERDICT_LABEL.reconsider,
           title: result.title,
           msg: result.message,
-          extra: [result.chart && financeChart(result.chart), result.searching && this.searchingLine(onAction)],
-          main: { id: "not_now", label: "Don't buy now", confirmation: "Good call. Your basket is still here if you change your mind." },
+          extra: [
+            result.forecastNote && h("p", { class: "msg", text: result.forecastNote }),
+            result.comparison && h("div", { class: "chart" },
+              h("strong", { text: "Lowest balance over the same period" }),
+              h("p", { text: `Pay now: ${result.comparison.payNow} · Pay in 3: ${result.comparison.payIn3}` }),
+              h("p", { text: `Checked through ${result.comparison.horizon}. Payments: ${result.comparison.schedule}` }),
+              h("p", { text: result.comparison.note })),
+            result.chart && financeChart(result.chart),
+            result.insights?.length > 0 && h("div", { class: "insights" }, result.insights.map(i =>
+              h("div", { class: "insight" }, h("div", { class: "k", text: i.label }), h("div", { class: "v", text: i.value })))),
+            result.financeAction && h("button", { class: "btn secondary", text: result.financeAction.label, onclick: choose(result.financeAction) }),
+            result.searching && this.searchingLine(onAction),
+          ],
+          main: result.risk === "unknown" ? { id: "retry", label: "Try again" }
+            : result.risk === "none" ? { id: "proceed", label: "Continue" }
+            : { id: "remind", label: "Pause for 24 hours", confirmation: "We’ll remind you tomorrow." },
         }),
         wait: () => ({
           tone: "neutral",

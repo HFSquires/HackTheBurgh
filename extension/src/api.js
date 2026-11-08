@@ -20,7 +20,10 @@ globalThis.ST = globalThis.ST || {};
   // Price comparison and "could get cheaper" together, as the background does.
   async function demoBoth(payload) {
     ST.mock.outlook(payload).then((o) => ST.precheck.addOutlook(payload, o));
-    return ST.mock.analyze(payload);
+    return ST.mock.analyze(payload).catch((e) => {
+      if (!ST.config.MODEL?.url || !(demoSettings().bankPersona ?? ST.config.MODEL.persona)) throw e;
+      return { alternatives: [], insights: [] };
+    });
   }
   async function demoAnalyze(payload) {
     const earlier = !ST.config.MOCK_SCENARIO && (await ST.precheck.find(payload));
@@ -32,7 +35,7 @@ globalThis.ST = globalThis.ST || {};
   ST.api = {
     analyze: (payload) => (inExtension() ? call("ST_ANALYZE", payload) : demoAnalyze(payload)),
     // The affordability model alone (fast); null when it's off or unreachable.
-    afford: (payload) => (inExtension() ? call("ST_AFFORD", payload) : ST.precheck.modelVerdict(payload.total, payload.currency)),
+    afford: (payload) => (inExtension() ? call("ST_AFFORD", payload) : ST.precheck.modelVerdict(payload, demoSettings())),
     // Silent check when something goes in the basket; the checkout reuses it.
     precheck: async (payload) => {
       if (inExtension()) return call("ST_PRECHECK", payload);
