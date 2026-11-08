@@ -44,4 +44,4 @@ The full step-by-step guide, with troubleshooting, is in [`extension/README.md`]
 | `archive/` | The earlier engine and figures, retired when `model.py` replaced them; kept for reference |
 
 The customers and their bank data are synthetic; no real bank is connected. Team records: `BRIEF.md` (the challenge),
-`DECISIONS.md`, `TASKS.md`, `USER_GUIDE.md`, and `CLAUDE.md` / `AGENTS.md` (rules for the coding agents).
+`DECISIONS.md`, `TASKS.md` and `USER_GUIDE.md`.
