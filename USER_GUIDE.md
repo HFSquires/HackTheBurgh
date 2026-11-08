@@ -20,7 +20,7 @@ python3 model.py --serve
 python3 -m http.server 5180 --bind 127.0.0.1
 ```
 
-Open `http://127.0.0.1:5180/extension/demo/checkout.html`. In the demo controls, choose a sample bank and enter a monthly savings goal. Sample 029 and sample 100 show overdraft warnings at the default basket total; sample 001 shows a savings warning with a £1,500 target. Press **Compare pay in 3** in the result to rerun the financial model and see repayment dates and both projected minimum balances. **Back to pay now** restores the immediate-payment calculation. Without a sample bank selected, the original mock-verdict controls still work.
+Open `http://127.0.0.1:5180/extension/demo/checkout.html`. In the demo controls, choose a sample bank and enter a monthly savings goal. Sample 029 and sample 100 show overdraft warnings at the default basket total; sample 001 shows a savings warning with a £1,500 target. Use **Explain** to expand the chart, forecast assumptions and repayment breakdown. Press **Compare pay in 3** in the result to rerun the financial model and see repayment dates and both projected minimum balances. **Back to pay now** restores the immediate-payment calculation. Without a sample bank selected, the original mock-verdict controls still work.
 
 For the installed extension, reload it in Chrome, then open Options, choose **Connect a sample bank**, enter the monthly savings goal and save. The account website also saves the goal in GBP and syncs it to the extension. This is explicitly historical synthetic data, not real Open Banking consent. Only the five committed sample JSONs are needed to serve the demo; the 100-person backtest and original full self-check require generating the full cohort first.
 

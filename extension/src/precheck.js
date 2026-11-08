@@ -174,8 +174,16 @@ globalThis.ST = globalThis.ST || {};
       if (!d.cashFlow || !d.savings) return { ...unavailable, title: d.title || unavailable.title, message: d.message || unavailable.message };
       const nw = d.netWorth;
       const spread = d.paymentPlan === "pay_in_3";
+      const short = {
+        overdraft: ["Overdraft risk", `At your usual spending rate, your balance could fall to ${money(d.cashFlow.lowestWithPurchase)}.`],
+        savings: ["Savings goal at risk", `This could leave you ${money(d.savings.shortfall)} short of your ${money(d.savings.monthlyTarget)} goal.`],
+        none: ["Fits your plan", "Your savings goal stays on track at your usual spending rate."],
+      }[d.risk];
       return {
-        verdict: d.verdict, risk: d.risk, title: d.title, message: d.message,
+        verdict: d.verdict, risk: d.risk,
+        title: short ? (spread ? "Pay in 3: " + short[0].toLowerCase() : short[0]) : d.title,
+        message: short ? short[1] : d.message,
+        explanation: d.message,
         forecastNote: `Sample bank · forecast as of ${d.today} · main current account · ${spread ? "illustrative interest-free pay in 3" : "pay now"}.`,
         financeAction: { id: spread ? "pay_now" : "pay_in_3", label: spread ? "Back to pay now" : "Compare pay in 3" },
         comparison: d.comparison ? {

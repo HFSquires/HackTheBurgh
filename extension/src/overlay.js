@@ -634,10 +634,14 @@ globalThis.ST = globalThis.ST || {};
       const view = {
         budget: () => ({
           tone: result.verdict,
-          badge: ({ overdraft: "Overdraft warning", savings: "Savings goal at risk", none: "On track", unknown: "Bank check unavailable" })[result.risk] || VERDICT_LABEL.reconsider,
+          badge: result.risk === "unknown" ? "Bank check" : result.risk ? `Sample · ${result.comparison ? "Pay in 3" : "Pay now"}` : VERDICT_LABEL.reconsider,
           title: result.title,
           msg: result.message,
           extra: [
+            (result.explanation || result.forecastNote || result.chart || result.comparison || result.insights?.length > 0) &&
+            h("details", { class: "outlook-why" },
+              h("summary", { text: "Explain" }),
+              result.explanation && h("p", { class: "msg", text: result.explanation }),
             result.forecastNote && h("p", { class: "msg", text: result.forecastNote }),
             result.comparison && h("div", { class: "chart" },
               h("strong", { text: "Lowest balance over the same period" }),
@@ -646,7 +650,7 @@ globalThis.ST = globalThis.ST || {};
               h("p", { text: result.comparison.note })),
             result.chart && financeChart(result.chart),
             result.insights?.length > 0 && h("div", { class: "insights" }, result.insights.map(i =>
-              h("div", { class: "insight" }, h("div", { class: "k", text: i.label }), h("div", { class: "v", text: i.value })))),
+              h("div", { class: "insight" }, h("div", { class: "k", text: i.label }), h("div", { class: "v", text: i.value }))))),
             result.financeAction && h("button", { class: "btn secondary", text: result.financeAction.label, onclick: choose(result.financeAction) }),
             result.searching && this.searchingLine(onAction),
           ],
