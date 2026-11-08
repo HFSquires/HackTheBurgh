@@ -9,3 +9,5 @@ Content scripts and background services.
 - 2026-11-08 (Codex): Replaced Pause for 24 hours with the primary View instalment options action, opening the existing pay-in-3 comparison. Removed the duplicate secondary comparison button.
 
 - 2026-11-08 (Codex): Moved Explain to a muted pill at the top right of the financial result, with an accessible expand/collapse toggle.
+
+- 2026-11-08 (Codex): Explain toggles its label to Hide explain while expanded.

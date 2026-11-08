@@ -721,6 +721,7 @@ globalThis.ST = globalThis.ST || {};
         class: "explain-pill", text: "Explain", "aria-expanded": "false", "aria-controls": "st-explanation",
         onclick: () => {
           explanation.hidden = !explanation.hidden;
+          explainButton.textContent = explanation.hidden ? "Explain" : "Hide explain";
           explainButton.setAttribute("aria-expanded", String(!explanation.hidden));
         },
       });
