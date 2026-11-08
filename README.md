@@ -52,3 +52,5 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-08 (Codex, T34): Applied monthly savings targets, overdraft-first warnings and pay-in-3 comparison to the newer frontend-extension UI on `t34-frontend-savings`, retaining early answers, chart, store detection and handoff. Included model/v2-bank dependencies and current sample records. Model regression tests, frontend adapter/step tests and HTTP tests for both plans on five samples pass. JavaScript syntax passes. Browser control remains disabled, so visual verification is outstanding. Branch intentionally not merged to main or pushed.
 
 - 2026-11-08 (Codex): On user request, shortened buyer-facing warnings to a headline and one sentence. Forecast explanation, chart, figures and repayment schedule are collapsed under Explain; Compare pay in 3 remains visible. Existing frontend checks and syntax checks pass.
+
+- 2026-11-08 (Codex): Replaced Pause for 24 hours with the primary View instalment options action, opening the existing pay-in-3 comparison. Removed the duplicate secondary comparison button.

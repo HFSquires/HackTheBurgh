@@ -185,7 +185,7 @@ globalThis.ST = globalThis.ST || {};
         message: short ? short[1] : d.message,
         explanation: d.message,
         forecastNote: `Sample bank · forecast as of ${d.today} · main current account · ${spread ? "illustrative interest-free pay in 3" : "pay now"}.`,
-        financeAction: { id: spread ? "pay_now" : "pay_in_3", label: spread ? "Back to pay now" : "Compare pay in 3" },
+        financeAction: { id: spread ? "pay_now" : "pay_in_3", label: spread ? "Back to pay now" : "View instalment options" },
         comparison: d.comparison ? {
           payNow: money(d.comparison.payNow.lowestWithPurchase), payIn3: money(d.comparison.payIn3.lowestWithPurchase),
           horizon: d.cashFlow.horizon, schedule: d.payments.map(p => `${money(p.amount)} on ${p.date}`).join("; "),

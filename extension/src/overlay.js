@@ -651,12 +651,10 @@ globalThis.ST = globalThis.ST || {};
             result.chart && financeChart(result.chart),
             result.insights?.length > 0 && h("div", { class: "insights" }, result.insights.map(i =>
               h("div", { class: "insight" }, h("div", { class: "k", text: i.label }), h("div", { class: "v", text: i.value }))))),
-            result.financeAction && h("button", { class: "btn secondary", text: result.financeAction.label, onclick: choose(result.financeAction) }),
             result.searching && this.searchingLine(onAction),
           ],
           main: result.risk === "unknown" ? { id: "retry", label: "Try again" }
-            : result.risk === "none" ? { id: "proceed", label: "Continue" }
-            : { id: "remind", label: "Pause for 24 hours", confirmation: "We’ll remind you tomorrow." },
+            : result.financeAction || { id: "proceed", label: "Continue" },
         }),
         wait: () => ({
           tone: "neutral",
