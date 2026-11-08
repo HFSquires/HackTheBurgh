@@ -44,7 +44,7 @@ Inputs come from the mock bank's customer picture, not from files read directly,
 
 ## 4. Steps
 
-Each step ends with its own `--check` assertions passing and a commit (code is committed only after it has run; see `CLAUDE.md`). Work on a task branch in a worktree, claim the task in `TASKS.md` first, and keep tracking-file edits on `main`.
+Each step ends with its own `--check` assertions passing and a commit (code is committed only after it has run). Work on a task branch in a worktree, claim the task in `TASKS.md` first, and keep tracking-file edits on `main`.
 
 | Step | Build | Done when |
 | --- | --- | --- |
@@ -58,7 +58,7 @@ Each step ends with its own `--check` assertions passing and a commit (code is c
 
 ## 5. Rules that apply
 
-Follow `CLAUDE.md`: the ponytail discipline (reuse `statements.py`, `mock_bank.py`, `market_data.py`; standard library plus what is already in `requirements.txt`; one file; `ponytail:` comments on stated simplifications such as the joint-account half and the interest-free $N$), TeXFormat figures with companion statistics files written by the same script, outputs only in `Analysis/model/` and `Figures/model/`, British English, and no claims beyond what the synthetic data support. The extension describes options and does not give financial advice; keep the verdict's wording factual.
+Keep it simple: reuse `statements.py`, `mock_bank.py` and `market_data.py`; use the standard library plus what is already in `requirements.txt`; keep it to one file; and comment each stated simplification, such as the joint-account half and the interest-free $N$. Use TeXFormat figures with companion statistics files written by the same script, outputs only in `Analysis/model/` and `Figures/model/`, British English, and no claims beyond what the synthetic data support. The extension describes options and does not give financial advice; keep the verdict's wording factual.
 
 ## 6. Known limits to state in the results
 
