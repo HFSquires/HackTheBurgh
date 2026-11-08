@@ -11,3 +11,5 @@ Content scripts and background services.
 - 2026-11-08 (Codex): Moved Explain to a muted pill at the top right of the financial result, with an accessible expand/collapse toggle.
 
 - 2026-11-08 (Codex): Explain toggles its label to Hide explain while expanded.
+
+- 2026-11-08 (Codex): Fixed demo verdict buttons being overwritten by the bank forecast. Explicit mock overrides bypass bank/cached answers and surface mock errors; bank/goal controls restore model mode. Mock results are labelled and displayed for every verdict. Regression checks pass.

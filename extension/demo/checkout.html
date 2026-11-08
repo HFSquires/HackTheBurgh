@@ -128,7 +128,7 @@
     </select>
     <label for="demo-savings">Monthly savings goal (£)</label><input id="demo-savings" type="number" min="0" max="1000000" step="1" value="0" />
     <p>Synthetic bank data. Start the local bank and model services.</p>
-    <b>Mock price-search verdict</b>
+    <b>Mock verdict override</b>
     <button data-s="">Auto (by total)</button>
     <button data-s="good">Good (fits, but cheaper elsewhere)</button>
     <button data-s="caution">Caution</button>
@@ -173,15 +173,19 @@
     for (const id of ["demo-bank", "demo-savings"]) document.getElementById(id).addEventListener("change", () => {
       const goal = document.getElementById("demo-savings");
       if (!goal.reportValidity()) return;
+      ST.config.MOCK_VERDICT_OVERRIDE = false;
+      ST.config.MOCK_SCENARIO = null;
+      mark(null);
       ST.config.MOCK_BUDGET = { ...(ST.config.MOCK_BUDGET || {}),
         bankPersona: document.getElementById("demo-bank").value, monthlySavings: Number(goal.value) };
       ST.run({ force: true });
     });
     const buttons = document.querySelectorAll(".demo button");
-    const mark = (s) => buttons.forEach((b) => b.classList.toggle("on", b.dataset.s === (s || "")));
+    const mark = (s) => buttons.forEach((b) => b.classList.toggle("on", !!ST.config.MOCK_VERDICT_OVERRIDE && b.dataset.s === (s || "")));
     mark(null);
     buttons.forEach((b) =>
       b.addEventListener("click", () => {
+        ST.config.MOCK_VERDICT_OVERRIDE = true;
         ST.config.MOCK_SCENARIO = b.dataset.s || null;
         mark(b.dataset.s);
         ST.run({ force: true });

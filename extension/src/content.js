@@ -117,6 +117,7 @@
       fromEarlierCheck: !!r?.fromEarlierCheck,
       budgetInfo: r?.budgetInfo && Number.isFinite(Number(r.budgetInfo.left)) ? { ...r.budgetInfo, left: Number(r.budgetInfo.left) } : null,
       risk: ["overdraft", "savings", "none", "unknown"].includes(r?.risk) ? r.risk : null,
+      mockVerdict: r?.mockVerdict === true,
       forecastNote: str(r?.forecastNote),
       explanation: str(r?.explanation),
       financeAction: ["pay_now", "pay_in_3"].includes(r?.financeAction?.id) ? { id: r.financeAction.id, label: str(r.financeAction.label) } : null,
@@ -241,8 +242,12 @@
     }
   }
 
+  let queuedDemoRun = false;
   async function run({ force = false } = {}) {
-    if (running) return;
+    if (running) {
+      if (force) queuedDemoRun = true;
+      return;
+    }
     if (!force && isQuiet()) return;
     running = true;
     handledHref = location.href;
@@ -259,6 +264,10 @@
     const error = await analyse(payload, ST.api.analyze, "analyse");
     if (error) await overlay.showError(`Something went wrong: ${error.message}`, handleAction);
     running = false;
+    if (queuedDemoRun) {
+      queuedDemoRun = false;
+      return run({ force: true });
+    }
   }
 
   // Run the full check (price search + affordability + "could it get cheaper?") and show it. The cheaper-price search

@@ -56,3 +56,5 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-08 (Codex): Replaced Pause for 24 hours with the primary View instalment options action, opening the existing pay-in-3 comparison. Removed the duplicate secondary comparison button.
 
 - 2026-11-08 (Codex): Moved Explain to a muted pill at the top right of the financial result, with an accessible expand/collapse toggle.
+
+- 2026-11-08 (Codex): Fixed demo verdict buttons being overwritten by the bank forecast. Explicit mock overrides bypass bank/cached answers and surface mock errors; bank/goal controls restore model mode. Mock results are labelled and displayed for every verdict. Regression checks pass.

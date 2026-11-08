@@ -46,5 +46,34 @@ const load = (file, context) => vm.runInContext(fs.readFileSync(path.join(__dirn
   assert.equal(emptyAccount().budget.monthlySavings, 0);
   assert.equal(cleanAccount({ budget: { monthlySavings: 150 } }).account.budget.monthlySavings, 150);
   for (const goal of [-1, Infinity, NaN, true, '150', 1000001]) assert.ok(cleanAccount({ budget: { monthlySavings: goal } }).error);
-  console.log('Frontend model adapter, decision steps, pay-in-3, failure and account checks passed.');
+  let bankChecks = 0;
+  context.ST.mock = {
+    analyze: async () => {
+      if (context.ST.config.MOCK_SCENARIO === 'error') throw new Error('Mock backend error');
+      return { verdict: context.ST.config.MOCK_SCENARIO || 'caution', alternatives: [] };
+    },
+    outlook: async () => null,
+  };
+  context.ST.precheck.find = async () => null;
+  context.ST.precheck.addOutlook = async () => {};
+  context.ST.precheck.withBudget = async () => { bankChecks++; return { verdict: 'reconsider', risk: 'overdraft' }; };
+  load('api.js', context);
+  context.ST.config.MOCK_VERDICT_OVERRIDE = true;
+  for (const selected of ['good', 'caution', 'reconsider', 'neutral', null]) {
+    context.ST.config.MOCK_SCENARIO = selected;
+    const answer = await context.ST.api.analyze(payload);
+    assert.equal(answer.verdict, selected || 'caution');
+    assert.equal(answer.mockVerdict, true);
+    assert.equal(context.ST.Overlay.prototype.decisions(answer)[0], 'budget');
+  }
+  assert.equal(bankChecks, 0);
+  assert.equal(await context.ST.api.afford(payload), null);
+  assert.equal(await context.ST.api.outlook(payload), null);
+  context.ST.config.MOCK_SCENARIO = 'error';
+  await assert.rejects(context.ST.api.analyze(payload), /Mock backend error/);
+  context.ST.config.MOCK_VERDICT_OVERRIDE = false;
+  context.ST.config.MOCK_SCENARIO = null;
+  assert.equal((await context.ST.api.analyze(payload)).risk, 'overdraft');
+  assert.equal(bankChecks, 1);
+  console.log('Frontend and mock-override checks passed, including all verdicts, errors and switching back to the bank model.');
 })().catch(e => { console.error(e); process.exitCode = 1; });

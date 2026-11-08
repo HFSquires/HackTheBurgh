@@ -26,6 +26,9 @@ globalThis.ST = globalThis.ST || {};
     });
   }
   async function demoAnalyze(payload) {
+    if (ST.config.MOCK_VERDICT_OVERRIDE) {
+      return { ...await ST.mock.analyze(payload), mockVerdict: true, budgetInfo: null };
+    }
     const earlier = !ST.config.MOCK_SCENARIO && (await ST.precheck.find(payload));
     const result = earlier ? ST.precheck.forCheckout(earlier.result, payload, demoSettings()) : await demoBoth(payload);
     if (earlier) ST.log("analyse: reused the price check from earlier", { stage: earlier.stage });
@@ -35,7 +38,7 @@ globalThis.ST = globalThis.ST || {};
   ST.api = {
     analyze: (payload) => (inExtension() ? call("ST_ANALYZE", payload) : demoAnalyze(payload)),
     // The affordability model alone (fast); null when it's off or unreachable.
-    afford: (payload) => (inExtension() ? call("ST_AFFORD", payload) : ST.precheck.modelVerdict(payload, demoSettings())),
+    afford: (payload) => (inExtension() ? call("ST_AFFORD", payload) : ST.config.MOCK_VERDICT_OVERRIDE ? Promise.resolve(null) : ST.precheck.modelVerdict(payload, demoSettings())),
     // Silent check when something goes in the basket; the checkout reuses it.
     precheck: async (payload) => {
       if (inExtension()) return call("ST_PRECHECK", payload);
@@ -43,7 +46,7 @@ globalThis.ST = globalThis.ST || {};
       return ST.precheck.withBudget(result, payload, demoSettings());
     },
     // "Likely cheaper soon?": a separate, slower call started alongside analyze().
-    outlook: (payload) => (inExtension() ? call("ST_OUTLOOK", payload) : ST.mock.outlook(payload)),
+    outlook: (payload) => (inExtension() ? call("ST_OUTLOOK", payload) : ST.config.MOCK_VERDICT_OVERRIDE ? Promise.resolve(null) : ST.mock.outlook(payload)),
     action: (payload) => call("ST_ACTION", payload),
     openLog: () => (inExtension() ? call("ST_OPEN_LOG") : Promise.resolve()),
     // Next step on another store's page (AI fallback). Null when there's no API key or no extension.

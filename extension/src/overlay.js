@@ -621,7 +621,7 @@ globalThis.ST = globalThis.ST || {};
     // "cheaper elsewhere". "I still want to buy it" moves on (or, once a cheaper price is found, "Found it … →" jumps to it).
     decisions(result) {
       return [
-        (result.risk || result.verdict === "reconsider") && "budget",
+        (result.mockVerdict || result.risk || result.verdict === "reconsider") && "budget",
         result.priceOutlook && "wait",
         result.alternatives[0] && "switch",
       ].filter(Boolean);
@@ -648,7 +648,7 @@ globalThis.ST = globalThis.ST || {};
       const view = {
         budget: () => ({
           tone: result.verdict,
-          badge: result.risk === "unknown" ? "Bank check" : result.risk ? `Sample · ${result.comparison ? "Pay in 3" : "Pay now"}` : VERDICT_LABEL.reconsider,
+          badge: result.mockVerdict ? `Mock · ${VERDICT_LABEL[result.verdict]}` : result.risk === "unknown" ? "Bank check" : result.risk ? `Sample · ${result.comparison ? "Pay in 3" : "Pay now"}` : VERDICT_LABEL.reconsider,
           title: result.title,
           msg: result.message,
           extra: [
