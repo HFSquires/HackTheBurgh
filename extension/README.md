@@ -33,7 +33,7 @@ Right-click the Second Thought icon → **Options**, fill in what you want, then
 | --- | --- | --- |
 | **OpenAI or ELM API key** | Your OpenAI key, or a University of Edinburgh ELM key (starts with `elm-`). Click **Test key**. Leave the model as it is. | Searching other shops for a cheaper price, and filling in forms on the cheaper shop |
 | **Your delivery details** | Name, email, phone, address, postcode | Typed into the cheaper shop's checkout for you |
-| **Avoid overdrafts and build your savings** | **Connect a sample bank:** choose **Sample customer 029**; savings goal optional | The overdraft and savings check (needs step 4). Left on "Not connected", it's switched off |
+| **Avoid overdrafts and build your savings** | Add your bank statement. For a quick start, choose **Sample customer 029** under **Connect a sample bank**. Savings goal optional | The overdraft and savings check (needs step 4). Left on "Not connected", it's switched off |
 | **Manual shopping budget** | Monthly budget and spent so far | Only used when no sample bank is connected |
 | **Demo shopper** | Click **Use demo details** instead of typing your own | Fills everything with a made-up shopper, handy for recording a demo |
 
