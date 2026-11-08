@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <defs>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c5cff"/><stop offset="0.5" stop-color="#3ec9ff"/><stop offset="1" stop-color="#ff6ad5"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6a6a75"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="380" rx="20" fill="#f7f7f5"/>
+  <circle cx="52" cy="50" r="13" fill="none" stroke="url(#ring)" stroke-width="6"/>
+  <text x="76" y="58" font-size="24" font-weight="700" fill="#17171c" letter-spacing="-0.3">How Second Thought works</text>
+  <text x="38" y="92" font-size="15" fill="#6a6a75">From Add to basket to a cheaper, affordable checkout, one decision at a time.</text>
+
+  <g font-size="14" fill="#6a6a75">
+    <!-- 1 -->
+    <rect x="38" y="122" width="200" height="200" rx="16" fill="#fff" stroke="#e5e4e0"/>
+    <text x="58" y="156" font-size="13" font-weight="700" fill="#6d4aff">1</text>
+    <text x="58" y="182" font-size="17" font-weight="700" fill="#17171c">Add to basket</text>
+    <text x="58" y="210">The check starts</text>
+    <text x="58" y="230">straight away, so the</text>
+    <text x="58" y="250">answer is ready by</text>
+    <text x="58" y="270">checkout.</text>
+
+    <!-- 2 -->
+    <rect x="270" y="122" width="200" height="200" rx="16" fill="#fff" stroke="#e5e4e0"/>
+    <text x="290" y="156" font-size="13" font-weight="700" fill="#6d4aff">2</text>
+    <text x="290" y="182" font-size="17" font-weight="700" fill="#17171c">Your bank</text>
+    <text x="290" y="210">Open Banking data:</text>
+    <text x="290" y="230">salary, bills, usual</text>
+    <text x="290" y="250">spending. The model</text>
+    <text x="290" y="270">forecasts your month.</text>
+
+    <!-- 3 -->
+    <rect x="502" y="122" width="200" height="200" rx="16" fill="#fff" stroke="#e5e4e0"/>
+    <text x="522" y="156" font-size="13" font-weight="700" fill="#6d4aff">3</text>
+    <text x="522" y="182" font-size="17" font-weight="700" fill="#17171c">Price search</text>
+    <text x="522" y="210">ChatGPT searches other</text>
+    <text x="522" y="230">shops for the same</text>
+    <text x="522" y="250">item, and checks if it</text>
+    <text x="522" y="270">could get cheaper.</text>
+
+    <!-- 4 -->
+    <rect x="734" y="122" width="200" height="200" rx="16" fill="#fff" stroke="#6d4aff" stroke-width="2"/>
+    <text x="754" y="156" font-size="13" font-weight="700" fill="#6d4aff">4</text>
+    <text x="754" y="182" font-size="17" font-weight="700" fill="#17171c">One decision</text>
+    <circle cx="760" cy="206" r="5" fill="#dc2626"/><text x="772" y="211">Overdrawn? Pay in 3</text>
+    <circle cx="760" cy="232" r="5" fill="#d97706"/><text x="772" y="237">Savings at risk?</text>
+    <text x="772" y="257">Pay in 3</text>
+    <circle cx="760" cy="282" r="5" fill="#16a34a"/><text x="772" y="287">Cheaper elsewhere</text>
+
+    <!-- 5 -->
+    <rect x="966" y="122" width="200" height="200" rx="16" fill="#fff" stroke="#e5e4e0"/>
+    <text x="986" y="156" font-size="13" font-weight="700" fill="#6d4aff">5</text>
+    <text x="986" y="182" font-size="17" font-weight="700" fill="#17171c">Cheaper shop</text>
+    <text x="986" y="210">Basket added and the</text>
+    <text x="986" y="230">form filled in by AI.</text>
+    <text x="986" y="250">You check and pay;</text>
+    <text x="986" y="270">cards never filled.</text>
+  </g>
+
+  <g stroke="#6a6a75" stroke-width="2" marker-end="url(#arrow)">
+    <line x1="240" y1="222" x2="266" y2="222"/>
+    <line x1="472" y1="222" x2="498" y2="222"/>
+    <line x1="704" y1="222" x2="730" y2="222"/>
+    <line x1="936" y1="222" x2="962" y2="222"/>
+  </g>
+  <text x="38" y="356" font-size="12" fill="#6a6a75">Demo uses synthetic customers served through the UK Open Banking v3.1 format; no real bank is connected.</text>
+</svg>

@@ -6,6 +6,8 @@ leave you overdrawn or behind on your savings.**
 
 Built at HackTheBurgh 2026 for Bank of Scotland's "Smart Cost of Living" challenge.
 
+![How Second Thought works: add to basket, your bank, price search, one decision, cheaper shop](docs/images/how-it-works.svg)
+
 ## What it does at checkout
 
 | Step | What you see |
@@ -17,6 +19,28 @@ Built at HackTheBurgh 2026 for Bank of Scotland's "Smart Cost of Living" challen
 | Pay in 3 | Offered whenever buying now would overdraw you or hurt your savings, with the instalments checked against your month |
 
 One decision at a time, never a menu. Card details are never stored or filled in.
+
+## Screenshots
+
+From the demo shop, with the affordability model running on sample customer 029.
+
+![The moment you add to basket: overdraft risk, and the same jacket £20.86 cheaper at another shop](docs/images/add-to-basket.png)
+
+<table>
+<tr>
+<td width="33%" valign="top"><img src="docs/images/checkout-decision.png" alt="At checkout: you can't pay for this, with pay in 3 and a cheaper shop"><br><sub><b>At checkout.</b> More than the customer has, even with their overdraft: pay in 3 first, the cheaper shop underneath.</sub></td>
+<td width="33%" valign="top"><img src="docs/images/pay-in-3.png" alt="Pay in 3 compared with paying now"><br><sub><b>Pay in 3.</b> The three instalments checked against the month: −£326 at the month's end instead of −£759.</sub></td>
+<td width="33%" valign="top"><img src="docs/images/cheaper-store.png" alt="At the cheaper shop: you can pay this in instalments"><br><sub><b>At the cheaper shop.</b> Basket and details filled in; just a note that instalments are available.</sub></td>
+</tr>
+</table>
+
+<img src="docs/images/month-chart.png" alt="Explain: the month day by day, with and without the purchase, against the savings goal" width="300" align="right">
+
+**Explain** shows how the answer was reached: the customer's money across all their accounts for the rest of the
+month, with and without the purchase, against their savings goal, plus the lowest projected balance and a suggested
+daily budget. Every figure comes from the affordability model reading the customer's Open Banking data.
+
+<br clear="right">
 
 ## Get started
 
@@ -42,6 +66,7 @@ The full step-by-step guide, with troubleshooting, is in [`extension/README.md`]
 | `Analysis/`, `data/` | Generated data and the public source data it is built from |
 | `model outline/` | The design of the affordability model (Andrew's outline and its implementation notes) |
 | `archive/` | The earlier engine and figures, retired when `model.py` replaced them; kept for reference |
+| `docs/images/` | The diagram and screenshots on this page |
 
 The customers and their bank data are synthetic; no real bank is connected. Team records: `BRIEF.md` (the challenge),
 `DECISIONS.md`, `TASKS.md` and `USER_GUIDE.md`.
