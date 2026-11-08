@@ -27,11 +27,12 @@ const load = (file, context) => vm.runInContext(fs.readFileSync(path.join(__dirn
   assert.equal(calls.at(-1).price, 200); assert.equal(calls.at(-1).monthlySavings, 300);
   assert.equal(result.alternatives, prices.alternatives); assert.equal(result.risk, 'overdraft');
   d.paymentPlan = 'pay_in_3'; d.comparison = { payNow: { lowestWithPurchase: -150, forecastMonthEnd: 0 }, payIn3: d.cashFlow };
-  d.payments = [{ amount: 33.33, date: '2026-11-02' }];
+  d.payments = [{ amount: 33.33, date: '2026-11-02' }, { amount: 33.33, date: '2026-12-02' }, { amount: 33.34, date: '2027-01-02' }];
   result = await context.ST.precheck.modelVerdict({ ...payload, paymentPlan: 'pay_in_3' }, settings);
   assert.equal(calls.at(-1).paymentPlan, 'pay_in_3'); assert.equal(result.financeAction.id, 'pay_now');
   assert.match(result.comparison.schedule, /33.33/); assert.match(result.comparison.payNow, /150/);
   assert.equal(result.comparisonSummary, 'This month-end: pay now £0.00 · pay in 3 £102.05');
+  assert.equal(result.laterPayments, 'Upcoming payments: £33.33 in December and £33.34 in January.');
   for (const [risk, verdict] of [['overdraft', 'reconsider'], ['savings', 'caution'], ['none', 'good'], ['unknown', 'neutral']]) {
     const steps = context.ST.Overlay.prototype.decisions({ risk, verdict, alternatives: prices.alternatives, priceOutlook: {} });
     assert.deepEqual(Array.from(steps), ['budget', 'wait', 'switch']); // Retains the newer one-decision-at-a-time UI.

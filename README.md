@@ -62,3 +62,5 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-08 (Codex): Payment comparison now uses visible enabled checkout payment controls, follows the selected option, names the offered pay-in-3 provider, and shows repayment amounts and same-horizon minima outside Explain. Unsupported terms are not silently treated as pay-now. Selecting a payment in the demo leaves mock-override mode. Detector, adapter and model regression checks pass, including red-to-amber improvement and later-instalment overdraft cases.
 
 - 2026-11-08 (Codex): Show current month-end cash balances in the upfront payment comparison, keeping the full-horizon minimum under Explain with its end date. Regression check confirms a £153.07 purchase paid in three leaves £102.05 more cash at the first month-end.
+
+- 2026-11-08 (Codex): Added one visible line naming the later instalment amounts and their months, calculated from the repayment schedule.

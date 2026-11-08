@@ -198,6 +198,8 @@ globalThis.ST = globalThis.ST || {};
           : offer ? { id: "pay_in_3", label: `Check ${offer.label}` } : null,
         paymentLabel: spread ? offer.label : "Pay now",
         paymentSummary: spread ? `${d.payments.map(p => money(p.amount)).join(" + ")} · monthly estimate` : "",
+        laterPayments: spread ? "Upcoming payments: " + d.payments.slice(1).map(p =>
+          `${money(p.amount)} in ${new Date(`${p.date}T12:00:00`).toLocaleDateString("en-GB", { month: "long" })}`).join(" and ") + "." : "",
         comparisonSummary: d.comparison ? `This month-end: pay now ${money(d.comparison.payNow.forecastMonthEnd)} · pay in 3 ${money(d.cashFlow.forecastMonthEnd)}` : "",
         comparison: d.comparison ? {
           payNow: money(d.comparison.payNow.lowestWithPurchase), payIn3: money(d.comparison.payIn3.lowestWithPurchase),

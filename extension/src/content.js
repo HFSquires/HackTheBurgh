@@ -123,6 +123,7 @@
       paymentLabel: str(r?.paymentLabel),
       paymentSummary: str(r?.paymentSummary),
       comparisonSummary: str(r?.comparisonSummary),
+      laterPayments: str(r?.laterPayments),
       financeAction: ["pay_now", "pay_in_3"].includes(r?.financeAction?.id) ? { id: r.financeAction.id, label: str(r.financeAction.label) } : null,
       comparison: r?.comparison ? Object.fromEntries(["payNow", "payIn3", "horizon", "schedule", "note"].map(k => [k, str(r.comparison[k])])) : null,
       chart: r?.chart && Number.isFinite(r.chart.start) && Number.isFinite(r.chart.goal) ? r.chart : null,
