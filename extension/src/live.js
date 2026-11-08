@@ -360,8 +360,8 @@ Elements may say where they lead: "goes_to" (a link's destination) and "submits_
   };
   const PHRASE_SYSTEM = `You write the words a checkout assistant shows a shopper. An affordability model has already decided; never change, soften or second-guess its verdict, and use only the facts and numbers given (round pounds to whole numbers).
 Plain British English, second person, calm and kind, no jargon ("net worth", "headroom", "forecast"), no exclamation marks, no lecturing.
-Title: at most 6 words, what the situation is. Message: one short advisory sentence, at most 20 words: the one fact that matters most, and what would make it work if there is something (waiting until payday, the days until it fits).
-If they can't pay at all, or only by borrowing, say that first; savings goals come second.`;
+Be direct: say the consequence plainly, in pounds, without hedging. Title: at most 6 words, the consequence ("You can't pay for this", "This would leave you overdrawn", "This would leave you in debt"). Message: one sentence, at most 18 words, the one number that matters most, e.g. "You'd be £240 overdrawn and £259 in debt at the end of November."
+Order of what matters: can't pay at all (how much more it is than they have), then overdrawn straight after paying, then in debt at the month's end, then the savings goal. Mention waiting only if daysUntilItWouldFit is given; never mention payday otherwise.`;
 
   async function phraseDecision(facts, settings) {
     const { json } = await respond(settings, { instructions: PHRASE_SYSTEM, input: JSON.stringify(facts), name: "decision_words", schema: PHRASE_SCHEMA });

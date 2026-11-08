@@ -160,7 +160,7 @@ globalThis.ST = globalThis.ST || {};
       ...opts, method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ persona: m.persona }),
     });
     const { consents = [] } = await res.json();
-    const out = { inAccounts: 0, overdraftLeft: 0, cardCreditLeft: 0 };
+    const out = { inAccounts: 0, overdraftLeft: 0, cardCreditLeft: 0, currentBalance: 0 };
     for (const c of consents) {
       const base = `${m.bankUrl.replace(/\/$/, "")}/providers/${c.provider}/open-banking/v3.1/aisp`;
       const get = (path) => fetch(base + path, { ...opts, headers: { authorization: `Bearer ${c.access_token}` } }).then((r) => r.json()).then((j) => j.Data || {});
@@ -172,6 +172,7 @@ globalThis.ST = globalThis.ST || {};
         const limit = (b.CreditLine || []).filter((l) => !l.Included).reduce((s, l) => s + Number(l.Amount.Amount), 0);
         if (a.AccountSubType === "CreditCard") out.cardCreditLeft += Math.max(0, limit + amount);
         else {
+          if (a.AccountSubType === "CurrentAccount") out.currentBalance += amount;
           out.inAccounts += Math.max(0, amount);
           out.overdraftLeft += Math.max(0, limit + Math.min(0, amount));
         }
@@ -217,15 +218,21 @@ globalThis.ST = globalThis.ST || {};
       const can = cash ? payWith(d.price, cash) : "pay";
       ST.log("affordability model: answer", { price: d.price, verdict: d.verdict, headroom: nw.headroom, daysToAfford: d.daysToAfford, canPay: can, cash });
       const borrowOn = cash && cash.overdraftLeft > 0 ? "overdraft" : "credit card";
+      // The consequences in pounds: overdrawn straight after paying, and in debt (all accounts) at the month's end.
+      const overdrawnAfter = cash ? Math.max(0, d.price - cash.currentBalance) : 0; // paid from the current account
+      const shortBy = cash ? d.price - (cash.inAccounts + cash.overdraftLeft + cash.cardCreditLeft) : 0;
+      const debtAtMonthEnd = Math.max(0, -nw.forecastEndWith);
+      const inDebt = debtAtMonthEnd > 0 ? ` and ${money(debtAtMonthEnd)} in debt at the end of ${month}` : "";
       const text = {
-        cannot: ["You can't pay for this", `You have ${money(cash?.inAccounts + cash?.overdraftLeft + cash?.cardCreditLeft)} to spend, including your overdraft.`],
-        borrow: ["You'd have to borrow for this", `It would put ${money(d.price - (cash?.inAccounts || 0))} on your ${borrowOn}.`],
+        cannot: ["You can't pay for this", `It's ${money(shortBy)} more than you have, even with your overdraft.`],
+        borrow: borrowOn === "overdraft"
+          ? ["This would leave you overdrawn", `You'd be ${money(overdrawnAfter)} overdrawn${inDebt}.`]
+          : ["This would go on your credit card", `You'd owe ${money(d.price - (cash?.inAccounts || 0))} more on your card${inDebt}.`],
         good: ["Fits your savings goal", `You'd still end ${month} ${money(nw.headroom)} ahead of your goal.`],
         caution: ["Tight against your goal", `You'd end ${month} only ${money(nw.headroom)} ahead of your goal.`],
-        reconsider: [
-          "This would set your savings back",
-          `You'd end ${month} ${money(-nw.headroom)} behind your goal.` + (d.daysToAfford ? ` In about ${d.daysToAfford} days it fits.` : ""),
-        ],
+        reconsider: debtAtMonthEnd > 0
+          ? ["This would leave you in debt", `You'd end ${month} ${money(debtAtMonthEnd)} in debt.`]
+          : ["This would set your savings back", `You'd end ${month} ${money(-nw.headroom)} behind your goal.` + (d.daysToAfford ? ` In about ${d.daysToAfford} days it fits.` : "")],
       }[can === "pay" ? d.verdict : can];
       let [title, message] = text;
       if (phrase) {
@@ -233,11 +240,11 @@ globalThis.ST = globalThis.ST || {};
           modelVerdict: d.verdict,
           price: d.price,
           canPay: { pay: "yes, from money they have", borrow: `only by borrowing (${borrowOn})`, cannot: "no, not even with overdraft or credit card" }[can],
-          moneyToSpendNow: cash && { inAccounts: cash.inAccounts, overdraftLeft: cash.overdraftLeft, cardCreditLeft: cash.cardCreditLeft },
-          monthEndVersusSavingsGoal: nw.headroom,
-          monthEndBalanceAllAccounts: nw.forecastEndWith,
+          shortByEvenWithOverdraftAndCard: can === "cannot" ? Math.round(shortBy) : null,
+          overdrawnStraightAfterPaying: overdrawnAfter > 0 ? Math.round(overdrawnAfter) : null,
+          inDebtAtMonthEndAcrossAllAccounts: debtAtMonthEnd > 0 ? Math.round(debtAtMonthEnd) : null,
+          monthEndVersusSavingsGoal: Math.round(nw.headroom),
           daysUntilItWouldFit: d.daysToAfford,
-          daysToPayday: payday,
           month,
         };
         try {
