@@ -11,8 +11,14 @@ const load = (file, context) => vm.runInContext(fs.readFileSync(path.join(__dirn
     netWorth: { now: 1200, goal: 1350, forecastEndWithout: 1450 },
     cashFlow: { lowestWithPurchase: -50, forecastMonthEnd: 102.05, horizon: '2026-11-30' },
     savings: { monthlyTarget: 150, forecastSaved: 20, suggestedDailyBudget: 15 } };
-  const context = vm.createContext({ Intl, AbortSignal, URL, Date, window: { matchMedia: () => ({ matches: false }) },
-    fetch: async (url, options) => { calls.push(JSON.parse(options.body)); return { ok: true, json: async () => d }; } });
+  // The sample bank's Open Banking answers, for the can't-pay-at-all check (no consents = balances unknown).
+  const bank = { consent: { consents: [] }, accounts: { Account: [] }, balances: { Balance: [] } };
+  const context = vm.createContext({ Intl, AbortSignal, URL, Date, setTimeout, clearTimeout, window: { matchMedia: () => ({ matches: false }) },
+    fetch: async (url, options) => {
+      if (url.includes('/mock/consent')) return { ok: true, json: async () => bank.consent };
+      if (url.includes('/aisp/')) return { ok: true, json: async () => ({ Data: url.endsWith('/balances') ? bank.balances : bank.accounts }) };
+      calls.push(JSON.parse(options.body)); return { ok: true, json: async () => d };
+    } });
   load('config.js', context);
   context.ST.log = Object.assign(() => {}, { error() {} });
   load('precheck.js', context); load('overlay.js', context);
@@ -21,6 +27,23 @@ const load = (file, context) => vm.runInContext(fs.readFileSync(path.join(__dirn
   let result = await context.ST.precheck.modelVerdict(payload, settings);
   assert.equal(calls[0].monthlySavings, 150); assert.equal(calls[0].bank.persona, 'persona001');
   assert.equal(result.risk, 'overdraft'); assert.equal(result.financeAction.id, 'pay_in_3'); assert.equal(result.financeAction.label, 'Check Klarna: pay in 3');
+  assert.equal(result.title, 'Overdraft risk'); // balances unknown: the model's own wording
+  // More than the balance plus overdraft and card credit: a payment that would be refused outranks the forecast.
+  Object.assign(bank, {
+    consent: { consents: [{ provider: 'MockBank', access_token: 't' }] },
+    accounts: { Account: [{ AccountId: 'a1', AccountSubType: 'CurrentAccount' }] },
+    balances: { Balance: [{ Type: 'InterimAvailable', Amount: { Amount: '20.00' }, CreditDebitIndicator: 'Debit', CreditLine: [{ Included: false, Amount: { Amount: '50.00' } }] }] },
+  });
+  const refused = await context.ST.precheck.modelVerdict(payload, settings);
+  assert.equal(refused.title, 'You can’t pay for this'); assert.match(refused.message, /£70\.00 more than you have/);
+  assert.equal(refused.verdict, 'reconsider'); // the model's verdict is unchanged
+  Object.assign(bank, { consent: { consents: [] } });
+  // LLM wording is used only if it keeps the main warning; otherwise the model's own words stay.
+  context.ST.live = { phraseDecision: async () => ({ title: 'Nice choice', message: 'Enjoy your new jacket.' }) };
+  assert.equal((await context.ST.precheck.modelVerdict({ ...payload, total: 101 }, { ...settings, apiKey: 'k' })).title, 'Overdraft risk');
+  context.ST.live = { phraseDecision: async () => ({ title: 'You’d go overdrawn', message: 'Your balance would drop to -£50.' }) };
+  assert.equal((await context.ST.precheck.modelVerdict({ ...payload, total: 102 }, { ...settings, apiKey: 'k' })).title, 'You’d go overdrawn');
+  delete context.ST.live;
   assert.equal(result.budgetInfo, null); assert.equal(result.chart.start, 1200);
   const prices = { alternatives: [{ merchant: 'A', price: 90 }], verdict: 'good' };
   result = await context.ST.precheck.withBudget(prices, { ...payload, total: 200 }, { ...settings, monthlySavings: 300 });

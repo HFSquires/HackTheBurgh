@@ -358,10 +358,11 @@ Elements may say where they lead: "goes_to" (a link's destination) and "submits_
       message: { type: "string", description: "One sentence, at most 20 words" },
     },
   };
-  const PHRASE_SYSTEM = `You write the words a checkout assistant shows a shopper. An affordability model has already decided; never change, soften or second-guess its verdict, and use only the facts and numbers given (round pounds to whole numbers).
-Plain British English, second person, calm and kind, no jargon ("net worth", "headroom", "forecast"), no exclamation marks, no lecturing.
-Be direct: say the consequence plainly, in pounds, without hedging. Title: at most 6 words, the consequence ("You can't pay for this", "This would leave you overdrawn", "This would leave you in debt"). Message: one sentence, at most 18 words, the one number that matters most, e.g. "You'd be £240 overdrawn and £259 in debt at the end of November."
-Order of what matters: can't pay at all (how much more it is than they have), then overdrawn straight after paying, then in debt at the month's end, then the savings goal. Mention waiting only if daysUntilItWouldFit is given; never mention payday otherwise.`;
+  const PHRASE_SYSTEM = `You write the words a checkout assistant shows a shopper. An affordability model has already decided; never change, soften or second-guess it, and use only the facts and numbers given (whole pounds; a minus sign for a balance below zero).
+Plain British English, second person, direct, calm, no jargon ("net worth", "forecast", "projected"), no exclamation marks, no lecturing.
+Title: at most 6 words, the consequence. Message: one sentence, at most 18 words, the number that matters most.
+Order of what matters: can't pay at all (how much more it is than they have), then going overdrawn (how low the balance gets, and when), then the savings goal. For pay in 3, say whether spreading the payments avoids going overdrawn, comparing with paying now.
+builtInWording is the safe default; keep its meaning, just say it more clearly.`;
 
   async function phraseDecision(facts, settings) {
     const { json } = await respond(settings, { instructions: PHRASE_SYSTEM, input: JSON.stringify(facts), name: "decision_words", schema: PHRASE_SCHEMA });

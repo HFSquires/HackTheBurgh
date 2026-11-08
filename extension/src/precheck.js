@@ -150,6 +150,51 @@ globalThis.ST = globalThis.ST || {};
     return { budget, spent: Number(settings.spent) || 0, left, safe: b ? b.safe : null, payday: b?.payday ? { name: b.payday.name, inDays: b.payday.inDays } : null };
   }
 
+  // What the customer can pay with right now, read from their banks through Open Banking (here the mock bank):
+  // money in current and savings accounts, unused arranged overdraft and unused card credit. Null if unknown.
+  async function cashPosition(m, persona) {
+    const opts = { signal: AbortSignal.timeout(5000) };
+    const bank = m.bankUrl.replace(/\/$/, "");
+    const res = await fetch(`${bank}/mock/consent`, {
+      ...opts, method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ persona }),
+    });
+    const { consents } = await res.json();
+    if (!Array.isArray(consents) || !consents.length) return null;
+    const out = { inAccounts: 0, overdraftLeft: 0, cardCreditLeft: 0 };
+    for (const c of consents) {
+      const base = `${bank}/providers/${c.provider}/open-banking/v3.1/aisp`;
+      const get = (path) => fetch(base + path, { ...opts, headers: { authorization: `Bearer ${c.access_token}` } }).then((r) => r.json()).then((j) => j.Data || {});
+      for (const a of (await get("/accounts")).Account || []) {
+        const all = (await get(`/accounts/${a.AccountId}/balances`)).Balance || [];
+        const b = all.find((x) => x.Type === "InterimAvailable") || all.find((x) => x.Type === "InterimBooked");
+        if (!b) continue;
+        const amount = Number(b.Amount.Amount) * (b.CreditDebitIndicator === "Debit" ? -1 : 1);
+        const limit = (b.CreditLine || []).filter((l) => !l.Included).reduce((s, l) => s + Number(l.Amount.Amount), 0);
+        if (a.AccountSubType === "CreditCard") out.cardCreditLeft += Math.max(0, limit + amount);
+        else {
+          out.inAccounts += Math.max(0, amount);
+          out.overdraftLeft += Math.max(0, limit + Math.min(0, amount));
+        }
+      }
+    }
+    return out;
+  }
+
+  // The LLM rewrites the panel's words from the model's figures, but only if it keeps the most serious problem:
+  // "can't pay" must stay "can't pay", an overdraft must stay an overdraft. Otherwise the built-in words stay.
+  const MUST_SAY = { cannot: /can.?t pay|more than you have|not enough/i, overdraft: /overdra|below (zero|£0)|minus|[−-]£\d/i };
+  const phrased = new Map(); // same facts, same words: a check asks twice (quick answer, then the full one)
+  async function phraseWith(phrase, facts, must) {
+    const key = JSON.stringify(facts);
+    if (!phrased.has(key)) phrased.set(key, phrase(facts).catch((e) => (phrased.delete(key), Promise.reject(e))));
+    let timer;
+    const tooSlow = new Promise((_, no) => (timer = setTimeout(() => no(new Error("took over 8 s")), 8000)));
+    const words = await Promise.race([phrased.get(key), tooSlow]).finally(() => clearTimeout(timer));
+    if (must && !must.test(`${words.title} ${words.message}`)) throw new Error("left out the main warning");
+    return words;
+  }
+  const phraser = (settings) => (settings?.apiKey && ST.live?.phraseDecision ? (facts) => ST.live.phraseDecision(facts, settings) : null);
+
   // The statistical forecast is authoritative. A saved shopping budget or LLM wording must not
   // conceal a projected overdraft or a failed bank check.
   async function modelVerdict(payload, settings = {}) {
@@ -184,14 +229,50 @@ globalThis.ST = globalThis.ST || {};
         savings: ["Savings goal at risk", `This could leave you ${money(d.savings.shortfall)} short of your ${money(d.savings.monthlyTarget)} goal.`],
         none: ["Fits your plan", "Your savings goal stays on track at your usual spending rate."],
       }[d.risk];
+      let title = short ? (spread ? "Pay in 3: " + short[0].toLowerCase() : short[0]) : d.title;
+      let message = spread && d.comparison && d.risk === "overdraft"
+        ? (d.cashFlow.lowestWithPurchase > d.comparison.payNow.lowestWithPurchase + 0.01
+            ? "Spreading payments helps, but you’re still projected to go overdrawn."
+            : "Spreading payments doesn’t remove the projected overdraft.")
+        : short ? short[1] : d.message;
+
+      // Overdraft forecast: can they pay at all today? More than their money plus overdraft and card credit is a
+      // payment that would be refused, which outranks the forecast.
+      const firstPayment = spread ? d.payments?.[0]?.amount ?? payload.total : payload.total;
+      const cash = d.risk === "overdraft" ? await cashPosition(m, persona).catch(() => null) : null;
+      const shortBy = cash ? firstPayment - (cash.inAccounts + cash.overdraftLeft + cash.cardCreditLeft) : 0;
+      if (shortBy > 0) {
+        title = "You can’t pay for this";
+        message = `It’s ${money(shortBy)} more than you have, even with your overdraft.`;
+      }
+
+      // The LLM writes the words from the same figures, if it keeps the main warning (see phraseWith).
+      const phrase = phraser(settings);
+      if (phrase) {
+        const facts = {
+          risk: shortBy > 0 ? "cannot pay at all" : d.risk,
+          paymentPlan: spread ? "pay in 3" : "pay now",
+          price: payload.total,
+          shortByEvenWithOverdraftAndCard: shortBy > 0 ? Math.round(shortBy) : null,
+          lowestBalanceThisMonth: Math.round(d.cashFlow.lowestWithPurchase),
+          lowestBalanceDate: d.cashFlow.lowestDate,
+          monthEndBalance: Math.round(d.cashFlow.forecastMonthEnd),
+          savingsShortfall: d.savings.shortfall > 0 ? Math.round(d.savings.shortfall) : null,
+          monthlySavingsGoal: Math.round(d.savings.monthlyTarget),
+          payNowLowestBalance: spread && d.comparison ? Math.round(d.comparison.payNow.lowestWithPurchase) : null,
+          builtInWording: `${title}. ${message}`,
+        };
+        try {
+          ({ title, message } = await phraseWith(phrase, facts, shortBy > 0 ? MUST_SAY.cannot : d.risk === "overdraft" ? MUST_SAY.overdraft : null));
+          ST.log("affordability: words written by the LLM", { title, message });
+        } catch (e) {
+          ST.log.error("affordability: kept the built-in words", e.message);
+        }
+      }
       return {
         verdict: d.verdict, risk: d.risk,
-        title: short ? (spread ? "Pay in 3: " + short[0].toLowerCase() : short[0]) : d.title,
-        message: spread && d.comparison && d.risk === "overdraft"
-          ? (d.cashFlow.lowestWithPurchase > d.comparison.payNow.lowestWithPurchase + 0.01
-              ? "Spreading payments helps, but you’re still projected to go overdrawn."
-              : "Spreading payments doesn’t remove the projected overdraft.")
-          : short ? short[1] : d.message,
+        title,
+        message,
         explanation: d.message,
         forecastNote: `Sample bank · forecast as of ${d.today} · main current account · ${spread ? "illustrative interest-free pay in 3" : "pay now"}.`,
         financeAction: spread ? { id: "pay_now", label: "Compare pay now" }
