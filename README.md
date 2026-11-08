@@ -48,3 +48,21 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-07 (Claude): Ran an adversarial review and fact-check workflow (66 agents, about 4.6 million tokens): 20 code defects confirmed by two sceptics each (1 refuted); 10 pitch claims checked twice. Wrote `Presentation/fact_check.md`. Correction: regulated BNPL is covered by Section 75 since 15 July 2026. Added T23 (back-end, mock-bank and statistics fixes) and T24 (generator fixes after T20).
 - 2026-11-07 (Claude): Merged T20: `ob_generator.py`, 12 months of Open Banking-native synthetic data for the 100 personas, 1 to 7 accounts each (FCA Financial Lives 2024 holding rates), habits with saved true values, merchant category codes; regenerated on `main` with identical output; check passes. FCA tables kept locally, not committed, pending Harrison's decision.
 - 2026-11-07 (Claude): Merged T23: 17 confirmed review findings fixed (mock-bank origin allow-list and limits, JSON-only `/assess`, edge cases in the engine, Section 75 threshold and pay-in-3 notes, statistics-file errors); all eight checks pass on `main`; affordability for the 100 personas unchanged. Front-end contract changes for Auro are in `USER_GUIDE.md`.
+
+- 2026-11-08 (Codex, T34): Applied monthly savings targets, overdraft-first warnings and pay-in-3 comparison to the newer frontend-extension UI on `t34-frontend-savings`, retaining early answers, chart, store detection and handoff. Included model/v2-bank dependencies and current sample records. Model regression tests, frontend adapter/step tests and HTTP tests for both plans on five samples pass. JavaScript syntax passes. Browser control remains disabled, so visual verification is outstanding. Branch intentionally not merged to main or pushed.
+
+- 2026-11-08 (Codex): On user request, shortened buyer-facing warnings to a headline and one sentence. Forecast explanation, chart, figures and repayment schedule are collapsed under Explain; Compare pay in 3 remains visible. Existing frontend checks and syntax checks pass.
+
+- 2026-11-08 (Codex): Replaced Pause for 24 hours with the primary View instalment options action, opening the existing pay-in-3 comparison. Removed the duplicate secondary comparison button.
+
+- 2026-11-08 (Codex): Moved Explain to a muted pill at the top right of the financial result, with an accessible expand/collapse toggle.
+
+- 2026-11-08 (Codex): Fixed demo verdict buttons being overwritten by the bank forecast. Explicit mock overrides bypass bank/cached answers and surface mock errors; bank/goal controls restore model mode. Mock results are labelled and displayed for every verdict. Regression checks pass.
+
+- 2026-11-08 (Codex): Payment comparison now uses visible enabled checkout payment controls, follows the selected option, names the offered pay-in-3 provider, and shows repayment amounts and same-horizon minima outside Explain. Unsupported terms are not silently treated as pay-now. Selecting a payment in the demo leaves mock-override mode. Detector, adapter and model regression checks pass, including red-to-amber improvement and later-instalment overdraft cases.
+
+- 2026-11-08 (Codex): Show current month-end cash balances in the upfront payment comparison, keeping the full-horizon minimum under Explain with its end date. Regression check confirms a £153.07 purchase paid in three leaves £102.05 more cash at the first month-end.
+
+- 2026-11-08 (Codex): Added one visible line naming the later instalment amounts and their months, calculated from the repayment schedule.
+
+- 2026-11-08 (Codex): Made projected month-end cash a prominent card with a coloured month/year label and larger amounts; pay-now and pay-in-3 sit side by side, with negative balances in red.

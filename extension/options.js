@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const fields = ["apiKey", "model", "budget", "spent"];
+const fields = ["apiKey", "model", "budget", "spent", "monthlySavings", "bankPersona"];
 const DEFAULT_MODEL = "gpt-6-luna";
 const RETIRED = ["gpt-5", "gpt-5-mini", "gpt-5-nano"]; // shut down 11 Dec 2026
 const PROFILE = ["givenName", "familyName", "email", "phone", "address1", "address2", "city", "postcode", "country"];
@@ -13,6 +13,7 @@ function loadFields() {
   return chrome.storage.local.get([...fields, "profile"]).then((s) => {
     for (const f of fields) if (s[f] != null) $(f).value = s[f];
     for (const f of PROFILE) $(`p-${f}`).value = s.profile?.[f] || "";
+    if (s.bankPersona === undefined) $("bankPersona").value = ST.config.MODEL?.persona || "";
     if (!s.model || RETIRED.includes(s.model)) $("model").value = DEFAULT_MODEL;
   });
 }
@@ -111,7 +112,11 @@ $("acct-sign-out").addEventListener("click", acctAction("ST_ACCOUNT_SIGN_OUT", "
 renderAccount().catch(() => {});
 
 $("save").addEventListener("click", async () => {
+  const savings = Number($("monthlySavings").value);
+  if (!Number.isFinite(savings) || savings < 0 || savings > 1000000) return status("Enter a savings goal between £0 and £1,000,000.", "err");
   await chrome.storage.local.set({
+    monthlySavings: savings,
+    bankPersona: $("bankPersona").value,
     apiKey: $("apiKey").value.trim(),
     model: $("model").value.trim() || DEFAULT_MODEL,
     budget: Number($("budget").value) || 0,

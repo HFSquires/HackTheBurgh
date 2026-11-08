@@ -116,12 +116,39 @@
       priceOutlook: normalizeOutlook(r?.priceOutlook, payload),
       fromEarlierCheck: !!r?.fromEarlierCheck,
       budgetInfo: r?.budgetInfo && Number.isFinite(Number(r.budgetInfo.left)) ? { ...r.budgetInfo, left: Number(r.budgetInfo.left) } : null,
+      risk: ["overdraft", "savings", "none", "unknown"].includes(r?.risk) ? r.risk : null,
+      mockVerdict: r?.mockVerdict === true,
+      forecastNote: str(r?.forecastNote),
+      explanation: str(r?.explanation),
+      paymentLabel: str(r?.paymentLabel),
+      paymentSummary: str(r?.paymentSummary),
+      monthEnd: r?.monthEnd && Number.isFinite(r.monthEnd.payNow) &&
+        (r.monthEnd.payIn3 == null || Number.isFinite(r.monthEnd.payIn3))
+        ? { month: str(r.monthEnd.month), payNow: r.monthEnd.payNow, payIn3: r.monthEnd.payIn3 ?? null } : null,
+      laterPayments: str(r?.laterPayments),
+      financeAction: ["pay_now", "pay_in_3"].includes(r?.financeAction?.id) ? { id: r.financeAction.id, label: str(r.financeAction.label) } : null,
+      comparison: r?.comparison ? Object.fromEntries(["payNow", "payIn3", "horizon", "schedule", "note"].map(k => [k, str(r.comparison[k])])) : null,
       chart: r?.chart && Number.isFinite(r.chart.start) && Number.isFinite(r.chart.goal) ? r.chart : null,
       sessionId: r?.sessionId ?? null,
     };
   }
 
   async function handleAction(action) {
+    if (["pay_now", "pay_in_3"].includes(action.id)) {
+      if (search) search.stopped = true; // A late price-search result must not overwrite this comparison.
+      const payload = { ...(ST.detect.isCheckout() ? ST.detect.scrape() : lastPayload), paymentPlan: action.id };
+      overlay.showAnalysing([action.id === "pay_in_3" ? "Checking all three payments" : "Checking pay now"]);
+      try {
+        const finance = await ST.api.afford(payload);
+        if (!finance) throw new Error("Connect a sample bank to compare payment plans.");
+        lastPayload = payload;
+        lastResult = normalize({ ...lastResult, ...finance, searching: false }, payload);
+        pausedOnce = false;
+        return overlay.showResult(lastResult, handleAction);
+      } catch (e) {
+        return overlay.showError(e.message, handleAction);
+      }
+    }
     if (action.id === "retry") return run({ force: true });
     if (action.id === "alternative") return switchStore(action);
     // Stop the cheaper-price search (its answer is ignored; it may still finish and be reused at checkout).
@@ -221,8 +248,12 @@
     }
   }
 
+  let queuedDemoRun = false;
   async function run({ force = false } = {}) {
-    if (running) return;
+    if (running) {
+      if (force) queuedDemoRun = true;
+      return;
+    }
     if (!force && isQuiet()) return;
     running = true;
     handledHref = location.href;
@@ -239,6 +270,10 @@
     const error = await analyse(payload, ST.api.analyze, "analyse");
     if (error) await overlay.showError(`Something went wrong: ${error.message}`, handleAction);
     running = false;
+    if (queuedDemoRun) {
+      queuedDemoRun = false;
+      return run({ force: true });
+    }
   }
 
   // Run the full check (price search + affordability + "could it get cheaper?") and show it. The cheaper-price search
@@ -262,7 +297,7 @@
       // The outlook request shares its search with the full check (same request, cached in the background).
       outlook = ST.api.outlook(payload).then((o) => normalizeOutlook(o, payload), () => null);
       const a = await Promise.race([fullDone, ST.api.afford(payload).catch(() => null)]);
-      if (a !== FULL && a?.verdict === "reconsider") afford = a;
+      if (a !== FULL && (a?.risk || a?.verdict === "reconsider")) afford = a;
       else {
         const o = await Promise.race([fullDone, outlook]);
         if (o !== FULL && o) outlookNow = o;
@@ -441,6 +476,11 @@
   }
   window.addEventListener("click", placeOrderGuard, true);
   window.addEventListener("submit", placeOrderGuard, true);
+
+  // Changing a payment radio changes the financial scenario, including selecting Klarna directly.
+  window.addEventListener("change", e => {
+    if (e.target.matches?.('input[type="radio"], [role="radio"]') && ST.detect.isCheckout()) run({ force: true });
+  });
 
   // Checkout pages are often SPAs or render late, so keep checking.
   // A hand-off to a cheaper store (see handoff.js) takes priority over analysing the page.

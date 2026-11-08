@@ -9,7 +9,7 @@ const MAX_CARDS = 5;
 export const emptyAccount = () => ({
   profile: {},
   payment: { preferred: null, cards: [] },
-  budget: { monthly: 0, spent: 0, currency: "GBP" },
+  budget: { monthly: 0, spent: 0, monthlySavings: 0, currency: "GBP" },
 });
 
 const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -53,7 +53,10 @@ export function cleanAccount(input) {
   }
 
   const currency = /^[A-Z]{3}$/.test(input.budget?.currency || "") ? input.budget.currency : "GBP";
-  const budget = { monthly: num(input.budget?.monthly), spent: num(input.budget?.spent), currency };
+  const savings = input.budget?.monthlySavings ?? 0;
+  if (typeof savings !== "number" || !Number.isFinite(savings) || savings < 0 || savings > 1000000)
+    return { error: "Enter a monthly savings goal between 0 and 1,000,000." };
+  const budget = { monthlySavings: num(savings), monthly: num(input.budget?.monthly), spent: num(input.budget?.spent), currency };
 
   return { account: { profile, payment: { preferred, cards }, budget } };
 }

@@ -1,6 +1,6 @@
 importScripts("config.js", "log.js", "persona.js", "mock.js", "live.js", "handoff.js", "prepare.js", "precheck.js", "account.js");
 
-const getSettings = () => chrome.storage.local.get(["apiKey", "model", "budget", "spent", "money"]);
+const getSettings = () => chrome.storage.local.get(["apiKey", "model", "budget", "spent", "money", "monthlySavings", "bankPersona"]);
 
 async function post(path, body) {
   const res = await fetch(`${ST.config.BACKEND_URL}${path}`, {
@@ -82,7 +82,12 @@ const outlook = (payload) => cached("outlook", payload, outlookFresh);
 // cheaper price back by up to 40 s.
 async function checkBoth(payload) {
   const later = outlook(payload).catch((e) => (ST.log.error("outlook: failed", e.message), null));
-  const result = await cached("analyse", payload, analyzeFresh);
+  const result = await cached("analyse", payload, analyzeFresh).catch(async (e) => {
+    const settings = await getSettings();
+    if (!ST.config.MODEL?.url || !(settings.bankPersona ?? ST.config.MODEL.persona)) throw e;
+    ST.log.error("price search failed; still checking the bank forecast", e.message);
+    return { alternatives: [], insights: [] };
+  });
   if (result.priceOutlook) return result;
   const o = await Promise.race([later, Promise.resolve(undefined)]); // undefined = still searching
   if (o === undefined) later.then((v) => v && ST.precheck.addOutlook(payload, v));
@@ -269,7 +274,7 @@ const handlers = {
   ST_ANALYZE: analyze,
   ST_PRECHECK: precheck,
   // The affordability model alone: answers in a moment, so "can't afford" can show before the price search ends.
-  ST_AFFORD: async (payload) => ST.precheck.modelVerdict(payload.total, payload.currency, ST.precheck.phraser(await getSettings())),
+  ST_AFFORD: async (payload) => ST.precheck.modelVerdict(payload, await getSettings()),
   ST_OUTLOOK: outlook,
   ST_ACTION: action,
   ST_PREPARE: (p) => ST.prepare.prepareCheckout(p),

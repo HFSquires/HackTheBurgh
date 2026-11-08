@@ -290,3 +290,5 @@ Fire-and-forget when the user clicks a button:
 ```json
 { "actionId": "remind", "sessionId": "…", "verdict": "caution", "purchase": { "...same as /analyze request" } }
 ```
+
+- 2026-11-08 (Codex, T34): Ported the savings/overdraft UI and explicit pay-in-3 comparison onto frontend-extension; setup is in the root USER_GUIDE.md.

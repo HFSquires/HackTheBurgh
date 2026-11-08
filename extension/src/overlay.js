@@ -53,6 +53,7 @@ globalThis.ST = globalThis.ST || {};
 .panel {
   position: fixed; right: 24px; bottom: 24px; z-index: 2147483647;
   width: 372px; max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 48px); overflow-y: auto;
   padding: 18px;
   color: #f4f4f7; font-size: 14px; line-height: 1.45;
   background: rgba(15, 15, 21, .9);
@@ -76,6 +77,13 @@ globalThis.ST = globalThis.ST || {};
 
 .head { display: flex; align-items: center; gap: 12px; }
 .head-text { flex: 1; min-width: 0; }
+.explain-pill {
+  flex: none; padding: 5px 10px; border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 999px; background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .6); font: inherit; font-size: 12px; cursor: pointer;
+}
+.explain-pill:hover, .explain-pill[aria-expanded="true"] { background: rgba(255, 255, 255, .1); color: #ddd; }
+.explain-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .eyebrow {
   font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
   color: rgba(255, 255, 255, .5);
@@ -229,6 +237,15 @@ globalThis.ST = globalThis.ST || {};
 .outlook-why summary { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, .55); cursor: pointer; }
 .outlook-signals { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: rgba(255, 255, 255, .55); }
 .outlook-pending { margin-top: 12px; font-size: 12.5px; color: rgba(255, 255, 255, .5); }
+/* Month-end cash is separate from the longer-term minimum and the net-worth chart. */
+.month-end { margin: 14px 0; padding: 14px; border: 1px solid rgba(167, 139, 250, .25); border-radius: 14px; background: rgba(139, 92, 246, .08); }
+.month-end-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.month-end-heading { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, .8); }
+.month-end-month { padding: 5px 9px; border-radius: 7px; background: rgba(139, 92, 246, .25); color: #ddd6fe; font-size: 12px; font-weight: 650; }
+.month-end-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 12px; margin-top: 14px; }
+.month-end-label { color: rgba(255, 255, 255, .6); font-size: 12px; }
+.month-end-amount { margin-top: 3px; font-size: 22px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; color: #f4f4f7; }
+.month-end-amount.negative { color: #fca5a5; }
 .chart { margin-top: 12px; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .chart-title { margin-bottom: 4px; font-size: 11.5px; color: rgba(255, 255, 255, .55); }
@@ -270,6 +287,13 @@ globalThis.ST = globalThis.ST || {};
 .panel.compact { width: 340px; padding: 12px 14px; }
 .nudge { display: flex; align-items: center; gap: 10px; }
 .nudge .head-text { flex: 1; min-width: 0; }
+.explain-pill {
+  flex: none; padding: 5px 10px; border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 999px; background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .6); font: inherit; font-size: 12px; cursor: pointer;
+}
+.explain-pill:hover, .explain-pill[aria-expanded="true"] { background: rgba(255, 255, 255, .1); color: #ddd; }
+.explain-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .nudge .title { font-size: 14px; margin: 0; }
 .nudge .btn.offer-cta { flex: none; margin: 0; padding: 8px 12px; }
 .nudge .close { align-self: center; }
@@ -361,6 +385,20 @@ globalThis.ST = globalThis.ST || {};
 
   const gbp = (n) => `${n < 0 ? "−" : ""}£${Math.abs(Math.round(n)).toLocaleString("en-GB")}`;
 
+  function monthEndCard(data) {
+    const amount = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+    const value = (label, n) => h("div", {},
+      h("div", { class: "month-end-label", text: label }),
+      h("div", { class: `month-end-amount${n < 0 ? " negative" : ""}`, text: amount.format(n) }));
+    return h("section", { class: "month-end", "aria-label": `Projected balance at the end of ${data.month}` },
+      h("div", { class: "month-end-head" },
+        h("span", { class: "month-end-heading", text: "Projected month-end balance" }),
+        h("span", { class: "month-end-month", text: data.month })),
+      h("div", { class: "month-end-values" },
+        value("Pay now", data.payNow),
+        data.payIn3 != null && value("Pay in 3", data.payIn3)));
+  }
+
   // This month day by day from the model's figures (money across all accounts today, then everyday spending spread
   // evenly, bills on their due dates and salary on payday), with and without the purchase from the same starting
   // point, against the savings goal.
@@ -398,6 +436,7 @@ globalThis.ST = globalThis.ST || {};
     const short = c.goal - withIt[n];
 
     return h("div", { class: "chart" },
+      h("div", { text: "This month’s net worth · includes outstanding debt" }),
       h("div", { class: "chart-title", text: `Your money across all your accounts, to ${fmt(dateAt(n))}` }),
       svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `With this purchase you'd end the month at ${gbp(withIt[n])}, ${short > 0 ? `${gbp(short)} below` : `${gbp(-short)} above`} your savings goal of ${gbp(c.goal)}. Without it, ${gbp(without[n])}.` },
         svg("line", { x1: L, x2: W - R, y1: y(c.goal), y2: y(c.goal), class: "c-goal" }),
@@ -605,7 +644,7 @@ globalThis.ST = globalThis.ST || {};
     // "cheaper elsewhere". "I still want to buy it" moves on (or, once a cheaper price is found, "Found it … →" jumps to it).
     decisions(result) {
       return [
-        result.verdict === "reconsider" && "budget",
+        (result.mockVerdict || result.risk || result.verdict === "reconsider") && "budget",
         result.priceOutlook && "wait",
         result.alternatives[0] && "switch",
       ].filter(Boolean);
@@ -631,12 +670,30 @@ globalThis.ST = globalThis.ST || {};
       const best = result.alternatives[0];
       const view = {
         budget: () => ({
-          tone: "reconsider",
-          badge: VERDICT_LABEL.reconsider,
+          tone: result.verdict,
+          badge: result.mockVerdict ? `Mock · ${VERDICT_LABEL[result.verdict]}` : result.risk === "unknown" ? "Bank check" : result.risk ? `Sample · ${result.comparison ? "Pay in 3" : "Pay now"}` : VERDICT_LABEL.reconsider,
           title: result.title,
           msg: result.message,
-          extra: [result.chart && financeChart(result.chart), result.searching && this.searchingLine(onAction)],
-          main: { id: "not_now", label: "Don't buy now", confirmation: "Good call. Your basket is still here if you change your mind." },
+          extra: [
+            result.paymentSummary && h("p", { class: "msg", text: `${result.paymentLabel}: ${result.paymentSummary}` }),
+            result.monthEnd && monthEndCard(result.monthEnd),
+            result.laterPayments && h("p", { class: "msg", text: result.laterPayments }),
+            (result.explanation || result.forecastNote || result.chart || result.comparison || result.insights?.length > 0) &&
+            h("div", { class: "explanation", id: "st-explanation", hidden: "" },
+              result.explanation && h("p", { class: "msg", text: result.explanation }),
+            result.forecastNote && h("p", { class: "msg", text: result.forecastNote }),
+            result.comparison && h("div", { class: "chart" },
+              h("strong", { text: `Lowest balance through ${result.comparison.horizon}` }),
+              h("p", { text: `Pay now: ${result.comparison.payNow} · Pay in 3: ${result.comparison.payIn3}` }),
+              h("p", { text: `Checked through ${result.comparison.horizon}. Payments: ${result.comparison.schedule}` }),
+              h("p", { text: result.comparison.note })),
+            result.chart && financeChart(result.chart),
+            result.insights?.length > 0 && h("div", { class: "insights" }, result.insights.map(i =>
+              h("div", { class: "insight" }, h("div", { class: "k", text: i.label }), h("div", { class: "v", text: i.value }))))),
+            result.searching && this.searchingLine(onAction),
+          ],
+          main: result.risk === "unknown" ? { id: "retry", label: "Try again" }
+            : result.financeAction || { id: "proceed", label: "Continue" },
         }),
         wait: () => ({
           tone: "neutral",
@@ -685,6 +742,15 @@ globalThis.ST = globalThis.ST || {};
             ? h("button", { class: "btn ghost", text: step === "switch" ? "Buy here anyway" : "I still want to buy it", onclick: choose({ id: "proceed" }) })
             : h("button", { class: "btn ghost", text: "I still want to buy it", onclick: goTo(index + 1) });
 
+      const explanation = Array.isArray(view.extra) && view.extra.find(el => el?.classList?.contains("explanation"));
+      const explainButton = explanation && h("button", {
+        class: "explain-pill", text: "Explain", "aria-expanded": "false", "aria-controls": "st-explanation",
+        onclick: () => {
+          explanation.hidden = !explanation.hidden;
+          explainButton.textContent = explanation.hidden ? "Explain" : "Hide explain";
+          explainButton.setAttribute("aria-expanded", String(!explanation.hidden));
+        },
+      });
       this.more = null;
       this.toggle = null;
       this.panel.classList.remove("attention", "expanded");
@@ -692,6 +758,7 @@ globalThis.ST = globalThis.ST || {};
         h("div", { class: "result" },
           h("div", { class: "head" },
             h("div", { class: "head-text" }, h("span", { class: "badge", text: view.badge })),
+            explainButton,
             this.closeButton()),
           h("div", { class: "title", text: view.title }),
           view.msg && h("p", { class: "msg", text: view.msg }),

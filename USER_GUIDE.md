@@ -1,5 +1,64 @@
 # User guide
 
+This branch starts from `origin/frontend-extension` and includes the current model and sample-bank dependencies. Use the following setup for the savings/overdraft UI; older engine sections below are retained for reference.
+
+## Andrew's model: savings and overdraft warnings
+
+`model.py` forecasts usual everyday spending from the last three full months, adjusting for ONS seasonality. A monthly savings target changes the suggested spending budget, not predicted behaviour. The default target is £0. Missing salary or spending history produces no affordability verdict.
+
+The model first checks the main current account's daily projected balance. A projected negative balance gives a red overdraft warning, even when savings elsewhere make total net worth positive. If cash stays non-negative but forecast month-end net worth falls short of start-of-month net worth plus the savings target, it gives an amber savings warning. Otherwise it gives a green result. These are projections, not calibrated probabilities.
+
+Pay-now checks through month end or next payday, whichever is later. **Check Klarna: pay in 3** checks an illustrative interest-free schedule: one payment today and two more one and two calendar months later. Penny rounding is reconciled in the last payment. Both options are compared over the same extended horizon, through the final payment's month end or subsequent payday, whichever is later. The full purchase cost, including remaining debt, still counts against this month's savings goal. The comparison does not select Klarna, establish eligibility or make a purchase; actual retailer dates and fees can differ.
+
+### Run the demo
+
+With Python 3.12 or later, run each service in a separate terminal from the repository root (on Windows, use the configured virtual-environment Python instead of `python3`):
+
+```sh
+python3 mock_bank.py --serve --source v2
+python3 model.py --serve
+python3 -m http.server 5180 --bind 127.0.0.1
+```
+
+Open `http://127.0.0.1:5180/extension/demo/checkout.html`. In the demo controls, choose a sample bank and enter a monthly savings goal. Sample 029 and sample 100 show overdraft warnings at the default basket total; sample 001 shows a savings warning with a £1,500 target. Use **Explain** to expand the chart, forecast assumptions and repayment breakdown. Press **Check Klarna: pay in 3** in the result to rerun the financial model and see repayment dates and both projected minimum balances. **Back to pay now** restores the immediate-payment calculation. The Mock verdict override buttons explicitly replace the bank result for demonstration, including Backend error. Changing the sample bank or savings goal restores the real model forecast.
+
+For the installed extension, reload it in Chrome, then open Options, choose **Connect a sample bank**, enter the monthly savings goal and save. The account website also saves the goal in GBP and syncs it to the extension. This is explicitly historical synthetic data, not real Open Banking consent. Only the five committed sample JSONs are needed to serve the demo; the 100-person backtest and original full self-check require generating the full cohort first.
+
+The newer frontend keeps its early answers, monthly net-worth chart and one-decision-at-a-time flow. It keeps its existing price-search path but makes a fresh `/decide` request for the bank forecast, including when it reuses a cached price comparison. Changing the purchase, savings target or payment plan therefore recomputes the forecast. If the bank/model fails or the purchase is not in GBP, it shows that the bank check is unavailable instead of falling back to a favourable budget verdict. The manual budget remains available when no sample bank is connected; a manual shopping budget alone cannot establish overdraft risk.
+
+### API and checks
+
+`POST http://127.0.0.1:8765/decide` accepts JSON:
+
+```json
+{"bank":{"baseUrl":"http://127.0.0.1:8766","persona":"persona029"},"price":177.99,"monthlySavings":150,"paymentPlan":"pay_in_3"}
+```
+
+`price` is £0.01 to £1,000,000. `monthlySavings` is £0 to £1,000,000 (default 0). `paymentPlan` is `pay_now` (default) or `pay_in_3`. `bank` also accepts provider consent `tokens` instead of a persona. Optional `today` must equal the date of the supplied bank balances. Legacy `goalRate` remains accepted as an annual fraction from -0.5 to 1, but cannot be combined with `monthlySavings`; CPI is no longer the default goal. Invalid inputs return 400; non-JSON requests return 415. `GET /health` reports readiness.
+
+The response includes `verdict`, `risk` (`overdraft`, `savings`, `none`), `title`, `message`, `cashFlow` (minimum balance, date, horizon, with/without the purchase), `savings` (target, projected net-worth increase, shortfall and suggested daily budget), `payments`, and a same-horizon `comparison` for pay in 3. Existing income, spending, net-worth and assumption fields remain. `daysToAfford` is now null: no unsupported future-affordability date is promised.
+
+```sh
+python3 model_checks.py                 # deterministic regression cases; writes nothing
+python3 model_checks.py --integration   # also starts temporary local services and checks available sample customers
+node extension/checks.cjs               # finance response mapping, fresh requests, failures and profile validation
+```
+
+T33 validation (8 November 2026): regression checks and both payment plans through HTTP passed for all five committed sample customers. Checks cover a pre-payday overdraft despite a positive month-end balance, savings held elsewhere, savings targets not altering predicted spending, pending-bill deduplication, own-account transfers, a third-instalment overdraft, month-end repayment dates and rounding, invalid inputs and unavailable forecasts. JavaScript and inline demo script syntax checks passed. Browser control was disabled in the app, so visual browser verification was unavailable. The full 100-person backtest was not rerun; existing figure results remain historical.
+
+### Assumptions and limits
+
+Everyday purchases exclude detected subscriptions, BNPL instalments and one-offs (merchant category 4722 or a purchase of £250 or more). Forecasts use `f_target × mean(r_j / f_j)` with the existing ONS factors. The suggested daily budget is `max(0, forecastMonth − monthlySavings) / daysInMonth`; it is a target, not an assumption that the user has already cut spending.
+
+The cash check assumes the purchase and instalments are paid from the main current account. It includes expected monthly bills, transfers to savings, card repayments, pending payments and scheduled BNPL payments. It reserves expected bills since the last booked transaction without counting the same pending payment twice. It does not automatically transfer savings or treat an overdraft allowance as cash. Everyday spending is distributed evenly over remaining days; future irregular purchases, uncertain other income, intraday ordering and bank holidays are not predicted. Future salaries and recurring payments are assumed to continue. The longer pay-in-3 horizon is more uncertain.
+
+Savings are measured as net-worth growth across the connected accounts, with the existing half-share assumption for joint accounts and BNPL debt deducted. Other income is reported but not assumed to recur in the savings projection. The model does not estimate the probability of overdraft, model provider fees or determine credit eligibility. It is guidance based on synthetic data.
+
+The original `python3 model.py` backtest and `python3 model.py --check` remain available for a generated 100-person cohort. Backtest outputs are `Analysis/model/` and `Figures/model/`; no new figures are generated by T33's focused checks.
+
+
+# User guide
+
 Fill in each section from the code as it actually exists, and update it whenever setup, commands or outputs change. Runnable code: the mock bank-statement generator (`mock_statements.py`, tasks T05 and T05c) the back end (`affordability.py`, task T07) the affordability figures (`affordability_figures.py`, task T07b) the spending-forecast backtest (`forecast.py`, task T12) the market data (`market_data.py`, task T14) and the Bayesian spending model (`bayes.py`, task T17) and the mock bank (`mock_bank.py`, task T18b). The browser extension front end is being built by Auro (T10) and is not yet in the repository.
 
 ## Purpose
@@ -156,3 +215,9 @@ Outputs in `Analysis/open_banking/`: `persona<NNN>_<uuid8>.json` (one block per 
 
 Limitations: synthetic, not real bank data; every assumption is listed in the SYNTHETIC block of the code (overdraft and card limits by pay band, 39.9% overdraft EAR, 24.9% card APR, 60% of card holders pay in full, savings rates at Bank Rate minus 0.75 points, opening balances); five personas (029, 032, 054, 060, 100) reach unarranged overdraft because their committed payments exceed their pay and no benefits are modelled; balances are high because some ONS spending is not modelled; prices and pay are held at their 2026 level for the whole year. The CSV export covers the main account only, so card and second-account spending is invisible in it, and `affordability.py` counts standing orders to a person's own savings or joint accounts as committed payments.
 
+
+### Checkout payment choices (8 November update)
+
+The comparison action is shown only when an enabled visible payment radio explicitly offers pay in 3, and uses the provider label from that control. Selecting a checkout payment reruns the forecast; in the demo it also leaves mock-verdict override mode. Provider logos alone do not establish available terms. Pay-in-4, pay-in-30, explicitly non-monthly or interest-bearing plans are not modelled as pay-in-3. Custom widgets and cross-origin payment frames may not expose their options to this detector.
+
+Pay-in-3 remains a monthly interest-free estimate with detailed assumptions under Explain; no payment control is automatically selected by the comparison button. Payment amounts and the two projected current month-end balances are visible without expanding Explain. The lowest balances across the entire repayment horizon are under Explain, labelled with the horizon end date. An unchanged red warning means both schedules still go below zero, not that instalments were ignored. Outstanding debt continues to count in full against the savings goal.

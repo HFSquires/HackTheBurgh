@@ -106,32 +106,33 @@ def fmt(est):
 
 def figure(rel, head):
     import matplotlib.pyplot as plt
-    import TeXFormat as tf
+    import figstyle as tf
     plt.rcParams["svg.hashsalt"] = "t14"  # stable SVG ids
     ms = [mean_se([rel[y][m] for y in YEARS]) for m in range(12)]
     # Points with error bars joined by a line, not bars: the values are an index around 100, so a bar from 0 would hide
     # the seasonal swing and a bar from any other baseline would misstate its length (T15).
-    fig, ax = plt.subplots(figsize=(10, 7))
-    ax.axhline(100, color="0.5", lw=1, ls="--", label="Annual mean (100)")
-    for y in YEARS:
-        ax.scatter(range(12), rel[y], s=14, color="0.55", zorder=2,
-                   label=f"Single years ({YEARS[0]} to {YEARS[-1]})" if y == YEARS[0] else None)
-    ax.plot(range(12), [v for v, _ in ms], color=tf.CYCLE[0], lw=1.5, zorder=3)
-    for idx, col, lab in ((list(range(10)), tf.CYCLE[0], "Mean over years, other months"),
-                          ([10, 11], tf.CYCLE[1], "Mean over years, November and December")):
-        ax.errorbar(idx, [ms[m][0] for m in idx], yerr=[ms[m][1] for m in idx], fmt="o", ms=7, color=col, capsize=3,
-                    zorder=4, label=lab)
+    fig, ax = plt.subplots(figsize=(12, 6.75))
+    dev = [v - 100 for v, _ in ms]
+    tf.bar(ax, range(12), dev, [tf.C1 if m >= 10 else tf.tint(tf.C1, 0.45) if d >= 0 else tf.tint(tf.MUTED, 0.45)
+                                for m, d in enumerate(dev)])
+    for m in (10, 11):
+        ax.text(m, dev[m] + 0.6, f"+{dev[m]:.0f}%", ha="center", va="bottom", color=tf.INK, fontsize=tf.fontsizeSmall,
+                fontweight="semibold")
+    ax.axhline(0, color=tf.MUTED, lw=1)
     ax.set_xticks(range(12), [x.title() for x in MONTHS])
-    ax.set_ylim(min(min(v) for v in rel.values()) - 4, max(max(v) for v in rel.values()) + 12)
-    ax.set_xlabel("Month")
-    ax.set_ylabel("Sales index [annual mean = 100]")
-    ax.legend(frameon=True, fancybox=False, fontsize=tf.fontsizeSmall, loc="upper left")
+    from matplotlib.ticker import FuncFormatter
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:+.0f}%" if v else "Average"))
+    ax.set_ylim(min(dev) - 4, max(dev) + 5)
+    tf.clean(ax)
+    tf.headline(fig, f"UK shops sell about {dev[11]:.0f}% more in December than in an average month",
+                f"Retail sales each month compared with the year's average, {YEARS[0]} to {YEARS[-1]}",
+                source="Source: ONS Retail Sales Index (J5AH), Great Britain, not seasonally adjusted.")
     FIGURES.mkdir(parents=True, exist_ok=True)
     for ext in ("pdf", "svg"):
         fig.savefig(FIGURES / f"{FIG}.{ext}", bbox_inches="tight",
                     metadata={"pdf": {"CreationDate": None}, "svg": {"Date": None}}[ext])
     plt.close(fig)
-    tfx = hashlib.sha256(Path(tf.__file__).read_bytes()).hexdigest()[:12]
+    tfx = tf.sha()
 
     t1, t2 = tables(rel)
     up, up22 = uplift(rel, YEARS), uplift(rel, [y for y in YEARS if y >= 2022])
@@ -144,7 +145,7 @@ Files: `{FIG}.pdf`, `{FIG}.svg` (this file: `{FIG}.md`), written by `market_data
 [`data/{RETAIL_FILE.name}`](../../data/{RETAIL_FILE.name}): ONS Retail Sales Index (dataset {head['Source dataset ID']}), series `{RETAIL}`, "{head['Title']}",
 Great Britain, value of sales (current prices), not seasonally adjusted, all retailers including automotive fuel, all
 businesses. Release date shown: {head['Release date']}. The file's unit field is blank and the index base year is not
-stated in it. Open Government Licence v3.0. Plot style: `TeXFormat.py` sha256 `{tfx}`.
+stated in it. Open Government Licence v3.0. Plot style: `figstyle.py` (Auro's front-end style) sha256 `{tfx}`.
 Store-type breakdowns of the non-seasonally-adjusted value index are not published as index levels in DRSI (only as
 percentage changes), so only the total is used.
 
@@ -152,11 +153,10 @@ percentage changes), so only the total is used.
 
 Monthly values for the complete calendar years {YEARS[0]} to {YEARS[-1]} (n = {len(YEARS)} years; 2026 is partial and
 excluded). Within each year the 12 monthly values are divided by that year's mean and multiplied by 100, so every year
-has mean 100 (this removes year-to-year growth in the level); the raw index values are in the data file. Large points:
-mean over years of the scaled value; error bars: standard error of the mean over years (sample standard deviation divided by
-sqrt(n)), joined by a line; points with error bars rather than bars because the values are an index around 100, so a
-bar drawn from 0 would hide the seasonal swing and a bar from any other baseline (an earlier version started at 80)
-would misstate its length. The y axis does not start at 0. Grey points: single years. Dashed line: the annual mean, 100. The {YEARS[0]} data include the early-2021 lockdown closures, which depress
+has mean 100 (this removes year-to-year growth in the level); the raw index values are in the data file. Bars: the
+mean over years of the scaled value minus 100, i.e. the percentage above or below the year's average month, drawn from the
+average (0); November and December in the dark shade, labelled. Drawn for a general audience: headline and subtitle state the takeaway; standard errors are not drawn on the figure and are given in the table below. (standard error of the mean over years: sample standard deviation divided by
+sqrt(n)). Single years are not drawn (they are in the second table). The {YEARS[0]} data include the early-2021 lockdown closures, which depress
 January to April and so raise the other months relative to that year's mean.
 
 ## Plotted data
@@ -222,8 +222,8 @@ def check():
 
 def main():
     import matplotlib.pyplot as plt
-    import TeXFormat as tf
-    plt.style.use(Path(tf.__file__).with_name("TeXFormat.mplstyle"))
+    import figstyle as tf
+    tf.use()
     rows = factors()
     write_factors(rows)
     print(f"Latest CPI month {rows[0]['latest_month']}; reference April 2024 to March 2025")
