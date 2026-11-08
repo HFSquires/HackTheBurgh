@@ -180,6 +180,11 @@
         bankPersona: document.getElementById("demo-bank").value, monthlySavings: Number(goal.value) };
       ST.run({ force: true });
     });
+    document.querySelectorAll('input[name="payment"]').forEach(r => r.addEventListener("change", () => {
+      ST.config.MOCK_VERDICT_OVERRIDE = false;
+      ST.config.MOCK_SCENARIO = null;
+      mark(null); // Choosing a checkout payment leaves the forced-verdict demo and uses the bank forecast.
+    }));
     const buttons = document.querySelectorAll(".demo button");
     const mark = (s) => buttons.forEach((b) => b.classList.toggle("on", !!ST.config.MOCK_VERDICT_OVERRIDE && b.dataset.s === (s || "")));
     mark(null);

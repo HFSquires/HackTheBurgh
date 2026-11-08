@@ -146,6 +146,23 @@ globalThis.ST = globalThis.ST || {};
     return null;
   }
 
+  // Only offer plans explicitly shown by an enabled checkout control. A provider logo alone is not an offer.
+  function paymentOptions() {
+    return [...document.querySelectorAll('input[type="radio"], [role="radio"]')].flatMap(r => {
+      const label = r.labels?.[0] || r.closest("label") || r;
+      if (r.disabled || r.getAttribute("aria-disabled") === "true" || !label.getClientRects().length) return [];
+      const text = (label.textContent || r.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
+      const type = PAYMENT_TYPES.find(([, re]) => re.test(text))?.[0];
+      const three = /pay\s*(?:in|over)\s*(?:3|three)\b|(?:3|three)\s*(?:monthly\s*)?(?:payments|instalments|installments)/i.test(text);
+      if (!type && !three) return [];
+      const otherTerms = /weekly|fortnight|every\s*\d+\s*days|interest[- ]bearing|with interest|(?:[1-9]\d*(?:\.\d+)?)\s*%\s*(?:apr|interest)/i.test(text);
+      const deferred = three || ["klarna", "clearpay"].includes(type) || /pay\s*later|instalments|installments|pay\s*in\s*\d/i.test(text);
+      return [{ method: type || "instalments", label: text.slice(0, 100),
+        paymentPlan: three && !otherTerms ? "pay_in_3" : deferred ? null : "pay_now",
+        selected: r.checked === true || r.getAttribute("aria-checked") === "true" }];
+    });
+  }
+
   // Visible text for the backend to reason over, with obvious personal data stripped.
   function pageText() {
     return (document.body.innerText || "")
@@ -157,6 +174,8 @@ globalThis.ST = globalThis.ST || {};
 
   function scrape() {
     const total = findTotal();
+    const options = paymentOptions();
+    const selected = options.find(o => o.selected);
     const site =
       document.querySelector('meta[property="og:site_name"]')?.content ||
       document.querySelector('meta[name="application-name"]')?.content;
@@ -168,10 +187,12 @@ globalThis.ST = globalThis.ST || {};
       currency: total?.currency ?? "GBP",
       items: findItems(),
       paymentMethod: paymentMethod(),
+      paymentOptions: options,
+      paymentPlan: selected ? selected.paymentPlan : "pay_now",
       pageText: pageText(),
       timestamp: new Date().toISOString(),
     };
   }
 
-  ST.detect = { isCheckout, isCheckoutUrl, scrape, parseMoney, PAYMENT_TYPES };
+  ST.detect = { isCheckout, isCheckoutUrl, scrape, parseMoney, paymentOptions, PAYMENT_TYPES };
 })();

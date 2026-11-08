@@ -162,6 +162,11 @@ globalThis.ST = globalThis.ST || {};
       insights: [], budgetInfo: null, chart: null,
     };
     if (payload.currency !== "GBP") return { ...unavailable, message: "The sample bank uses pounds. We can’t assess this purchase in another currency." };
+    const offer = payload.paymentOptions?.find(o => o.paymentPlan === "pay_in_3");
+    if (payload.paymentPlan === null) return { ...unavailable, title: "Check this payment plan",
+      message: "We can’t yet forecast the repayment terms of the selected checkout option." };
+    if (payload.paymentPlan === "pay_in_3" && !offer) return { ...unavailable, title: "Instalments not found",
+      message: "No supported pay-in-3 option is visible at this checkout." };
     try {
       const res = await fetch(`${m.url.replace(/\/$/, "")}/decide`, {
         method: "POST", headers: { "content-type": "application/json" },
@@ -182,10 +187,18 @@ globalThis.ST = globalThis.ST || {};
       return {
         verdict: d.verdict, risk: d.risk,
         title: short ? (spread ? "Pay in 3: " + short[0].toLowerCase() : short[0]) : d.title,
-        message: short ? short[1] : d.message,
+        message: spread && d.comparison && d.risk === "overdraft"
+          ? (d.cashFlow.lowestWithPurchase > d.comparison.payNow.lowestWithPurchase + 0.01
+              ? "Spreading payments helps, but you’re still projected to go overdrawn."
+              : "Spreading payments doesn’t remove the projected overdraft.")
+          : short ? short[1] : d.message,
         explanation: d.message,
         forecastNote: `Sample bank · forecast as of ${d.today} · main current account · ${spread ? "illustrative interest-free pay in 3" : "pay now"}.`,
-        financeAction: { id: spread ? "pay_now" : "pay_in_3", label: spread ? "Back to pay now" : "View instalment options" },
+        financeAction: spread ? { id: "pay_now", label: "Compare pay now" }
+          : offer ? { id: "pay_in_3", label: `Check ${offer.label}` } : null,
+        paymentLabel: spread ? offer.label : "Pay now",
+        paymentSummary: spread ? `${d.payments.map(p => money(p.amount)).join(" + ")} · monthly estimate` : "",
+        comparisonSummary: d.comparison ? `Lowest balance: pay now ${money(d.comparison.payNow.lowestWithPurchase)} · instalments ${money(d.cashFlow.lowestWithPurchase)}` : "",
         comparison: d.comparison ? {
           payNow: money(d.comparison.payNow.lowestWithPurchase), payIn3: money(d.comparison.payIn3.lowestWithPurchase),
           horizon: d.cashFlow.horizon, schedule: d.payments.map(p => `${money(p.amount)} on ${p.date}`).join("; "),

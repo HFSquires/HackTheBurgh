@@ -652,6 +652,8 @@ globalThis.ST = globalThis.ST || {};
           title: result.title,
           msg: result.message,
           extra: [
+            result.paymentSummary && h("p", { class: "msg", text: `${result.paymentLabel}: ${result.paymentSummary}` }),
+            result.comparisonSummary && h("p", { class: "msg", text: result.comparisonSummary }),
             (result.explanation || result.forecastNote || result.chart || result.comparison || result.insights?.length > 0) &&
             h("div", { class: "explanation", id: "st-explanation", hidden: "" },
               result.explanation && h("p", { class: "msg", text: result.explanation }),

@@ -120,6 +120,9 @@
       mockVerdict: r?.mockVerdict === true,
       forecastNote: str(r?.forecastNote),
       explanation: str(r?.explanation),
+      paymentLabel: str(r?.paymentLabel),
+      paymentSummary: str(r?.paymentSummary),
+      comparisonSummary: str(r?.comparisonSummary),
       financeAction: ["pay_now", "pay_in_3"].includes(r?.financeAction?.id) ? { id: r.financeAction.id, label: str(r.financeAction.label) } : null,
       comparison: r?.comparison ? Object.fromEntries(["payNow", "payIn3", "horizon", "schedule", "note"].map(k => [k, str(r.comparison[k])])) : null,
       chart: r?.chart && Number.isFinite(r.chart.start) && Number.isFinite(r.chart.goal) ? r.chart : null,
@@ -470,6 +473,11 @@
   }
   window.addEventListener("click", placeOrderGuard, true);
   window.addEventListener("submit", placeOrderGuard, true);
+
+  // Changing a payment radio changes the financial scenario, including selecting Klarna directly.
+  window.addEventListener("change", e => {
+    if (e.target.matches?.('input[type="radio"], [role="radio"]') && ST.detect.isCheckout()) run({ force: true });
+  });
 
   // Checkout pages are often SPAs or render late, so keep checking.
   // A hand-off to a cheaper store (see handoff.js) takes priority over analysing the page.
