@@ -130,21 +130,16 @@
       comparison: r?.comparison ? Object.fromEntries(["payNow", "payIn3", "horizon", "schedule", "note"].map(k => [k, str(r.comparison[k])])) : null,
       chart: r?.chart && Number.isFinite(r.chart.start) && Number.isFinite(r.chart.goal) ? r.chart : null,
       atCheapest: r?.atCheapest === true,
+      searchFailed: str(r?.searchFailed),
       sessionId: r?.sessionId ?? null,
     };
   }
 
   async function handleAction(action) {
     if (["pay_now", "pay_in_3"].includes(action.id)) {
-      if (search) search.stopped = true; // A late price-search result must not overwrite this comparison.
-      const payload = { ...(ST.detect.isCheckout() ? ST.detect.scrape() : lastPayload), paymentPlan: action.id };
       overlay.showAnalysing([action.id === "pay_in_3" ? "Checking all three payments" : "Checking pay now"]);
       try {
-        const finance = await ST.api.afford(payload);
-        if (!finance) throw new Error("Connect a sample bank to compare payment plans.");
-        lastPayload = payload;
-        lastResult = normalize({ ...lastResult, ...finance, searching: false }, payload);
-        pausedOnce = false;
+        await refreshFinance(action.id);
         return overlay.showResult(lastResult, handleAction);
       } catch (e) {
         return overlay.showError(e.message, handleAction);
@@ -167,6 +162,21 @@
     reportAction(action);
     if (action.confirmation) overlay.showConfirmation(action.confirmation);
     else overlay.dismiss(true);
+  }
+
+  // A different payment plan (or a total changed by a delivery option) changes only the affordability answer:
+  // re-ask the model and leave the price search, running or finished, as it is. `finance` is kept so a search
+  // result that arrives later keeps this plan.
+  let finance = null;
+  async function refreshFinance(plan) {
+    const payload = { ...(ST.detect.isCheckout() ? ST.detect.scrape() : lastPayload), ...(plan ? { paymentPlan: plan } : {}) };
+    const f = await ST.api.afford(payload);
+    if (!f) throw new Error("Connect a sample bank to compare payment plans.");
+    finance = f;
+    lastPayload = payload;
+    lastResult = { ...normalize({ ...lastResult, ...f }, payload), searching: !!lastResult?.searching, searchFailed: lastResult?.searchFailed || "" };
+    pausedOnce = false;
+    ST.log("payment plan: affordability rechecked, price search left running", { plan: payload.paymentPlan || "pay_now", risk: f.risk ?? null });
   }
 
   // Tell the backend what the user chose; don't block the UI on it.
@@ -313,14 +323,19 @@
     // "Could get cheaper" is its own search and often finishes after the price search: add it to whatever is showing
     // (the panel, or the quiet note, which becomes a panel), without moving the shopper off their step.
     const mine = (search = { stopped: false });
-    let shown = null;
+    finance = null;
+    // Still this check (not stopped, not replaced by a newer run). A payment-plan change only swaps the
+    // affordability part (refreshFinance), so it doesn't count as a new check.
+    const live = () => !mine.stopped && search === mine;
+    // A later price-search answer keeps the payment plan chosen meanwhile.
+    const withFinance = (r) => (finance ? { ...normalize({ ...r, ...finance }, lastPayload), alternatives: r.alternatives } : r);
     let quiet = false;
     const addOutlook = async (o) => {
-      if (!o || mine.stopped || !shown || lastResult !== shown || shown.priceOutlook) return;
-      shown.priceOutlook = o;
+      if (!o || !live() || !lastResult || lastResult.priceOutlook) return;
+      lastResult.priceOutlook = o;
       ST.log(`${where}: could get cheaper (${o.likelihood}), added to the panel`);
-      if (overlay.current) overlay.updateResult(shown);
-      else if (quiet && !isQuiet()) quiet = await present(shown, where);
+      if (overlay.current) overlay.updateResult(lastResult);
+      else if (quiet && !isQuiet()) quiet = await present(lastResult, where);
     };
 
     if (afford || outlookNow) {
@@ -328,23 +343,23 @@
       await sleep(1500 - (Date.now() - started));
       const partial = { ...normalize(afford || {}, payload), priceOutlook: outlookNow, searching: true };
       if (!afford) partial.verdict = "neutral"; // affordability comes with the full answer
-      const current = () => !mine.stopped && lastResult === partial;
-      shown = lastResult = partial;
+      lastResult = partial;
       await overlay.showResult(partial, handleAction);
       outlook?.then(addOutlook);
       full.then(
-        (result) => {
-          logResult(where, result, started);
-          if (!current()) return;
-          result.priceOutlook ||= partial.priceOutlook;
-          shown = lastResult = result;
+        (found) => {
+          logResult(where, found, started);
+          if (!live()) return;
+          const result = withFinance(found);
+          result.priceOutlook ||= lastResult?.priceOutlook || null;
+          lastResult = result;
           overlay.updateResult(result);
         },
         (e) => {
           ST.log.error(`${where}: price search failed`, e.message);
-          if (!current()) return;
-          partial.searching = false;
-          overlay.updateResult(partial);
+          if (!live()) return;
+          lastResult = { ...lastResult, searching: false, searchFailed: e.message };
+          overlay.updateResult(lastResult);
         }
       );
       return null;
@@ -360,7 +375,7 @@
     }
     // Answer already known from the basket: a short glow, not the full "analysing" wait.
     await sleep((result.fromEarlierCheck ? 1200 : ST.config.MIN_ANALYSING_MS) - (Date.now() - started));
-    shown = lastResult = result;
+    lastResult = result;
     quiet = await present(result, where);
     if (!result.priceOutlook) outlook?.then(addOutlook);
     return null;
@@ -484,8 +499,15 @@
   window.addEventListener("submit", placeOrderGuard, true);
 
   // Changing a payment radio changes the financial scenario, including selecting Klarna directly.
-  window.addEventListener("change", e => {
-    if (e.target.matches?.('input[type="radio"], [role="radio"]') && ST.detect.isCheckout()) run({ force: true });
+  // Only when the payment plan or the total actually changed (not gift wrap, not a same-price delivery choice), and only
+  // the affordability part: the price search isn't restarted. Not at the cheaper store (a small note only there).
+  window.addEventListener("change", (e) => {
+    if (!e.target.matches?.('input[type="radio"], [role="radio"]') || !ST.detect.isCheckout() || !lastResult || ST.handoff.atCheapest()) return;
+    const now = ST.detect.scrape();
+    if (now.paymentPlan === lastPayload?.paymentPlan && now.total === lastPayload?.total) return;
+    refreshFinance()
+      .then(() => overlay.current && overlay.updateResult(lastResult))
+      .catch((err) => ST.log.error("payment plan: couldn't recheck", err.message));
   });
 
   // Checkout pages are often SPAs or render late, so keep checking.

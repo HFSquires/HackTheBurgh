@@ -22,7 +22,7 @@ globalThis.ST = globalThis.ST || {};
     ST.mock.outlook(payload).then((o) => ST.precheck.addOutlook(payload, o));
     return ST.mock.analyze(payload).catch((e) => {
       if (!ST.config.MODEL?.url || !(demoSettings().bankPersona ?? ST.config.MODEL.persona)) throw e;
-      return { alternatives: [], insights: [] };
+      return { alternatives: [], insights: [], searchFailed: e.message };
     });
   }
   async function demoAnalyze(payload) {

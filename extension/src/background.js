@@ -86,7 +86,7 @@ async function checkBoth(payload) {
     const settings = await getSettings();
     if (!ST.config.MODEL?.url || !(settings.bankPersona ?? ST.config.MODEL.persona)) throw e;
     ST.log.error("price search failed; still checking the bank forecast", e.message);
-    return { alternatives: [], insights: [] };
+    return { alternatives: [], insights: [], searchFailed: e.message };
   });
   if (result.priceOutlook) return result;
   const o = await Promise.race([later, Promise.resolve(undefined)]); // undefined = still searching

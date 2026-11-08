@@ -164,6 +164,12 @@ checkout the user came from, then their saved settings). They are never put in a
 store logs. Card fields are never read or filled, and "Place order" / "Pay" are never clicked. Details are deleted once
 filled, or after 30 minutes.
 
+## Checking the AI with a real key
+
+`OPENAI_API_KEY=<your OpenAI or ELM key> node extension/live-check.cjs` (from the repository root) makes the two real ChatGPT calls the
+extension makes and prints what came back: a price search for one product (GTA VI on PS5 at £69.99), and the
+matching of a checkout form's fields to saved details (labels only). It costs a few pence and writes nothing.
+
 ## Debugging: activity log
 
 Every step is logged (`src/log.js`): detection, analysis results, the chosen checkout route, each AI request and

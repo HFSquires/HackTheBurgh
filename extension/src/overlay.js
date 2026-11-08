@@ -258,6 +258,7 @@ globalThis.ST = globalThis.ST || {};
 .chart-legend .sw { display: inline-block; width: 12px; height: 3px; margin-right: 6px; border-radius: 2px; vertical-align: middle; }
 .chart-legend .sw.with { background: var(--accent); }
 .chart-legend .sw.without { background: rgba(255, 255, 255, .4); }
+.search-failed { margin-top: 10px; font-size: 12px; color: rgba(255, 255, 255, .5); }
 .btn.found { color: #34d399; }
 .btn.found:hover { color: #6ee7b7; }
 .searching .stop { margin-left: 8px; padding: 0; border: 0; background: none; color: #fff; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
@@ -382,6 +383,11 @@ globalThis.ST = globalThis.ST || {};
     for (const c of children.flat()) if (c != null && c !== false) el.append(c);
     return el;
   }
+
+  // The price search failed: say so, rather than look like nothing cheaper exists.
+  const failedLine = (r) =>
+    !r.searching && r.searchFailed && !r.alternatives.length &&
+    h("div", { class: "search-failed", text: `Couldn't search other stores (${r.searchFailed.slice(0, 80)}).` });
 
   const gbp = (n) => `${n < 0 ? "−" : ""}£${Math.abs(Math.round(n)).toLocaleString("en-GB")}`;
 
@@ -668,11 +674,10 @@ globalThis.ST = globalThis.ST || {};
       };
       const o = result.priceOutlook;
       const best = result.alternatives[0];
-      // Pay in 3 is offered when it's the way forward: at the cheaper store we switched to, or when it doesn't fit and
-      // the search found nothing cheaper. While a cheaper store is on offer, that comes first ("Found it …").
+      // Whenever it would overdraw or hurt the savings goal, pay in 3 is the main option (if this checkout offers it);
+      // a cheaper store, once found, is the way out underneath ("Found it …").
       const atRisk = ["overdraft", "savings"].includes(result.risk);
-      const payIn3Now = !!result.financeAction && (result.financeAction.id === "pay_now" || result.atCheapest ||
-        (atRisk && !result.searching && !result.alternatives.length));
+      const payIn3Now = !!result.financeAction && (result.financeAction.id === "pay_now" || result.atCheapest || atRisk);
       const view = {
         budget: () => ({
           tone: result.verdict,
@@ -696,6 +701,7 @@ globalThis.ST = globalThis.ST || {};
             result.insights?.length > 0 && h("div", { class: "insights" }, result.insights.map(i =>
               h("div", { class: "insight" }, h("div", { class: "k", text: i.label }), h("div", { class: "v", text: i.value }))))),
             result.searching && this.searchingLine(onAction),
+            failedLine(result),
           ],
           main: result.risk === "unknown" ? { id: "retry", label: "Try again" }
             : payIn3Now ? result.financeAction
@@ -712,6 +718,7 @@ globalThis.ST = globalThis.ST || {};
               h("summary", { text: "Why?" }),
               h("ul", { class: "outlook-signals" }, o.signals.map((t) => h("li", { text: t })))),
             result.searching && this.searchingLine(onAction),
+            failedLine(result),
           ],
           main: {
             id: "watch",
