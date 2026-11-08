@@ -77,6 +77,13 @@ globalThis.ST = globalThis.ST || {};
 
 .head { display: flex; align-items: center; gap: 12px; }
 .head-text { flex: 1; min-width: 0; }
+.explain-pill {
+  flex: none; padding: 5px 10px; border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 999px; background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .6); font: inherit; font-size: 12px; cursor: pointer;
+}
+.explain-pill:hover, .explain-pill[aria-expanded="true"] { background: rgba(255, 255, 255, .1); color: #ddd; }
+.explain-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .eyebrow {
   font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
   color: rgba(255, 255, 255, .5);
@@ -271,6 +278,13 @@ globalThis.ST = globalThis.ST || {};
 .panel.compact { width: 340px; padding: 12px 14px; }
 .nudge { display: flex; align-items: center; gap: 10px; }
 .nudge .head-text { flex: 1; min-width: 0; }
+.explain-pill {
+  flex: none; padding: 5px 10px; border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 999px; background: rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .6); font: inherit; font-size: 12px; cursor: pointer;
+}
+.explain-pill:hover, .explain-pill[aria-expanded="true"] { background: rgba(255, 255, 255, .1); color: #ddd; }
+.explain-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .nudge .title { font-size: 14px; margin: 0; }
 .nudge .btn.offer-cta { flex: none; margin: 0; padding: 8px 12px; }
 .nudge .close { align-self: center; }
@@ -639,8 +653,7 @@ globalThis.ST = globalThis.ST || {};
           msg: result.message,
           extra: [
             (result.explanation || result.forecastNote || result.chart || result.comparison || result.insights?.length > 0) &&
-            h("details", { class: "outlook-why" },
-              h("summary", { text: "Explain" }),
+            h("div", { class: "explanation", id: "st-explanation", hidden: "" },
               result.explanation && h("p", { class: "msg", text: result.explanation }),
             result.forecastNote && h("p", { class: "msg", text: result.forecastNote }),
             result.comparison && h("div", { class: "chart" },
@@ -703,6 +716,14 @@ globalThis.ST = globalThis.ST || {};
             ? h("button", { class: "btn ghost", text: step === "switch" ? "Buy here anyway" : "I still want to buy it", onclick: choose({ id: "proceed" }) })
             : h("button", { class: "btn ghost", text: "I still want to buy it", onclick: goTo(index + 1) });
 
+      const explanation = Array.isArray(view.extra) && view.extra.find(el => el?.classList?.contains("explanation"));
+      const explainButton = explanation && h("button", {
+        class: "explain-pill", text: "Explain", "aria-expanded": "false", "aria-controls": "st-explanation",
+        onclick: () => {
+          explanation.hidden = !explanation.hidden;
+          explainButton.setAttribute("aria-expanded", String(!explanation.hidden));
+        },
+      });
       this.more = null;
       this.toggle = null;
       this.panel.classList.remove("attention", "expanded");
@@ -710,6 +731,7 @@ globalThis.ST = globalThis.ST || {};
         h("div", { class: "result" },
           h("div", { class: "head" },
             h("div", { class: "head-text" }, h("span", { class: "badge", text: view.badge })),
+            explainButton,
             this.closeButton()),
           h("div", { class: "title", text: view.title }),
           view.msg && h("p", { class: "msg", text: view.msg }),

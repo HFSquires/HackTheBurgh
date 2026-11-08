@@ -54,3 +54,5 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-08 (Codex): On user request, shortened buyer-facing warnings to a headline and one sentence. Forecast explanation, chart, figures and repayment schedule are collapsed under Explain; Compare pay in 3 remains visible. Existing frontend checks and syntax checks pass.
 
 - 2026-11-08 (Codex): Replaced Pause for 24 hours with the primary View instalment options action, opening the existing pay-in-3 comparison. Removed the duplicate secondary comparison button.
+
+- 2026-11-08 (Codex): Moved Explain to a muted pill at the top right of the financial result, with an accessible expand/collapse toggle.
