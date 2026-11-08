@@ -237,6 +237,15 @@ globalThis.ST = globalThis.ST || {};
 .outlook-why summary { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, .55); cursor: pointer; }
 .outlook-signals { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: rgba(255, 255, 255, .55); }
 .outlook-pending { margin-top: 12px; font-size: 12.5px; color: rgba(255, 255, 255, .5); }
+/* Month-end cash is separate from the longer-term minimum and the net-worth chart. */
+.month-end { margin: 14px 0; padding: 14px; border: 1px solid rgba(167, 139, 250, .25); border-radius: 14px; background: rgba(139, 92, 246, .08); }
+.month-end-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.month-end-heading { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, .8); }
+.month-end-month { padding: 5px 9px; border-radius: 7px; background: rgba(139, 92, 246, .25); color: #ddd6fe; font-size: 12px; font-weight: 650; }
+.month-end-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 12px; margin-top: 14px; }
+.month-end-label { color: rgba(255, 255, 255, .6); font-size: 12px; }
+.month-end-amount { margin-top: 3px; font-size: 22px; font-weight: 700; letter-spacing: -.03em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; color: #f4f4f7; }
+.month-end-amount.negative { color: #fca5a5; }
 .chart { margin-top: 12px; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .chart-title { margin-bottom: 4px; font-size: 11.5px; color: rgba(255, 255, 255, .55); }
@@ -375,6 +384,20 @@ globalThis.ST = globalThis.ST || {};
   }
 
   const gbp = (n) => `${n < 0 ? "−" : ""}£${Math.abs(Math.round(n)).toLocaleString("en-GB")}`;
+
+  function monthEndCard(data) {
+    const amount = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+    const value = (label, n) => h("div", {},
+      h("div", { class: "month-end-label", text: label }),
+      h("div", { class: `month-end-amount${n < 0 ? " negative" : ""}`, text: amount.format(n) }));
+    return h("section", { class: "month-end", "aria-label": `Projected balance at the end of ${data.month}` },
+      h("div", { class: "month-end-head" },
+        h("span", { class: "month-end-heading", text: "Projected month-end balance" }),
+        h("span", { class: "month-end-month", text: data.month })),
+      h("div", { class: "month-end-values" },
+        value("Pay now", data.payNow),
+        data.payIn3 != null && value("Pay in 3", data.payIn3)));
+  }
 
   // This month day by day from the model's figures (money across all accounts today, then everyday spending spread
   // evenly, bills on their due dates and salary on payday), with and without the purchase from the same starting
@@ -653,7 +676,7 @@ globalThis.ST = globalThis.ST || {};
           msg: result.message,
           extra: [
             result.paymentSummary && h("p", { class: "msg", text: `${result.paymentLabel}: ${result.paymentSummary}` }),
-            result.comparisonSummary && h("p", { class: "msg", text: result.comparisonSummary }),
+            result.monthEnd && monthEndCard(result.monthEnd),
             result.laterPayments && h("p", { class: "msg", text: result.laterPayments }),
             (result.explanation || result.forecastNote || result.chart || result.comparison || result.insights?.length > 0) &&
             h("div", { class: "explanation", id: "st-explanation", hidden: "" },

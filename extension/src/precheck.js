@@ -200,7 +200,11 @@ globalThis.ST = globalThis.ST || {};
         paymentSummary: spread ? `${d.payments.map(p => money(p.amount)).join(" + ")} · monthly estimate` : "",
         laterPayments: spread ? "Upcoming payments: " + d.payments.slice(1).map(p =>
           `${money(p.amount)} in ${new Date(`${p.date}T12:00:00`).toLocaleDateString("en-GB", { month: "long" })}`).join(" and ") + "." : "",
-        comparisonSummary: d.comparison ? `This month-end: pay now ${money(d.comparison.payNow.forecastMonthEnd)} · pay in 3 ${money(d.cashFlow.forecastMonthEnd)}` : "",
+        monthEnd: {
+          month: new Date(`${d.month}-01T12:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+          payNow: d.comparison ? d.comparison.payNow.forecastMonthEnd : d.cashFlow.forecastMonthEnd,
+          payIn3: spread ? d.cashFlow.forecastMonthEnd : null,
+        },
         comparison: d.comparison ? {
           payNow: money(d.comparison.payNow.lowestWithPurchase), payIn3: money(d.comparison.payIn3.lowestWithPurchase),
           horizon: d.cashFlow.horizon, schedule: d.payments.map(p => `${money(p.amount)} on ${p.date}`).join("; "),

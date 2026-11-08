@@ -64,3 +64,5 @@ Hackathon project, started 7 November 2026. The challenge is "Smart Cost of Livi
 - 2026-11-08 (Codex): Show current month-end cash balances in the upfront payment comparison, keeping the full-horizon minimum under Explain with its end date. Regression check confirms a £153.07 purchase paid in three leaves £102.05 more cash at the first month-end.
 
 - 2026-11-08 (Codex): Added one visible line naming the later instalment amounts and their months, calculated from the repayment schedule.
+
+- 2026-11-08 (Codex): Made projected month-end cash a prominent card with a coloured month/year label and larger amounts; pay-now and pay-in-3 sit side by side, with negative balances in red.

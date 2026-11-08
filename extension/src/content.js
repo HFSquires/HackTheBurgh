@@ -122,7 +122,9 @@
       explanation: str(r?.explanation),
       paymentLabel: str(r?.paymentLabel),
       paymentSummary: str(r?.paymentSummary),
-      comparisonSummary: str(r?.comparisonSummary),
+      monthEnd: r?.monthEnd && Number.isFinite(r.monthEnd.payNow) &&
+        (r.monthEnd.payIn3 == null || Number.isFinite(r.monthEnd.payIn3))
+        ? { month: str(r.monthEnd.month), payNow: r.monthEnd.payNow, payIn3: r.monthEnd.payIn3 ?? null } : null,
       laterPayments: str(r?.laterPayments),
       financeAction: ["pay_now", "pay_in_3"].includes(r?.financeAction?.id) ? { id: r.financeAction.id, label: str(r.financeAction.label) } : null,
       comparison: r?.comparison ? Object.fromEntries(["payNow", "payIn3", "horizon", "schedule", "note"].map(k => [k, str(r.comparison[k])])) : null,
