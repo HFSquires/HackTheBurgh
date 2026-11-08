@@ -51,6 +51,8 @@ globalThis.ST = globalThis.ST || {};
     openLog: () => (inExtension() ? call("ST_OPEN_LOG") : Promise.resolve()),
     // Next step on another store's page (AI fallback). Null when there's no API key or no extension.
     aiStep: (payload) => (inExtension() ? call("ST_AI_STEP", payload) : Promise.resolve(null)),
+    // Which saved detail goes in form fields the rules couldn't place (labels only). Null without the extension or a key.
+    aiFields: (payload) => (inExtension() ? call("ST_AI_FIELDS", payload) : Promise.resolve(null)),
     // This page's tab, so a hand-off can follow the tab it opened across sites. Null on the demo page.
     tabId: () => (inExtension() ? call("ST_TAB_ID").catch(() => null) : Promise.resolve(null)),
     // Extension: background builds the basket link and opens a new tab. Demo page: same tab, link as-is.

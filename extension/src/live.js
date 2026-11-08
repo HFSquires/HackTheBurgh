@@ -370,5 +370,35 @@ builtInWording is the safe default; keep its meaning, just say it more clearly.`
     return { title: String(json.title).slice(0, 60), message: String(json.message).slice(0, 200) };
   }
 
-  ST.live = { analyze, outlook, nextStep, checkPrice, phraseDecision };
+  // ---------- Form fields the rules couldn't place ----------
+  // Gets labels and the kinds of saved details only, never the shopper's values.
+
+  const FIELDS_SCHEMA = {
+    type: "object",
+    additionalProperties: false,
+    required: ["matches"],
+    properties: {
+      matches: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["field", "detail"],
+          properties: { field: { type: "integer" }, detail: { type: "string" } },
+        },
+      },
+    },
+  };
+  const FIELDS_SYSTEM = `You match empty checkout form fields to the kinds of details a shopper has saved. You get each field's label, name, placeholder, type and autocomplete, and the names of the saved details (never their values).
+Match a field only when you're confident it asks for that detail, in any wording or language: "Pincode", "ZIP", "Eircode", "Postleitzahl" -> postcode; "Mobile" -> phone; "Town" -> city; "Re-type email" -> email; "House number and street" -> address1.
+Never match anything about payment, cards, passwords, accounts, promo codes, gift messages or company names. Leave out anything you're unsure of.`;
+
+  async function mapFields({ fields, details }, settings) {
+    const { json } = await respond(settings, { instructions: FIELDS_SYSTEM, input: JSON.stringify({ fields, details }), name: "field_matches", schema: FIELDS_SCHEMA });
+    const out = (json?.matches || []).filter((m) => details.includes(m.detail) && Number.isInteger(m.field));
+    ST.log("ai: matched form fields", { asked: fields.length, matched: out.length });
+    return out;
+  }
+
+  ST.live = { analyze, outlook, nextStep, checkPrice, phraseDecision, mapFields };
 })();

@@ -129,6 +129,7 @@
       financeAction: ["pay_now", "pay_in_3"].includes(r?.financeAction?.id) ? { id: r.financeAction.id, label: str(r.financeAction.label) } : null,
       comparison: r?.comparison ? Object.fromEntries(["payNow", "payIn3", "horizon", "schedule", "note"].map(k => [k, str(r.comparison[k])])) : null,
       chart: r?.chart && Number.isFinite(r.chart.start) && Number.isFinite(r.chart.goal) ? r.chart : null,
+      atCheapest: r?.atCheapest === true,
       sessionId: r?.sessionId ?? null,
     };
   }
@@ -257,6 +258,11 @@
     if (!force && isQuiet()) return;
     running = true;
     handledHref = location.href;
+    if (ST.handoff.atCheapest()) {
+      await checkAtCheapest();
+      running = false;
+      return;
+    }
 
     overlay.showAnalysing(await analysisSteps());
     const payload = ST.detect.scrape();
@@ -485,11 +491,34 @@
   // Checkout pages are often SPAs or render late, so keep checking.
   // A hand-off to a cheaper store (see handoff.js) takes priority over analysing the page.
   let checking = false;
+  // On the cheaper store we switched to, this is already the best price and the shopper has decided: no search and
+  // no second decision panel. If it still doesn't fit and this checkout offers pay in 3, just suggest that.
+  async function checkAtCheapest() {
+    const payload = ST.detect.scrape();
+    lastPayload = payload;
+    const offer = payload.paymentOptions?.find((o) => o.paymentPlan === "pay_in_3");
+    if (!offer || payload.total == null) return ST.log("at the cheaper store: no pay-in-3 option here, nothing to suggest");
+    const a = await ST.api.afford(payload).catch(() => null);
+    ST.log("at the cheaper store: affordability only, no price search", { risk: a?.risk ?? null });
+    if (!a || !["overdraft", "savings"].includes(a.risk)) return;
+    lastResult = { ...normalize(a, payload), atCheapest: true };
+    overlay.showNudge({
+      title: "You can pay this in instalments",
+      sub: `${offer.label}: about ${money(payload.total / 3, payload.currency)} now, then two monthly payments.`,
+      cta: "Check it",
+      onOpen: () => handleAction({ id: "pay_in_3" }),
+    });
+  }
+
   async function check() {
     if (checking || running || handledHref === location.href) return;
     checking = true;
     try {
-      if (await ST.handoff.resume(overlay)) handledHref = location.href;
+      if (await ST.handoff.resume(overlay)) {
+        handledHref = location.href;
+        // Details filled at the cheaper store: after a moment, say if it still doesn't fit (with pay in 3).
+        if (ST.handoff.atCheapest() && ST.detect.isCheckout()) setTimeout(checkAtCheapest, 3000);
+      }
       else if (ST.detect.isCheckout()) run();
       else if (ST.stages.isBasketPage()) basketStage();
     } catch (e) {

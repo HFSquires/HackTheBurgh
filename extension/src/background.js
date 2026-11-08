@@ -279,6 +279,10 @@ const handlers = {
   ST_ACTION: action,
   ST_PREPARE: (p) => ST.prepare.prepareCheckout(p),
   ST_AI_STEP: aiStep,
+  ST_AI_FIELDS: async (payload) => {
+    const settings = await getSettings();
+    return settings.apiKey ? ST.live.mapFields(payload, settings) : null;
+  },
   ST_LOG: (entry) => ST.log.append(entry),
   ST_OPEN_LOG: openLog,
   ST_TAB_ID: (_p, sender) => sender?.tab?.id ?? null,

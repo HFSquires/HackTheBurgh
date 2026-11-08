@@ -668,6 +668,11 @@ globalThis.ST = globalThis.ST || {};
       };
       const o = result.priceOutlook;
       const best = result.alternatives[0];
+      // Pay in 3 is offered when it's the way forward: at the cheaper store we switched to, or when it doesn't fit and
+      // the search found nothing cheaper. While a cheaper store is on offer, that comes first ("Found it …").
+      const atRisk = ["overdraft", "savings"].includes(result.risk);
+      const payIn3Now = !!result.financeAction && (result.financeAction.id === "pay_now" || result.atCheapest ||
+        (atRisk && !result.searching && !result.alternatives.length));
       const view = {
         budget: () => ({
           tone: result.verdict,
@@ -693,7 +698,9 @@ globalThis.ST = globalThis.ST || {};
             result.searching && this.searchingLine(onAction),
           ],
           main: result.risk === "unknown" ? { id: "retry", label: "Try again" }
-            : result.financeAction || { id: "proceed", label: "Continue" },
+            : payIn3Now ? result.financeAction
+            : atRisk ? { id: "not_now", label: "Don't buy now", confirmation: "Good call. Your basket is still here if you change your mind." }
+            : { id: "proceed", label: "Continue" },
         }),
         wait: () => ({
           tone: "neutral",

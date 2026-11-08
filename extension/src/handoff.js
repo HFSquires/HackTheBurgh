@@ -39,7 +39,7 @@ globalThis.ST = globalThis.ST || {};
   const FIELDS = [
     ["email", /^email$/, /e-?mail/],
     ["phone", /^tel/, /phone|mobile|\btel\b|telephone/],
-    ["postcode", /^postal-code$/, /post.?code|postal|\bzip\b/],
+    ["postcode", /^postal-code$/, /post.?code|postal|zip|pin.?code|eircode/],
     ["address2", /^address-line2$/, /address.?(line)?.?2|apartment|\bapt\b|suite|flat|unit/],
     ["address1", /^(address-line1|street-address)$/, /address|street/],
     ["city", /^address-level2$/, /city|town|locality/],
@@ -63,13 +63,13 @@ globalThis.ST = globalThis.ST || {};
     });
   }
 
+  const hintOf = (el) =>
+    [el.name, el.id, el.placeholder, el.getAttribute("aria-label"), el.labels?.[0]?.textContent].filter(Boolean).join(" ").toLowerCase();
+
   function fieldKey(el) {
     const tokens = (el.getAttribute("autocomplete") || "").toLowerCase().split(/\s+/);
     const ac = tokens[tokens.length - 1] || "";
-    const hint = [el.name, el.id, el.placeholder, el.getAttribute("aria-label"), el.labels?.[0]?.textContent]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
+    const hint = hintOf(el);
     if (ac.startsWith("cc-") || SENSITIVE.test(hint)) return null;
     for (const [key, acRe, hintRe] of FIELDS) if (ac && acRe.test(ac)) return key;
     for (const [key, , hintRe] of FIELDS) if (hintRe.test(hint)) return key;
@@ -109,8 +109,8 @@ globalThis.ST = globalThis.ST || {};
     return true;
   }
 
-  function fill(details) {
-    // Bridge full name <-> first/last name.
+  // Bridge full name <-> first/last name.
+  function withNames(details) {
     const d = { ...details };
     if (!d.fullName && d.givenName) d.fullName = [d.givenName, d.familyName].filter(Boolean).join(" ");
     if (d.fullName && !d.givenName) {
@@ -118,16 +118,95 @@ globalThis.ST = globalThis.ST || {};
       d.givenName = parts[0];
       d.familyName = parts.slice(1).join(" ");
     }
+    return d;
+  }
+
+  function fill(details) {
+    const d = withNames(details);
     let filled = 0;
     const done = new Set(); // one field per kind, the first on the page (the main form)
     for (const el of formFields()) {
       const key = fieldKey(el);
-      if (!key || !d[key] || done.has(key)) continue;
+      // "Confirm email" / "Re-enter email" takes the same email again.
+      const again = key === "email" && /confirm|re-?enter|repeat|verify|again/.test(hintOf(el));
+      if (!key || !d[key] || (done.has(key) && !again)) continue;
       done.add(key);
       if (el.tagName !== "SELECT" && el.value.trim()) continue; // never overwrite what's there
-      if (setValue(el, d[key])) filled++;
+      if (setValue(el, key === "phone" ? phoneFor(el, d.phone) : d[key])) filled++;
     }
     return filled;
+  }
+
+  // The LLM fills the form: every site's form is different, so it matches each empty field to the kind of saved
+  // detail it asks for, from the labels alone (it never sees the values). The rules in fill() then cover anything it
+  // left, and everything when there's no API key. Payment, password and account fields are never sent or filled.
+  async function aiFill(details) {
+    const d = withNames(details);
+    const kinds = Object.keys(d).filter((k) => d[k]);
+    const empty = formFields().filter((el) => (el.tagName === "SELECT" ? !el.value : !readValue(el)) &&
+      !paymentField(el) && !SENSITIVE.test(`${hintOf(el)} ${el.getAttribute("autocomplete") || ""}`));
+    if (!empty.length || !kinds.length) return 0;
+    let matches = null;
+    try {
+      matches = await ST.api.aiFields({
+        fields: empty.map((el, i) => ({ field: i, label: fieldLabel(el), name: el.name, placeholder: el.placeholder, type: el.type, autocomplete: el.getAttribute("autocomplete") || "" })),
+        details: kinds,
+      });
+    } catch (e) {
+      ST.log.error("handoff: AI field matching failed", e.message);
+    }
+    let n = 0;
+    for (const { field, detail } of matches || []) {
+      const el = empty[field];
+      if (el && d[detail] && !readValue(el) && setValue(el, detail === "phone" ? phoneFor(el, d.phone) : d[detail])) n++;
+    }
+    if (matches?.length) ST.log("handoff: AI matched fields the rules couldn't", matches.map((m) => `${empty[m.field] ? fieldLabel(empty[m.field]) : "?"} -> ${m.detail}`));
+    return n;
+  }
+
+  // Card, payment or password fields, also unlabelled ones ("MM / YY", "•••" next to "Expiry" / "CVC"): never sent anywhere.
+  function paymentField(el) {
+    if (el.matches(CARD_OR_PASSWORD) || el.closest(PAYMENT_AREA)) return true;
+    const near = el.closest("div, label, p")?.textContent || "";
+    return /mm\s*\/\s*yy|^[•*·\s]+$|expir|cvc|cvv|card/i.test(`${el.placeholder || ""} ${near.length < 60 ? near : ""}`);
+  }
+
+  // UK numbers in the form the field expects: "07700 900123" style (with the leading 0) wherever the country code is
+  // shown separately or the field is too short for "+44"; as saved otherwise.
+  function phoneFor(el, phone) {
+    const digits = String(phone).replace(/[^\d+]/g, "");
+    const uk = digits.match(/^(?:\+44|0044|44)(\d{10})$/) || digits.match(/^0(\d{10})$/);
+    if (!uk) return phone;
+    const near = el.closest("div, fieldset, label")?.parentElement?.textContent || "";
+    const codeShown = /\+\s?44\b/.test(near) && !/\+\s?44\b/.test(el.value);
+    const max = el.maxLength > 0 ? el.maxLength : Infinity;
+    if (codeShown || max < 13) return max === 10 ? uk[1] : `0${uk[1]}`;
+    return phone;
+  }
+
+  // Address finders (type a postcode, then choose from a list): choose the saved address, so the form doesn't stop
+  // at "Please add a delivery address". Matches the saved first line of the address against the list.
+  const norm = (s) => ` ${String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+  async function chooseFromAddressFinders(d) {
+    const want = norm(d.address1);
+    if (want.trim().length < 3) return 0;
+    const finders = formFields().filter((el) => el.value.trim() &&
+      (/find|look ?up|search/.test(hintOf(el)) || el.getAttribute("role") === "combobox" || el.hasAttribute("aria-autocomplete")));
+    let chosen = 0;
+    for (const el of finders) {
+      for (let i = 0; i < 8; i++) {
+        const options = [...document.querySelectorAll('[role="option"], [role="listbox"] li, ul li')].filter((o) => visible(o) && o.textContent.length < 200);
+        const option = options.find((o) => norm(o.textContent).includes(want));
+        if (option) {
+          for (const type of ["pointerdown", "mousedown", "mouseup", "click"]) option.dispatchEvent(new MouseEvent(type, { bubbles: true }));
+          ST.log("handoff: chose the saved address from the address finder", { option: option.textContent.trim().slice(0, 80) });
+          chosen++;
+          break;
+        }
+        await sleep(500);
+      }
+    }
+    return chosen;
   }
 
   // ---------- Buttons ----------
@@ -152,6 +231,7 @@ globalThis.ST = globalThis.ST || {};
   const RISKY_CODE = /(place|submit|complete|confirm)[-_ ]?(your[-_ ]?)?(order|purchase|payment)|pay[-_ ]?(now|button|btn|submit)|submit[-_ ]?payment|payment[-_ ]?(submit|button|btn)|buy[-_ ]?now|one[-_ ]?click|1[-_ ]?click|express[-_ ]?(checkout|pay)|apple[-_ ]?pay|google[-_ ]?pay|gpay|shop(ify)?[-_ ]?pay|paypal|klarna|clearpay|afterpay|log[-_ ]?in|sign[-_ ]?(in|up)|signin|signup|register|subscribe/i;
   // Where a link goes or a form posts to.
   const RISKY_URL = /(place|submit|complete|confirm)[-_]?(order|purchase|payment)|\/orders?\/(confirm|submit|place|complete)|\/payments?\/(confirm|submit|process|authori[sz]e)|\/pay(\/|$|\?)|1[-_]?click|buy[-_]?now|\/(login|signin|sign-in|logon|register)\b|\/account\/(login|register)|paypal\.com|klarna\.com|pay\.google\.com|clearpay|afterpay|subscribe/i;
+  const PAYMENT_AREA = '[id*="payment" i], [class*="payment" i], [data-testid*="payment" i], [aria-label*="payment" i]';
   const CARD_OR_PASSWORD = 'input[type="password"], [autocomplete^="cc-"], [name*="card" i], [name*="cvv" i], [name*="cvc" i], iframe[src*="pay" i], iframe[title*="card" i], iframe[title*="payment" i]';
 
   const short = (u) => {
@@ -186,7 +266,7 @@ globalThis.ST = globalThis.ST || {};
       form,
       formAction: formAction && new URL(formAction, location.href).href,
       formHasCardOrPassword: !!form?.querySelector(CARD_OR_PASSWORD),
-      inPaymentArea: !!el.closest('[id*="payment" i], [class*="payment" i], [data-testid*="payment" i], [aria-label*="payment" i]'),
+      inPaymentArea: !!el.closest(PAYMENT_AREA),
     };
   }
 
@@ -583,10 +663,17 @@ globalThis.ST = globalThis.ST || {};
 
   async function finishAtCheckout(h, status, ask) {
     status(`Filling your details at ${h.merchant}`, "Name, email and delivery address…");
-    let n = fill(h.details);
-    if (!n) { await sleep(1500); n = fill(h.details); } // late-rendering forms
+    const fillAll = async () => (await aiFill(h.details)) + fill(h.details); // the LLM first, then the rules
+    let n = await fillAll();
+    if (!n) { await sleep(1500); n = await fillAll(); } // late-rendering forms
+    if (await chooseFromAddressFinders(h.details)) {
+      await sleep(800);
+      n += await fillAll(); // the chosen address often reveals more address fields
+    }
     n += await askForMissing(h, ask);
     const paid = h.wanted?.paymentMethod && choosePayment(h.wanted.paymentMethod);
+    // This tab is now on the cheapest price we found: no price search here from now on (content.js).
+    try { sessionStorage.setItem(AT_CHEAPEST, h.merchant || "1"); } catch {}
     ST.log("handoff: at checkout", { fieldsFilled: n, detailsAvailable: Object.keys(h.details), paymentWanted: h.wanted?.paymentMethod, paymentSelected: !!paid });
     await store.clear();
     const payName = { paypal: "PayPal", apple_pay: "Apple Pay", google_pay: "Google Pay", klarna: "Klarna", clearpay: "Clearpay", card: "card" }[h.wanted?.paymentMethod];
@@ -706,5 +793,8 @@ globalThis.ST = globalThis.ST || {};
   // The preferred payment method saved on the account page (synced by the extension), or null.
   const savedPaymentMethod = async () => (await store.get("paymentPreference"))?.preferred || null;
 
-  ST.handoff = { KEY, savedPaymentMethod, record, collectDetails, resume, forbidden, blockReason, whatItDoes, safeClick, save: (r) => store.set(r) };
+  const AT_CHEAPEST = "second-thought:at-cheapest";
+  const atCheapest = () => { try { return !!sessionStorage.getItem(AT_CHEAPEST); } catch { return false; } };
+
+  ST.handoff = { KEY, atCheapest, savedPaymentMethod, record, collectDetails, resume, forbidden, blockReason, whatItDoes, safeClick, save: (r) => store.set(r) };
 })();
