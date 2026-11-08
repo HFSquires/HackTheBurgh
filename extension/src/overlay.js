@@ -659,7 +659,7 @@ globalThis.ST = globalThis.ST || {};
               result.explanation && h("p", { class: "msg", text: result.explanation }),
             result.forecastNote && h("p", { class: "msg", text: result.forecastNote }),
             result.comparison && h("div", { class: "chart" },
-              h("strong", { text: "Lowest balance over the same period" }),
+              h("strong", { text: `Lowest balance through ${result.comparison.horizon}` }),
               h("p", { text: `Pay now: ${result.comparison.payNow} · Pay in 3: ${result.comparison.payIn3}` }),
               h("p", { text: `Checked through ${result.comparison.horizon}. Payments: ${result.comparison.schedule}` }),
               h("p", { text: result.comparison.note })),

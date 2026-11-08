@@ -9,7 +9,7 @@ const load = (file, context) => vm.runInContext(fs.readFileSync(path.join(__dirn
   const d = { verdict: 'reconsider', risk: 'overdraft', title: 'Overdraft warning', message: 'Projected below zero.',
     today: '2026-11-02', month: '2026-11', price: 100, paymentPlan: 'pay_now',
     netWorth: { now: 1200, goal: 1350, forecastEndWithout: 1450 },
-    cashFlow: { lowestWithPurchase: -50, horizon: '2026-11-30' },
+    cashFlow: { lowestWithPurchase: -50, forecastMonthEnd: 102.05, horizon: '2026-11-30' },
     savings: { monthlyTarget: 150, forecastSaved: 20, suggestedDailyBudget: 15 } };
   const context = vm.createContext({ Intl, AbortSignal, URL, Date, window: { matchMedia: () => ({ matches: false }) },
     fetch: async (url, options) => { calls.push(JSON.parse(options.body)); return { ok: true, json: async () => d }; } });
@@ -26,11 +26,12 @@ const load = (file, context) => vm.runInContext(fs.readFileSync(path.join(__dirn
   result = await context.ST.precheck.withBudget(prices, { ...payload, total: 200 }, { ...settings, monthlySavings: 300 });
   assert.equal(calls.at(-1).price, 200); assert.equal(calls.at(-1).monthlySavings, 300);
   assert.equal(result.alternatives, prices.alternatives); assert.equal(result.risk, 'overdraft');
-  d.paymentPlan = 'pay_in_3'; d.comparison = { payNow: { lowestWithPurchase: -150 }, payIn3: d.cashFlow };
+  d.paymentPlan = 'pay_in_3'; d.comparison = { payNow: { lowestWithPurchase: -150, forecastMonthEnd: 0 }, payIn3: d.cashFlow };
   d.payments = [{ amount: 33.33, date: '2026-11-02' }];
   result = await context.ST.precheck.modelVerdict({ ...payload, paymentPlan: 'pay_in_3' }, settings);
   assert.equal(calls.at(-1).paymentPlan, 'pay_in_3'); assert.equal(result.financeAction.id, 'pay_now');
   assert.match(result.comparison.schedule, /33.33/); assert.match(result.comparison.payNow, /150/);
+  assert.equal(result.comparisonSummary, 'This month-end: pay now £0.00 · pay in 3 £102.05');
   for (const [risk, verdict] of [['overdraft', 'reconsider'], ['savings', 'caution'], ['none', 'good'], ['unknown', 'neutral']]) {
     const steps = context.ST.Overlay.prototype.decisions({ risk, verdict, alternatives: prices.alternatives, priceOutlook: {} });
     assert.deepEqual(Array.from(steps), ['budget', 'wait', 'switch']); // Retains the newer one-decision-at-a-time UI.

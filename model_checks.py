@@ -108,6 +108,11 @@ def check():
         upfront = model.decide(picture(1000), 900, monthly_savings=150)
         assert upfront['risk'] == 'overdraft' and spread['risk'] == 'savings'
         assert spread['savings'] == upfront['savings']  # Outstanding debt still counts in full.
+        purchase = model.decide(picture(1000), 153.07, payment_plan='pay_in_3')
+        compare = purchase['comparison']
+        assert round(compare['payIn3']['forecastMonthEnd'] - compare['payNow']['forecastMonthEnd'], 2) == 102.05
+        assert [p['amount'] for p in purchase['payments']] == [51.02, 51.02, 51.03]
+
         schedule = model.purchase_payments(100, dt.date(2026, 1, 31), 'pay_in_3')
         assert [p['date'].isoformat() for p in schedule] == ['2026-01-31', '2026-02-28', '2026-03-31']
         assert [p['amount'] for p in schedule] == [33.33, 33.33, 33.34]
