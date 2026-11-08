@@ -164,6 +164,25 @@ globalThis.ST = globalThis.ST || {};
     return n;
   }
 
+  // Only empty fields of one kind (e.g. the postcode box of a delivery check), with the saved value.
+  function fillOnly(details, kind) {
+    const value = withNames(details || {})[kind];
+    if (!value) return 0;
+    let n = 0;
+    for (const el of formFields()) {
+      if (fieldKey(el) === kind && !readValue(el) && !paymentField(el) && setValue(el, kind === "phone" ? phoneFor(el, value) : value)) n++;
+    }
+    return n;
+  }
+  // Questions the AI may ask that a saved detail answers.
+  const SAVED_ASK = [
+    ["postcode", /post.?code|postal|zip|pin.?code|eircode/i],
+    ["email", /e-?mail/i],
+    ["phone", /phone|mobile/i],
+    ["city", /\b(town|city)\b/i],
+    ["fullName", /\b(your|full) name\b/i],
+  ];
+
   // Card, payment or password fields, also unlabelled ones ("MM / YY", "•••" next to "Expiry" / "CVC"): never sent anywhere.
   function paymentField(el) {
     if (el.matches(CARD_OR_PASSWORD) || el.closest(PAYMENT_AREA)) return true;
@@ -460,6 +479,11 @@ globalThis.ST = globalThis.ST || {};
     }
     let repeats = 0;
     for (let i = 0; i < 4; i++) {
+      // Postcode boxes for stock or delivery checks on the way (Argos's trolley): type the saved postcode in.
+      if (fillOnly(h.details, "postcode")) {
+        ST.log("handoff: typed the saved postcode into a delivery check");
+        await sleep(400);
+      }
       const els = snapshot();
       let step;
       const started = Date.now();
@@ -475,6 +499,7 @@ globalThis.ST = globalThis.ST || {};
           url: location.href,
           title: document.title,
           wanted: h.wanted || {},
+          saved_details: Object.keys(withNames(h.details || {})).filter((k) => h.details?.[k] || (k === "fullName" && h.details?.givenName)),
           shopper_answers: h.answers || [],
           history: (h.history || []).map(({ page, action, element, value, result }) => ({ page, action, element, value, result })),
           elements: els.map((e, n) => ({ n, ...e.info })),
@@ -499,6 +524,16 @@ globalThis.ST = globalThis.ST || {};
         const question = step.action === "ask" && step.question
           ? step.question
           : `${step.reason || "We got stuck"}. Anything that would help us carry on?`;
+        // Asking for something already saved (a postcode, an email...): type it in, or answer with it, not the shopper.
+        const kind = step.action === "ask" && SAVED_ASK.find(([, re]) => re.test(question))?.[0];
+        const saved = kind && withNames(h.details || {})[kind];
+        if (saved) {
+          const typed = fillOnly(h.details, kind) || formFields().some((el) => fieldKey(el) === kind && readValue(el));
+          h.answers = [...(h.answers || []), { question, answer: typed ? `The saved ${kind} is already typed into the page` : saved }];
+          await store.set(h);
+          ST.log("handoff: answered from saved details instead of asking", { kind, typedIntoPage: typed > 0 });
+          continue;
+        }
         const answer = await askShopper(h, ask, {
           question,
           placeholder: step.action === "ask" ? "Type your answer" : "e.g. size 10, the blue one, standard delivery",
