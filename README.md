@@ -40,6 +40,8 @@ The full step-by-step guide, with troubleshooting, is in [`extension/README.md`]
 | `mock_bank.py` | A mock bank serving synthetic customers through the UK Open Banking Read/Write API v3.1 |
 | `statements.py`, `ob_generator.py`, `mock_statements.py`, `market_data.py` | Statement parsing, synthetic data generation (100 UK customers) and ONS/FCA market data |
 | `Analysis/`, `data/` | Generated data and the public source data it is built from |
+| `model outline/` | The design of the affordability model (Andrew's outline and its implementation notes) |
+| `archive/` | The earlier engine and figures, retired when `model.py` replaced them; kept for reference |
 
 The customers and their bank data are synthetic; no real bank is connected. Team records: `BRIEF.md` (the challenge),
 `DECISIONS.md`, `TASKS.md`, `USER_GUIDE.md`, and `CLAUDE.md` / `AGENTS.md` (rules for the coding agents).
